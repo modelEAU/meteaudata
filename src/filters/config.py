@@ -1,8 +1,16 @@
 from pathlib import Path
 from typing import Dict, List, Union
 
+import pandas as pd
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+
+
+class Parameters(dict):
+    def __init__(self, **kwargs):
+        if not all(isinstance(key, str) for key in kwargs):
+            raise KeyError("all parameters must have strings as keys")
+        super().__init__(**kwargs)
 
 
 class SmootherConfig(BaseModel):
@@ -35,28 +43,43 @@ class FilterRunnerParameters(BaseModel):
     warump_steps: int = Field(default=2)
 
 
-class ErrorModelParameters(BaseModel):
+class ModelConfig(BaseModel):
     kernel_name: str
-    gain: float = Field(default=3.0)
-    initial_value: float = Field(default=10.0)
-    minimum_value: float = Field(default=0)
+    parameters: Parameters
 
 
-class SignalModelParameters(BaseModel):
-    kernel_name: str
-
-
-class CalibrationInterval(BaseModel):
+class CalibrationPeriod(BaseModel):
     start: str
     end: str
+
+    @validator("start", "end", pre=True)
+    def parse_foobar(cls, value):
+        if isinstance(value, str):
+            return pd.to_datetime(value)
+        raise ValueError(
+            f"Received a start or end value that could not be parsed to datetime ({value})"
+        )
+
+
+class AlgorithmConfig(BaseModel):
+    alorithm_name: str
+    parameters: Parameters
+
+
+class FilterConfig(BaseModel):
+    filter_name: str
+    n_outlier_threshold: int
+    n_steps_back: int
+    n_warmup_steps: int
 
 
 class ConfigEntry(BaseModel):
     name: str
-    calibration: CalibrationInterval
-    signal: SignalModelParameters
-    error: ErrorModelParameters
-
+    calibration_period: CalibrationPeriod
+    signal_model: ModelConfig
+    uncertainty_model: ModelConfig
+    filter_algorithm: AlgorithmConfig
+    filter_runner: FilterConfig
     smoother: SmootherConfig = Field(default=SmootherConfig())
 
 

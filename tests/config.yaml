@@ -1,20 +1,28 @@
 -
   name: "With flow, no log"
-  calibration:
+  calibration_period:
     start: "2022-01-25"
     end: "2022-02-10"
-
   signal_model:
-    kernel_name: ewma3
-  error_model:
-    kernel_name: ewma1
-    gain: 1.5
-    initial_value: 10
-    minimum_value: 10
+    kernel:
+      type: ewma
+      order: 3
+      forgetting_factor: None
+  uncertainty_model:
+    kernel:
+      type: ewma
+      order: 1
+      forgetting_factor: None
+    initial_uncertainty: 10
+    minimum_uncertainty: 10
+    uncertainty_gain: 1.5
+  filter_algorithm:
+    algorithm_name: "alferes"
   filter_runner:
+    filter_name: "alferes"
     n_outlier_threshold: 3
-    steps_back: 5
-    warmup_steps: 2
+    n_steps_back: 5
+    n_warmup_steps: 2
   smoother:
     kernel_name: h_smoother"
     parameters:

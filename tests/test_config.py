@@ -1,4 +1,4 @@
-from ewma import config
+from filters import config
 
 
 def test_get_configs_from_file_succeed():
