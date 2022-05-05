@@ -1,5 +1,5 @@
 -
-  name: "With flow, no log"
+  name: "with flow, no log"
   calibration_period:
     start: "2022-01-25"
     end: "2022-02-10"

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -18,10 +18,10 @@ def auto_regresive(
     return forgetting_factor * current_value + (1 - forgetting_factor) * preceding_stat
 
 
-def to_1item_array(item: Union[float, npt.NDArray]) -> npt.NDArray:
-    if isinstance(item, float):
+def to_1item_array(item: Union[float, int, np.number, npt.NDArray]) -> npt.NDArray:
+    if isinstance(item, (float, int, np.number)):
         return np.array([item])
-    if len(item) == 1:
+    elif len(item) == 1:
         return item.reshape(
             -1,
         )
@@ -41,7 +41,8 @@ class EwmaKernel3(Kernel):
         self.max_prediction_horizon: int = 1  # feature of the prediciton algorithm
         if not (0 <= self.forgetting_factor <= 1):
             raise ValueError(
-                f"forgetting factor should be between 0 and 1, received {self.forgetting_factor}"
+                "forgetting factor should be between 0 and 1, "
+                f"received {self.forgetting_factor}"
             )
         self.initialized = False
 
@@ -121,7 +122,9 @@ class EwmaKernel3(Kernel):
     def predict(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
         if horizon > self.max_prediction_horizon:
             raise InvalidHorizonException(
-                f"This kernel can only predict up to {self.max_prediction_horizon}, and was asked to predict {horizon}."
+                f"This kernel can only predict up to "
+                f"{self.max_prediction_horizon}, "
+                "and was asked to predict {horizon}."
             )
         if len(input_data.shape) < 2:
             input_data = input_data.reshape(-1, 1)
@@ -132,9 +135,10 @@ class EwmaKernel3(Kernel):
         return result_array
 
     def calibrate(
-        self, input_data: npt.NDArray, initial_guesses: Parameters
+        self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
-        self.forgetting_factor = initial_guesses.get("forgetting_factor", self.forgetting_factor)
+        if initial_guesses:
+            self.forgetting_factor = initial_guesses["forgetting_factor"]
         forgetting_factor = optimize_forgetting_factor(input_data, self)
         self.reset_state()
         self.forgetting_factor = forgetting_factor
@@ -151,7 +155,8 @@ class EwmaKernel1(Kernel):
         self.max_prediction_horizon: int = 1  # feature of the prediction algorithm
         if not (0 <= self.forgetting_factor <= 1):
             raise ValueError(
-                f"forgetting factor should be between 0 and 1, received {self.forgetting_factor}"
+                "forgetting factor should be between 0 and 1, "
+                f"received {self.forgetting_factor}"
             )
         self.initialized = False
 
@@ -178,7 +183,8 @@ class EwmaKernel1(Kernel):
     def predict(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
         if horizon > self.max_prediction_horizon:
             raise InvalidHorizonException(
-                f"This kernel can only predict up to {self.max_prediction_horizon}, and was asked to predict {horizon}."
+                "This kernel can only predict up to {self.max_prediction_horizon}"
+                f", and was asked to predict {horizon}."
             )
         if len(input_data.shape) < 2:
             input_data = input_data.reshape(-1, 1)
@@ -189,9 +195,10 @@ class EwmaKernel1(Kernel):
         return result_array
 
     def calibrate(
-        self, input_data: npt.NDArray, initial_guesses: Parameters
+        self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
-        self.forgetting_factor = initial_guesses.get("forgetting_factor", self.forgetting_factor)
+        if initial_guesses:
+            self.forgetting_factor = initial_guesses["forgetting_factor"]
         forgetting_factor = optimize_forgetting_factor(input_data, self)
         self.reset_state()
         self.forgetting_factor = forgetting_factor

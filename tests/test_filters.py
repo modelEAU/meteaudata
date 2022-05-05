@@ -1,11 +1,10 @@
-from typing import Literal
-
 import pandas as pd
 import pytest
 from filters.filter_algorithms import AlferesAlgorithm
 from filters.filters import AlferesFilter
+from filters.plots import plot_results
 
-from test_models import get_model, get_parameters
+from test_models import get_model
 
 
 def get_data(series_name, path="tests/test_data.csv") -> pd.Series:
@@ -14,39 +13,49 @@ def get_data(series_name, path="tests/test_data.csv") -> pd.Series:
     return df[series_name]
 
 
-def get_filter_parameters(algorithm: Literal["alferes"]):
-    if algorithm == "alferes":
-        return None
-    raise ValueError(f"unrecognized algorithm: {algorithm}")
+def get_control_parameters(threshold: int = 5, steps_back: int = 10, warmup: int = 2):
+    return {
+        "n_outlier_threshold": threshold,
+        "n_steps_back": steps_back,
+        "n_warmup_steps": warmup,
+    }
 
 
-def test_alferes_algorithm():
+@pytest.mark.parametrize(
+    "outlier,steps_back,warmup,succeeds",
+    [
+        (1, 5, 2, True),  # normal run, back > max outlier
+        (5, 5, 2, True),  # normal run, back=max outliers
+        (6, 3, 2, True),  # normal run, back < max outliers
+        (7, 3, 0, True),  # normal run, no warmup
+        (1, 5, 0, True),  # no warmup
+        (0, 5, 2, False),  # immediately triggers
+        (1, 0, 2, True),  # goes back 0 steps, with warmup
+        # (should just continue without triggering backward passes)
+        (1, 0, 0, True),  # goes back zero steps, no warmup
+    ],
+)
+def test_alferes_filter(outlier: int, steps_back: int, warmup: int, succeeds: bool):
+    # initialize models
     signal_model = get_model("signal", order=3, forgetting_factor=0.25)
-    error_model = get_model("uncertainty", order=1, forgetting_factor=0.25)
-    raw_data = get_data("dirty sine")
-    data = raw_data.to_numpy()
-    dates = raw_data.index.to_numpy()
-    n_points = len(data)
-    calibration_limit = n_points // 5
-    calibration_data = data[:calibration_limit]
-    signal_parameters = get_parameters("signal")
-    error_parameters = get_parameters("uncertainty")
-    predicted_calibration_signal = signal_model.calibrate(
-        calibration_data, signal_parameters
-    ).reshape(-1,)
-    residuals = predicted_calibration_signal[:-1] - calibration_data[1:]
-    _ = error_model.calibrate(residuals, error_parameters)
-    filter_parameters = get_filter_parameters("alferes")
-    algo = AlferesAlgorithm(
-        signal_model=signal_model,
-        uncertainty_model=error_model,
-        parameters=filter_parameters,
-    )
-    results = []
-    for i, (observation, date) in enumerate(
-        zip(data[calibration_limit:], dates[calibration_limit:])
-    ):
-        if i == 0:
-            results.append(algo.step(observation, date))
-            continue
-        algo.step(observation, date, results[-1])
+    error_model = get_model("uncertainty", order=3, forgetting_factor=0.25)
+    control_parameters = get_control_parameters(outlier, steps_back, warmup)
+    # prepare data
+    raw_data = get_data("dirty sine jump")
+    try:
+        filter_obj = AlferesFilter(
+            input_series=raw_data,
+            algorithm=AlferesAlgorithm(),
+            signal_model=signal_model,
+            uncertainty_model=error_model,
+            control_parameters=control_parameters,
+        )
+        filter_obj.calibrate_models(raw_data.iloc[: len(raw_data) // 5])
+
+        result = filter_obj.apply_filter()
+        df = pd.DataFrame(result)
+        plot_results(df, "Dirty sine", language="english").show()
+        succeeded = True
+    except Exception:
+        succeeded = False
+    assert succeeds is succeeded

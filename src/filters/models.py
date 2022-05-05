@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +15,7 @@ class SignalModel(Model):
     kernel: Kernel
 
     def calibrate(
-        self, input_data: npt.NDArray, initial_guesses: Parameters
+        self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
         self.kernel.calibrate(input_data, initial_guesses)
         self.calibrated = True
@@ -58,12 +58,14 @@ class EwmaUncertaintyModel(UncertaintyModel):
         )
 
     def calibrate(
-        self, input_data: npt.NDArray, initial_guesses: Parameters
+        self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
         self.kernel.calibrate(input_data, initial_guesses)
 
+        guess_initial_uncertainty = initial_guesses["initial_uncertainty"] if initial_guesses else self.initial_uncertainty
+
         initial_uncertainty = optimize_initial_uncertainty(
-            input_data, self.kernel, initial_guesses["initial_uncertainty"]
+            input_data, self.kernel, guess_initial_uncertainty
         )
         self.initial_uncertainty = initial_uncertainty
 

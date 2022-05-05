@@ -1,7 +1,8 @@
-from typing import Tuple
+from typing import Any, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 
 
 def shapes_are_equivalent(shape_a: Tuple, shape_b: Tuple) -> bool:
@@ -10,5 +11,39 @@ def shapes_are_equivalent(shape_a: Tuple, shape_b: Tuple) -> bool:
     )
 
 
+def calculate_error(
+    prediction: Union[float, npt.NDArray], observed: Union[float, npt.NDArray]
+) -> Union[float, npt.NDArray]:
+    return prediction - observed
+
+
 def rmse(observed: npt.NDArray, predicted: npt.NDArray) -> float:
-    return np.sqrt(np.mean((observed - predicted) ** 2))
+    return np.sqrt(np.mean((calculate_error(predicted, observed)) ** 2))
+
+
+def replace_with_null(item: Any) -> Any:
+    if isinstance(item, np.number):
+        return np.nan
+    elif isinstance(item, (bool, np.bool_)):
+        return False
+    elif isinstance(item, (np.datetime64, pd.Timestamp)):
+        return pd.NaT
+
+
+def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df['outlier_value'] = df['input_is_outlier'].astype(int)
+    df.loc[~df['input_is_outlier'], 'outlier_value'] = np.nan
+    df.loc[df['input_is_outlier'], 'outlier_value'] = df['input_value']
+    df["outlier_value"] = df['outlier_value'].astype(float)
+    return df
+
+
+def align_results_in_time(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df.loc[max(df.index) + 1] = df.loc[max(df.index)].apply(
+        replace_with_null
+    )
+    prediction_columns = [col for col in df.columns if "predicted" in col]
+    df.loc[:, prediction_columns] = df[prediction_columns].shift(1)
+    return df

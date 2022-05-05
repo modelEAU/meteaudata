@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Protocol
+from typing import List, Optional, Protocol
 
 import numpy.typing as npt
 import pandas as pd
@@ -11,7 +11,10 @@ from filters.config import Parameters
 
 @dataclass
 class AbstractDataclass(ABC):
-    """Allows the clreation of abstract dataclasses without mypy raising an error. See https://stackoverflow.com/questions/60590442/abstract-dataclass-without-abstract-methods-in-python-prohibit-instantiation"""
+    """Allows the clreation of abstract dataclasses without mypy raising an error.
+    See https://stackoverflow.com/questions/60590442/
+    abstract-dataclass-without-abstract-methods-in-python-
+    prohibit-instantiation"""
 
     def __new__(cls, *args, **kwargs):
         if cls == AbstractDataclass or cls.__bases__[0] == AbstractDataclass:
@@ -41,7 +44,7 @@ class Kernel(Protocol):
         ...
 
     def calibrate(
-        self, input_data: npt.NDArray, initial_guesses: Parameters
+        self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
         ...
 
@@ -59,7 +62,7 @@ class Model(AbstractDataclass):
 
     @abstractmethod
     def calibrate(
-        self, input_data: npt.NDArray, initial_guesses: Parameters
+        self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
         # calibrates every parameter
         # does a prediction on the range of input values
@@ -83,20 +86,14 @@ class UncertaintyModel(Model, AbstractDataclass):
     uncertainty_gain: float
 
 
-class FilterParameters(ABC):
-    ...
-
-
 class FilterAlgorithm(Protocol):
-    signal_model: Model
-    uncertainty_model: Model
-    parameters: FilterParameters
-
     def step(
         self,
         current_observation: float,
         current_date: pd.DatetimeIndex,
-        previous_results: ResultRow,
+        signal_model: Model,
+        uncertainty_model: UncertaintyModel,
+        previous_results: Optional[ResultRow] = None,
     ) -> ResultRow:
         ...
 
@@ -115,12 +112,14 @@ class Filter(AbstractDataclass):
     current_position: int
     results: List[ResultRow]
 
-    @property
+    @abstractproperty
     def is_out_of_control(self):
-        return self.outliers_in_a_row >= self.n_outlier_threshold
+        ...
 
+    @abstractmethod
     def restore_control(self):
         ...
 
-    def filter(self, input_data: npt.NDArray) -> npt.NDArray:
+    @abstractmethod
+    def apply_filter(self, input_data: npt.NDArray) -> npt.NDArray:
         ...
