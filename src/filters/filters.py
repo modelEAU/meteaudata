@@ -1,22 +1,35 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 
 from filters.config import Parameters
-from filters.protocols import (FilterAlgorithm, FilterDirection, Model,
-                               ResultRow, UncertaintyModel)
+from filters.protocols import (Filter, FilterAlgorithm, FilterDirection,
+                               FilterRow, Model, UncertaintyModel, Window)
 
 
 @dataclass
-class AlferesFilter:
-    input_series: pd.Series
+class AlferesFilter(Filter):
+    # Attributes from abstract Filter
     algorithm: FilterAlgorithm
     signal_model: Model
     uncertainty_model: UncertaintyModel
     control_parameters: Parameters
+    current_position: int = field(default=0)
+    input_data: pd.Series = field(default=pd.DataFrame())
+    results: List[FilterRow] = field(default_factory=list)
+    results_window: Window = field(
+        default=Window(source="results", size=1, position="back")
+    )
+    inputs_window: Window = field(
+        default=Window(source="inputs", size=1, position="centered")
+    )
+
+    # Attributes scpecific to AlferesFilter
     for_recovery: bool = field(default=False)
+    outliers_in_a_row: int = field(default=0)
+    direction: FilterDirection = field(default=FilterDirection.forward)
 
     def check_control_parameters(self):
         if self.control_parameters["n_outlier_threshold"] < 1:
@@ -33,45 +46,41 @@ class AlferesFilter:
                 "The number of steps back should be a positive integer (zero included)."
             )
 
-    def __post_init__(self):
-        self.outliers_in_a_row: int = 0
-        self.results: List[ResultRow] = []
-        self.current_position: int = 0
-        self.direction: FilterDirection = FilterDirection.forward
-        self.out_of_control_positions: Optional[Tuple[int, int]] = None
-        self.check_control_parameters()
-
-    def get_previous_result(self) -> Optional[ResultRow]:
-        return (
-            None
-            if (self.current_position == 0 or not self.results)
-            else self.results[-1]
+    def step(self) -> FilterRow:
+        input_data = self.get_internal_inputs()
+        if input_data is None:
+            raise ValueError("Input data should have be returned but none was found.")
+        line = input_data.iloc[0]
+        index = input_data.index[0]
+        observations = line.values
+        previous_results = self.get_internal_results()
+        result = self.algorithm.step(
+            current_observation=np.array(observations),
+            current_index=index,
+            other_results=previous_results,
+            other_observations=None,
+            signal_model=self.signal_model,
+            uncertainty_model=self.uncertainty_model,
         )
+        self.results.append(result)
 
-    def apply_filter(self) -> List[ResultRow]:
-        for index, observation in self.input_series.iloc[
-            self.current_position :
-        ].iteritems():
-            previous_result = self.get_previous_result()
-            result = self.algorithm.step(
-                observation,
-                index,
-                self.signal_model,
-                self.uncertainty_model,
-                previous_result,
-            )
-            self.results.append(result)
+        self.check_for_outlier(result)
+        self.current_position += 1
 
-            self.check_for_outlier(result)
-            self.current_position += 1
+        if (
+            self.is_out_of_control
+            and not self.for_recovery
+            and self.control_parameters["n_steps_back"] > 0
+        ):
+            self.restore_control()
+        return result
 
-            if (
-                self.is_out_of_control
-                and not self.for_recovery
-                and self.control_parameters["n_steps_back"] > 0
-            ):
-                self.restore_control()
-
+    def update_filter(self) -> List[FilterRow]:
+        last_full_requirements = self.get_last_full_requirements_index()
+        for _ in range(
+            len(self.input_data.iloc[self.current_position : last_full_requirements])
+        ):
+            self.step()
         return self.results
 
     def calibrate_models(self, calibration_series: pd.Series) -> None:
@@ -91,8 +100,8 @@ class AlferesFilter:
         limit = self.control_parameters["n_outlier_threshold"]
         return self.outliers_in_a_row >= limit
 
-    def check_for_outlier(self, result: ResultRow) -> None:
-        if result.input_is_outlier:
+    def check_for_outlier(self, result: FilterRow) -> None:
+        if result.inputs_are_outliers[0]:
             self.outliers_in_a_row += 1
             return
         self.clear_outlier_streak()
@@ -103,14 +112,14 @@ class AlferesFilter:
     @classmethod
     def get_new_instance_for_recovery(
         cls,
-        input_series: pd.Series,
+        input_data: pd.Series,
         algorithm: FilterAlgorithm,
         signal_model: Model,
         uncertainty_model: UncertaintyModel,
         control_parameters: Parameters,
     ):
         return cls(
-            input_series=input_series,
+            input_data=input_data,
             algorithm=algorithm,
             signal_model=signal_model,
             uncertainty_model=uncertainty_model,
@@ -119,13 +128,13 @@ class AlferesFilter:
         )
 
     def calculate_out_of_control_positions(self) -> Tuple[int, int]:
-        highest_index = min(self.current_position, len(self.input_series))
+        highest_index = min(self.current_position, len(self.input_data))
         lowest_index = max(
             self.current_position - self.control_parameters["n_steps_back"], 0
         )
         return (lowest_index, highest_index)
 
-    def go_backwards(self) -> List[ResultRow]:
+    def backward_recovery(self) -> List[FilterRow]:
         self.direction = FilterDirection.backward
         if not self.out_of_control_positions:
             raise ValueError("The out-of-control range is not defined.")
@@ -135,44 +144,42 @@ class AlferesFilter:
             self.control_parameters["n_warmup_steps"]
             if (
                 (self.control_parameters["n_warmup_steps"] + high_index)
-                < len(self.input_series)
+                < len(self.input_data)
             )
-            else len(self.input_series) - high_index
+            else len(self.input_data) - high_index
         )
         high_index = high_index + n_warmup_steps
 
-        backwards_data = self.input_series.iloc[low_index:high_index][::-1]
+        backwards_data = self.input_data.iloc[low_index:high_index][::-1]
         backwards_results = self.apply_sub_filter(backwards_data)
         results = list(reversed(backwards_results))
         if not self.control_parameters["n_warmup_steps"]:
             return results
         return results[:-n_warmup_steps]
 
-    def back_to_forward(self) -> List[ResultRow]:
+    def forward_recovery(self) -> List[FilterRow]:
         self.direction = FilterDirection.forward
         if not self.out_of_control_positions:
             raise ValueError("The out-of-control range is not defined.")
         low_index, high_index = self.out_of_control_positions
-        forwards_data = self.input_series.iloc[low_index:high_index]
+        forwards_data = self.input_data.iloc[low_index:high_index]
         return self.apply_sub_filter(forwards_data)
 
-    def apply_sub_filter(self, input_series) -> List[ResultRow]:
+    def apply_sub_filter(self, input_data) -> List[FilterRow]:
         _filter = self.get_new_instance_for_recovery(
-            input_series=input_series,
+            input_data=input_data,
             algorithm=self.algorithm,
             signal_model=self.signal_model,
             uncertainty_model=self.uncertainty_model,
             control_parameters=self.control_parameters,
         )
 
-        _filter.apply_filter()
+        _filter.update_filter()
         return _filter.results
 
     def select_out_of_control_results(
-        self, back_results: List[ResultRow], front_results: List[ResultRow]
-    ) -> List[ResultRow]:
-        # front_results = self.remove_warmup_results(front_results)
-        # back_results = self.remove_warmup_results(back_results)
+        self, back_results: List[FilterRow], front_results: List[FilterRow]
+    ) -> List[FilterRow]:
         if len(back_results) != len(front_results):
             raise IndexError(
                 "Backward and forward passes's results are not the same size: "
@@ -189,9 +196,9 @@ class AlferesFilter:
     def restore_control(self):
         self.out_of_control_positions = self.calculate_out_of_control_positions()
         # first we go backwards
-        backwards_results = self.go_backwards()
+        backwards_results = self.backward_recovery()
         # then we go forwards again
-        forwards_results = self.back_to_forward()
+        forwards_results = self.forward_recovery()
 
         out_of_control_results = self.select_out_of_control_results(
             backwards_results, forwards_results

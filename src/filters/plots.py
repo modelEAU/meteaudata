@@ -1,13 +1,52 @@
 from copy import deepcopy
-from typing import Dict, Literal, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Literal, Optional
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.io as pio
 
 from filters.utilities import (align_results_in_time,
                                apply_observations_to_outliers)
+
+pio.templates.default = "plotly_white"
+
+CLEAN_NAMES = {
+    "outlier_values": {
+        "english": "Outliers",
+        "french": "Aberrant",
+    },
+    "input_is_outliers": {
+        "english": "Outlier Detected",
+        "french": "Valeur Aberrante Détectée",
+    },
+    "input_values": {
+        "english": "Observed",
+        "french": "Observations",
+    },
+    "accepted_values": {
+        "english": "Accepted",
+        "french": "Filtré",
+    },
+    "predicted_values": {
+        "english": "Predicted",
+        "french": "Prédit",
+    },
+    "predicted_upper_limits": {
+        "english": "Upper Bound",
+        "french": "Limite Supérieure",
+    },
+    "predicted_lower_limits": {
+        "english": "Lower Bound",
+        "french": "Limite inférieure",
+    },
+    "smoothed": {
+        "english": "Smoothed",
+        "french": "Lissé",
+    },
+}
 
 
 def get_default_plot_elements(
@@ -55,135 +94,142 @@ def plot_array(
 def get_clean_column_names(
     language: Literal["french", "english"] = "english"
 ) -> Dict[str, str]:
-    names = {
-        "outlier_value": {
-            "english": "Outliers",
-            "french": "Aberrant",
-        },
-        "input_is_outlier": {
-            "english": "Outlier Detected",
-            "french": "Valeur Aberrante Détectée",
-        },
-        "input_value": {
-            "english": "Observed",
-            "french": "Observations",
-        },
-        "accepted_value": {
-            "english": "Accepted",
-            "french": "Filtré",
-        },
-        "predicted_value": {
-            "english": "Predicted",
-            "french": "Prédit",
-        },
-        "predicted_upper_limit": {
-            "english": "Upper Bound",
-            "french": "Limite Supérieure",
-        },
-        "predicted_lower_limit": {
-            "english": "Lower Bound",
-            "french": "Limite inférieure",
-        },
-        "smoothed": {
-            "english": "Smoothed",
-            "french": "Lissé",
-        },
-    }
-    return {x: names[x][language] for x in names}
+
+    return {x: CLEAN_NAMES[x][language] for x in CLEAN_NAMES}
 
 
-def plot_results(
-    df: pd.DataFrame,
-    series_name: str,
-    template: Literal["presentation", "plotly_white"] = "plotly_white",
-    language: Literal["french", "english"] = "english",
-) -> go.Figure:
-    df = align_results_in_time(df)
-    df = apply_observations_to_outliers(df)
-    fig = go.Figure()
-    fig.update_layout(get_default_plot_elements(template))
-    x = df["date"]
-    names = get_clean_column_names(language)
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=df["predicted_lower_limit"],
-            name=names["predicted_lower_limit"],
+@dataclass
+class UnivariatePlotter:
+    signal_name: str
+    df: pd.DataFrame
+    template: Literal["presentation", "plotly_white"] = field(default="presentation")
+    language: Literal["french", "english"] = field(default="english")
+
+    def __post_init__(self):
+        df = align_results_in_time(self.df)
+        df = apply_observations_to_outliers(df)
+        self.plot_data = df
+        self.x = self.plot_data["date"]
+        self.names = get_clean_column_names(self.language)
+
+    def lower_limit(self) -> Optional[go.Trace]:
+        if "predicted_lower_limits" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["predicted_lower_limits"],
+            name=self.names["predicted_lower_limits"],
             line=dict(width=0),
             mode="lines",
             showlegend=False,
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=df["predicted_upper_limit"],
-            name=names["predicted_upper_limit"],
+
+    def upper_limit(self) -> Optional[go.Trace]:
+        if "predicted_upper_limits" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["predicted_upper_limits"],
+            name=self.names["predicted_upper_limits"],
             line=dict(width=0),
             mode="lines",
             fill="tonexty",
             fillcolor="rgba(205, 229, 203, 0.5)",
             showlegend=True,
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=df["input_value"],
-            name=names["input_value"],
+
+    def input_values(self) -> Optional[go.Trace]:
+        if "input_values" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["input_values"],
+            name=self.names["input_values"],
             line=dict(color="black"),
             mode="lines+markers",
             showlegend=True,
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=df["predicted_value"],
-            name=names["predicted_value"],
+
+    def predicted_values(self) -> Optional[go.Trace]:
+        if "predicted_values" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["predicted_values"],
+            name=self.names["predicted_values"],
             line=dict(color="green", dash="dot"),
             mode="lines+markers",
             showlegend=True,
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=df["outlier_value"],
-            name=names["outlier_value"],
+
+    def outlier_values(self) -> Optional[go.Trace]:
+        if "outlier_values" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["outlier_values"],
+            name=self.names["outlier_values"],
             line=dict(color="black"),
             mode="markers",
             marker=dict(symbol="x", size=15),
             showlegend=True,
         )
-    )
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=df["accepted_value"],
-            name=names["accepted_value"],
+
+    def accepted_values(self) -> Optional[go.Trace]:
+        if "accepted_values" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["accepted_values"],
+            name=self.names["accepted_values"],
             line=dict(color="#388E3C", dash="dash"),
             mode="lines",
             showlegend=True,
         )
-    )
-    if "Smoothed" in df.columns:
-        fig.add_trace(
-            go.Scatter(
-                x=x,
-                y=df["smoothed"],
-                name=names["smoothed"],
-                line=dict(color="#388E3C"),
-                mode="lines",
-                showlegend=True,
-            )
+
+    def smoothed(self) -> Optional[go.Trace]:
+        if "smoothed" not in self.plot_data.columns:
+            return None
+        return go.Scatter(
+            x=self.x,
+            y=self.plot_data["smoothed"],
+            name=self.names["smoothed"],
+            line=dict(color="#60FF8F"),
+            mode="lines",
+            showlegend=True,
         )
-    title_start = (
-        "Filtration results" if language == "english" else "Résultats de filtration"
-    )
-    fig.update_layout(
-        title=f"{title_start}: {series_name}",
-        xaxis=dict(title="Date"),
-        yaxis=dict(title="Value" if language == "english" else "Valeur"),
-    )
-    return fig
+
+    def plot(
+        self, series_names: Optional[List[str]] = None, title: Optional[str] = None
+    ) -> go.Figure:
+        fig = go.Figure()
+        fig.update_layout(get_default_plot_elements(self.template))
+        if series_names is None:
+            series_names = list(self.df.columns)
+        self.plot_data = self.df[series_names]
+
+        traces = [
+            self.lower_limit(),
+            self.upper_limit(),
+            self.input_values(),
+            self.predicted_values(),
+            self.outlier_values(),
+            self.accepted_values(),
+            self.smoothed(),
+        ]
+        traces = [trace for trace in traces if trace]
+        for trace in traces:
+            fig.add_trace(trace)
+        if title is None:
+            title_start = (
+                "Filtration results"
+                if self.language == "english"
+                else "Résultats de filtration"
+            )
+            title = f"{title_start}: {self.signal_name}"
+        fig.update_layout(
+            title=title,
+            xaxis=dict(title="Date"),
+            yaxis=dict(title="Value" if self.language == "english" else "Valeur"),
+        )
+        return fig

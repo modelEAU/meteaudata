@@ -31,11 +31,13 @@ def replace_with_null(item: Any) -> Any:
 
 
 def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
+    if "outlier_values" not in df.columns:
+        return df
     df = df.copy()
-    df['outlier_value'] = df['input_is_outlier'].astype(int)
-    df.loc[~df['input_is_outlier'], 'outlier_value'] = np.nan
-    df.loc[df['input_is_outlier'], 'outlier_value'] = df['input_value']
-    df["outlier_value"] = df['outlier_value'].astype(float)
+    df['outlier_values'] = df['inputs_are_outliers'].astype(int)
+    df.loc[~df['inputs_are_outliers'], 'outlier_values'] = np.nan
+    df.loc[df['inputs_are_outliers'], 'outlier_values'] = df['input_values']
+    df["outlier_values"] = df['outlier_values'].astype(float)
     return df
 
 
@@ -44,6 +46,6 @@ def align_results_in_time(df: pd.DataFrame) -> pd.DataFrame:
     df.loc[max(df.index) + 1] = df.loc[max(df.index)].apply(
         replace_with_null
     )
-    prediction_columns = [col for col in df.columns if "predicted" in col]
-    df.loc[:, prediction_columns] = df[prediction_columns].shift(1)
+    if prediction_columns := [col for col in df.columns if "predicted" in col]:
+        df.loc[:, prediction_columns] = df[prediction_columns].shift(1)
     return df

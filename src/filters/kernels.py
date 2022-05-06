@@ -214,7 +214,7 @@ def objective_forgetting_factor(
     kernel.reset_state()
     kernel.forgetting_factor = forgetting_factor
     predictions = kernel.predict(input_values[:-1], horizon=1)
-    return rmse(input_values[2:], predictions)
+    return rmse(input_values[1:], predictions)
 
 
 def optimize_forgetting_factor(

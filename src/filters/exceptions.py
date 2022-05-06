@@ -20,3 +20,11 @@ class NotCalibratedError(Exception):
 
 class WrongDimensionsError(Exception):
     ...
+
+
+class WrongColumnsException(Exception):
+    ...
+
+
+class BadWindowError(Exception):
+    ...

@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
-from filters.plots import add_traces_to_other_plot, plot_array, plot_results
+from filters.plots import (add_traces_to_other_plot, plot_array,
+                           plot_univariate_results)
 
 from test_filters import get_data
 
@@ -35,4 +36,4 @@ def test_add_traces_to_other_plots():
     [("english"), ("french")])
 def test_plot_results(language):
     df = get_result_df()
-    plot_results(df, "dirty sine + shift", language=language).show()
+    plot_univariate_results(df, "dirty sine + shift", language=language).show()

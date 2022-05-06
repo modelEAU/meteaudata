@@ -1,9 +1,10 @@
-from typing import Optional
+from typing import List, Optional, Union
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
-from filters.protocols import (FilterAlgorithm, Model, ResultRow,
+from filters.protocols import (FilterAlgorithm, FilterRow, Input, Model,
                                UncertaintyModel)
 from filters.utilities import calculate_error
 
@@ -27,45 +28,46 @@ class AlferesAlgorithm(FilterAlgorithm):
     def initial_row(
         self,
         current_observation: float,
-        current_date: pd.DatetimeIndex,
+        current_index: Union[pd.DatetimeIndex, int],
         initial_uncertainty: float,
-    ) -> ResultRow:
+    ) -> FilterRow:
         next_lower_limit = self.calculate_lower_limit(
             current_observation, initial_uncertainty
         )
         next_upper_limit = self.calculate_upper_limit(
             current_observation, initial_uncertainty
         )
-        return ResultRow(
-            date=current_date,
-            input_value=current_observation,
-            input_is_outlier=False,
-            accepted_value=current_observation,
-            predicted_value=current_observation,
-            predicted_upper_limit=next_upper_limit,
-            predicted_lower_limit=next_lower_limit,
+        return FilterRow(
+            date=current_index,
+            input_values=np.array([current_observation]),
+            inputs_are_outliers=np.array([False]),
+            accepted_values=np.array([current_observation]),
+            predicted_values=np.array([current_observation]),
+            predicted_upper_limits=np.array([next_upper_limit]),
+            predicted_lower_limits=np.array([next_lower_limit]),
         )
 
     def step(
         self,
-        current_observation: float,
-        current_date: pd.DatetimeIndex,
+        current_observation: npt.NDArray,
+        current_index: Union[pd.DatetimeIndex, int],
+        other_results: Optional[List[FilterRow]],
+        other_observations: Optional[Input],
         signal_model: Model,
         uncertainty_model: UncertaintyModel,
-        previous_results: Optional[ResultRow] = None,
-    ) -> ResultRow:
-        if not previous_results:
+    ) -> FilterRow:
+        if not other_results:
             initial_deviation = uncertainty_model.initial_uncertainty
             return self.initial_row(
-                current_observation, current_date, initial_deviation
+                current_observation[0], current_index, initial_deviation
             )
-
-        predicted_current = previous_results.predicted_value
-        current_upper_limit = previous_results.predicted_upper_limit
-        current_lower_limit = previous_results.predicted_lower_limit
+        previous_results = other_results[0]
+        predicted_current = previous_results.predicted_values
+        current_upper_limit = previous_results.predicted_upper_limits
+        current_lower_limit = previous_results.predicted_lower_limits
 
         is_accepted = self.accept_observation(
-            current_observation, current_upper_limit, current_lower_limit
+            current_observation[0], current_upper_limit[0], current_lower_limit[0]
         )
 
         accepted_value = current_observation if is_accepted else predicted_current
@@ -76,18 +78,18 @@ class AlferesAlgorithm(FilterAlgorithm):
         predicted_error_size = float(uncertainty_model.predict(np.array(current_error)))
 
         next_upper_limit = self.calculate_upper_limit(
-            accepted_value, predicted_error_size
+            accepted_value[0], predicted_error_size
         )
         next_lower_limit = self.calculate_lower_limit(
-            accepted_value, predicted_error_size
+            accepted_value[0], predicted_error_size
         )
 
-        return ResultRow(
-            date=current_date,
-            input_value=current_observation,
-            input_is_outlier=not is_accepted,
-            accepted_value=accepted_value,
-            predicted_value=next_predicted_value,
-            predicted_upper_limit=next_upper_limit,
-            predicted_lower_limit=next_lower_limit,
+        return FilterRow(
+            date=current_index,
+            input_values=np.array([current_observation]),
+            inputs_are_outliers=np.array([not is_accepted]),
+            accepted_values=np.array([accepted_value]),
+            predicted_values=np.array([next_predicted_value]),
+            predicted_upper_limits=np.array([next_upper_limit]),
+            predicted_lower_limits=np.array([next_lower_limit]),
         )
