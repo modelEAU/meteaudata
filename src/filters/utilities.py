@@ -34,18 +34,22 @@ def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
     if "outlier_values" not in df.columns:
         return df
     df = df.copy()
-    df['outlier_values'] = df['inputs_are_outliers'].astype(int)
-    df.loc[~df['inputs_are_outliers'], 'outlier_values'] = np.nan
-    df.loc[df['inputs_are_outliers'], 'outlier_values'] = df['input_values']
-    df["outlier_values"] = df['outlier_values'].astype(float)
+    df["outlier_values"] = df["inputs_are_outliers"].astype(int)
+    df.loc[~df["inputs_are_outliers"], "outlier_values"] = np.nan
+    df.loc[df["inputs_are_outliers"], "outlier_values"] = df["input_values"]
+    df["outlier_values"] = df["outlier_values"].astype(float)
     return df
 
 
 def align_results_in_time(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df.loc[max(df.index) + 1] = df.loc[max(df.index)].apply(
-        replace_with_null
-    )
+    df.loc[max(df.index) + 1] = df.loc[max(df.index)].apply(replace_with_null)
     if prediction_columns := [col for col in df.columns if "predicted" in col]:
         df.loc[:, prediction_columns] = df[prediction_columns].shift(1)
     return df
+
+
+def combine_smooth_and_univariate(
+    smooth_df: pd.DataFrame, univariate_df: pd.DataFrame
+) -> pd.DataFrame:
+    return pd.merge(smooth_df, univariate_df, how="outer", on="date")
