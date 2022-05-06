@@ -1,5 +1,3 @@
-import copy
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -92,7 +90,9 @@ def test_input_data():
 
     assert filter_on_input.input_data.equals(filter_add_series.input_data)
     assert filter_on_input.input_data.equals(filter_add_df.input_data)
-    assert filter_on_input.input_data.equals(filter_add_individual_series_line.input_data)
+    assert filter_on_input.input_data.equals(
+        filter_add_individual_series_line.input_data
+    )
     assert filter_on_input.input_data.equals(filter_add_individual_df_line.input_data)
 
 
@@ -118,7 +118,8 @@ def test_alferes_filter_in_batch(
     error_model = get_model("uncertainty", order=3, forgetting_factor=0.25)
     control_parameters = get_control_parameters(outlier, steps_back, warmup)
     # prepare data
-    raw_data = get_data("dirty sine jump")
+    signal_name = "dirty sine jump"
+    raw_data = get_data(signal_name)
     try:
         filter_obj = AlferesFilter(
             algorithm=AlferesAlgorithm(),
@@ -131,7 +132,8 @@ def test_alferes_filter_in_batch(
 
         filter_obj.update_filter()
         df = filter_obj.to_dataframe()
-        plot_univariate_results(df, "Dirty sine", language="english").show()
+        plotter = UnivariatePlotter(signal_name=signal_name, df=df)
+        plotter.plot(title=f"Smoother results: {signal_name}")  #.show()
         succeeded = True
     except Exception:
         succeeded = False
@@ -150,7 +152,8 @@ def test_alferes_in_bits(outlier: int, steps_back: int, warmup: int, succeeds: b
     error_model = get_model("uncertainty", order=3, forgetting_factor=0.25)
     control_parameters = get_control_parameters(outlier, steps_back, warmup)
     # prepare data
-    raw_data = pd.DataFrame(get_data("dirty sine jump"))
+    signal_name = "dirty sine jump"
+    raw_data = pd.DataFrame(get_data(signal_name))
     try:
         filter_obj = AlferesFilter(
             algorithm=AlferesAlgorithm(),
@@ -166,7 +169,9 @@ def test_alferes_in_bits(outlier: int, steps_back: int, warmup: int, succeeds: b
             filter_obj.update_filter()
 
         df = filter_obj.to_dataframe()
-        plot_univariate_results(df, "Dirty sine", language="english").show()
+        df.to_csv("tests/test_filter_results.csv")
+        plotter = UnivariatePlotter(signal_name=signal_name, df=df)
+        plotter.plot(title=f"Smoother results: {signal_name}")  #.show()
         succeeded = True
     except Exception:
         succeeded = False
@@ -191,7 +196,7 @@ def test_kernel_smoother_in_batch():
         filter_obj.update_filter()
         df = filter_obj.to_dataframe()
         plotter = UnivariatePlotter(signal_name=signal_name, df=df)
-        plotter.plot(title=f"Smoother results: {signal_name}").show()
+        plotter.plot(title=f"Smoother results: {signal_name}")  #.show()
         succeeded = True
     except Exception:
         succeeded = False
