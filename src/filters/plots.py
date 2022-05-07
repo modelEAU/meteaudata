@@ -106,8 +106,10 @@ class UnivariatePlotter:
     language: Literal["french", "english"] = field(default="english")
 
     def __post_init__(self):
-        df = align_results_in_time(self.df)
-        df = apply_observations_to_outliers(df)
+        df = self.df
+        if not df.empty:
+            df = align_results_in_time(self.df)
+            df = apply_observations_to_outliers(df)
         self.plot_data = df
         self.x = self.plot_data["date"]
         self.names = get_clean_column_names(self.language)

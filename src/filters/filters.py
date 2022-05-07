@@ -78,7 +78,7 @@ class AlferesFilter(Filter):
     def update_filter(self) -> List[FilterRow]:
         last_full_requirements = self.get_last_full_requirements_index()
         for _ in range(
-            len(self.input_data.iloc[self.current_position : last_full_requirements])
+            last_full_requirements - self.current_position + 1
         ):
             self.step()
         return self.results
@@ -139,21 +139,21 @@ class AlferesFilter(Filter):
         if not self.out_of_control_positions:
             raise ValueError("The out-of-control range is not defined.")
         low_index, high_index = self.out_of_control_positions
-
+        last_valid_index = len(self.input_data) - 1
         n_warmup_steps = (
             self.control_parameters["n_warmup_steps"]
             if (
                 (self.control_parameters["n_warmup_steps"] + high_index)
                 < len(self.input_data)
             )
-            else len(self.input_data) - high_index
+            else max(last_valid_index - high_index, 0)
         )
         high_index = high_index + n_warmup_steps
 
-        backwards_data = self.input_data.iloc[low_index:high_index][::-1]
+        backwards_data = self.input_data.iloc[low_index:high_index + 1][::-1]
         backwards_results = self.apply_sub_filter(backwards_data)
         results = list(reversed(backwards_results))
-        if not self.control_parameters["n_warmup_steps"]:
+        if not n_warmup_steps:
             return results
         return results[:-n_warmup_steps]
 
@@ -161,9 +161,20 @@ class AlferesFilter(Filter):
         self.direction = FilterDirection.forward
         if not self.out_of_control_positions:
             raise ValueError("The out-of-control range is not defined.")
+
         low_index, high_index = self.out_of_control_positions
-        forwards_data = self.input_data.iloc[low_index:high_index]
-        return self.apply_sub_filter(forwards_data)
+        n_warmup_steps = (
+            self.control_parameters["n_warmup_steps"]
+            if (
+                (self.control_parameters["n_warmup_steps"] - low_index)
+                < 0
+            )
+            else low_index
+        )
+        low_index = low_index - n_warmup_steps
+
+        forwards_data = self.input_data.iloc[low_index:high_index + 1]
+        return self.apply_sub_filter(forwards_data)[n_warmup_steps:]
 
     def apply_sub_filter(self, input_data) -> List[FilterRow]:
         _filter = self.get_new_instance_for_recovery(

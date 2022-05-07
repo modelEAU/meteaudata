@@ -8,6 +8,15 @@ from filters.config import Parameters
 from filters.protocols import Filter, FilterAlgorithm, FilterRow, Model, Window
 
 
+def new_kernel_smoother(size: int):
+    return KernelSmoother(
+        algorithm=None,
+        signal_model=None,
+        uncertainty_model=None,
+        control_parameters={"size": 2},
+    )
+
+
 @dataclass
 class KernelSmoother(Filter):
     algorithm: FilterAlgorithm

@@ -185,9 +185,7 @@ class Filter(AbstractDataclass):
 
     def update_filter(self) -> List[FilterRow]:
         last_full_requirements = self.get_last_full_requirements_index()
-        for _ in range(
-            len(self.input_data.iloc[self.current_position : last_full_requirements])
-        ):
+        for _ in range(last_full_requirements - self.current_position + 1):
             self.step()
         return self.results
 

@@ -14,7 +14,7 @@ def shapes_are_equivalent(shape_a: Tuple, shape_b: Tuple) -> bool:
 def calculate_error(
     prediction: Union[float, npt.NDArray], observed: Union[float, npt.NDArray]
 ) -> Union[float, npt.NDArray]:
-    return prediction - observed
+    return np.abs(prediction - observed)
 
 
 def rmse(observed: npt.NDArray, predicted: npt.NDArray) -> float:
@@ -52,4 +52,4 @@ def align_results_in_time(df: pd.DataFrame) -> pd.DataFrame:
 def combine_smooth_and_univariate(
     smooth_df: pd.DataFrame, univariate_df: pd.DataFrame
 ) -> pd.DataFrame:
-    return pd.merge(smooth_df, univariate_df, how="outer", on="date")
+    return pd.merge(smooth_df, univariate_df, how="outer", on="date").sort_values("date")
