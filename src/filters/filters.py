@@ -63,16 +63,16 @@ class AlferesFilter(Filter):
             uncertainty_model=self.uncertainty_model,
         )
         self.results.append(result)
-
         self.check_for_outlier(result)
-        self.current_position += 1
-
         if (
             self.is_out_of_control
             and not self.for_recovery
             and self.control_parameters["n_steps_back"] > 0
         ):
             self.restore_control()
+
+        self.current_position += 1
+
         return result
 
     def update_filter(self) -> List[FilterRow]:
@@ -217,6 +217,7 @@ class AlferesFilter(Filter):
         insertion_index = (
             self.current_position - self.control_parameters["n_steps_back"]
         )
+
         self.results[insertion_index:] = out_of_control_results
         # return to sanity
         self.clear_outlier_streak()

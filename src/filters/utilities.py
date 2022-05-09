@@ -43,13 +43,25 @@ def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
 
 def align_results_in_time(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+    time_delta = (
+        df.loc[max(df.index), "date"]
+        - df.loc[max(df.index) - 1, "date"]
+    ).total_seconds()
     df.loc[max(df.index) + 1] = df.loc[max(df.index)].apply(replace_with_null)
     if prediction_columns := [col for col in df.columns if "predicted" in col]:
         df.loc[:, prediction_columns] = df[prediction_columns].shift(1)
+    df.loc[max(df.index), "date"] = (
+        df.loc[max(df.index) - 1, "date"] + pd.to_timedelta(time_delta, "s")
+    )
     return df
 
 
 def combine_smooth_and_univariate(
     smooth_df: pd.DataFrame, univariate_df: pd.DataFrame
 ) -> pd.DataFrame:
-    return pd.merge(smooth_df, univariate_df, how="outer", on="date").sort_values("date")
+    smooth_df = smooth_df.dropna(subset=["date"])
+    return (
+        pd.merge(smooth_df, univariate_df, how="outer", on="date")
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
