@@ -31,7 +31,7 @@ def replace_with_null(item: Any) -> Any:
 
 
 def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
-    if "outlier_values" not in df.columns:
+    if "inputs_are_outliers" not in df.columns:
         return df
     df = df.copy()
     df["outlier_values"] = df["inputs_are_outliers"].astype(int)

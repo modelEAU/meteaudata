@@ -77,9 +77,7 @@ class AlferesFilter(Filter):
 
     def update_filter(self) -> List[FilterRow]:
         last_full_requirements = self.get_last_full_requirements_index()
-        for _ in range(
-            last_full_requirements - self.current_position + 1
-        ):
+        for _ in range(last_full_requirements - self.current_position + 1):
             self.step()
         return self.results
 
@@ -134,6 +132,29 @@ class AlferesFilter(Filter):
         )
         return (lowest_index, highest_index)
 
+    def shift_predictions_to_back(self, results: List[FilterRow]) -> List[FilterRow]:
+        """when we go backwards, the prediciton used for the uncertainty
+        of time t occurs at time t+1, while when we go forwards, it happend at time t-1.
+        We must therefore shift the predictions two time steps in the past for the
+        uncertainty boundaries to be consistent.
+        The results should be in increasing (forward) when passed to this function
+        """
+        # if we don't have results, there is nothing to do
+        if not results:
+            return results
+        for i, row in enumerate(results):
+            # predictions are lost on the edges (2 items per edge)
+            # since we don't have access to those data from this routine
+            if i < 2 or i > (len(results) - 3):
+                row.predicted_lower_limits = np.array([np.nan])
+                row.predicted_upper_limits = np.array([np.nan])
+                row.predicted_values = np.array([np.nan])
+            else:
+                row.predicted_lower_limits = results[i + 2].predicted_lower_limits
+                row.predicted_upper_limits = results[i + 2].predicted_upper_limits
+                row.predicted_values = results[i + 2].predicted_values
+        return results
+
     def backward_recovery(self) -> List[FilterRow]:
         self.direction = FilterDirection.backward
         if not self.out_of_control_positions:
@@ -150,9 +171,10 @@ class AlferesFilter(Filter):
         )
         high_index = high_index + n_warmup_steps
 
-        backwards_data = self.input_data.iloc[low_index:high_index + 1][::-1]
+        backwards_data = self.input_data.iloc[low_index : high_index + 1][::-1]
         backwards_results = self.apply_sub_filter(backwards_data)
         results = list(reversed(backwards_results))
+        # results = self.shift_predictions_to_back(results)
         if not n_warmup_steps:
             return results
         return results[:-n_warmup_steps]
@@ -165,15 +187,12 @@ class AlferesFilter(Filter):
         low_index, high_index = self.out_of_control_positions
         n_warmup_steps = (
             self.control_parameters["n_warmup_steps"]
-            if (
-                (self.control_parameters["n_warmup_steps"] - low_index)
-                < 0
-            )
+            if ((self.control_parameters["n_warmup_steps"] - low_index) < 0)
             else low_index
         )
         low_index = low_index - n_warmup_steps
 
-        forwards_data = self.input_data.iloc[low_index:high_index + 1]
+        forwards_data = self.input_data.iloc[low_index : high_index + 1]
         return self.apply_sub_filter(forwards_data)[n_warmup_steps:]
 
     def apply_sub_filter(self, input_data) -> List[FilterRow]:
@@ -186,6 +205,10 @@ class AlferesFilter(Filter):
         )
 
         _filter.update_filter()
+
+        # use the state of the sub-filter to carry on filtering with the main filter after recovery
+        self.signal_model = _filter.signal_model
+        self.uncertainty_model = _filter.uncertainty_model
         return _filter.results
 
     def select_out_of_control_results(
@@ -220,5 +243,6 @@ class AlferesFilter(Filter):
 
         self.results[insertion_index:] = out_of_control_results
         # return to sanity
+
         self.clear_outlier_streak()
         self.out_of_control_positions = None

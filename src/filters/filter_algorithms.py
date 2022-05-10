@@ -86,7 +86,7 @@ class AlferesAlgorithm(FilterAlgorithm):
 
         return FilterRow(
             date=current_index,
-            input_values=np.array([current_observation]),
+            input_values=current_observation,
             inputs_are_outliers=np.array([not is_accepted]),
             accepted_values=np.array([accepted_value]),
             predicted_values=np.array([next_predicted_value]),
