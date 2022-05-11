@@ -72,7 +72,7 @@ class Config(BaseModel):
     smoother: SmootherConfig
 
 
-def get_configs_from_file(path: str) -> Config:
+def get_config_from_file(path: str) -> Config:
     """Loads the configuration settings into a Config object from a yaml file"""
     pathObj = Path(path)
     if not pathObj.is_file():

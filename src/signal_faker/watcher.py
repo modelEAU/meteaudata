@@ -3,13 +3,13 @@ from typing import Optional, Tuple
 
 import pandas as pd
 import plotly.io as pio
-from filters.filter_algorithms import AlferesAlgorithm
-from filters.filters import AlferesFilter
-from filters.kernels import EwmaKernel1, EwmaKernel3
-from filters.models import EwmaUncertaintyModel, SignalModel
-from filters.plots import UnivariatePlotter
-from filters.smoothers import new_kernel_smoother
-from filters.utilities import combine_smooth_and_univariate
+from data_filters.filter_algorithms import AlferesAlgorithm
+from data_filters.filters import AlferesFilter
+from data_filters.kernels import EwmaKernel1, EwmaKernel3
+from data_filters.models import EwmaUncertaintyModel, SignalModel
+from data_filters.plots import UnivariatePlotter
+from data_filters.smoothers import new_kernel_smoother
+from data_filters.utilities import combine_smooth_and_univariate
 
 FILE = "signal.csv"
 CONTROL = {
@@ -63,6 +63,7 @@ def main():
     while True:
         calibration_data = read_data(FILE, length=n_calibration)
         if len(calibration_data) < n_calibration:
+            time.sleep(5)
             continue
         break
     filter_obj.calibrate_models(calibration_data)

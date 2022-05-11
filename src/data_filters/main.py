@@ -9,8 +9,7 @@ from data_filters.config import (
     DateInterval,
     KernelConfig,
     ModelConfig,
-    SmootherConfig,
-    get_configs_from_file,
+    get_config_from_file,
 )
 from data_filters.filter_algorithms import AlferesAlgorithm
 from data_filters.filters import AlferesFilter
@@ -73,10 +72,11 @@ def build_filter_runner_from_config(configuration: Config) -> Filter:
 
 
 def build_smoother_from_config(
-    configuration: SmootherConfig,
+    configuration: Config,
 ) -> Filter:
-    if configuration.name == "h_kernel":
-        return HKernelSmoother(control_parameters=configuration.parameters)
+    smoother_conf = configuration.smoother
+    if smoother_conf.name == "h_kernel":
+        return HKernelSmoother(control_parameters=smoother_conf.parameters)
     else:
         raise ValueError("Only the h-kernel smoother is available currently.")
 
@@ -135,11 +135,11 @@ def main(
     data_filepath: str, column_index: int, config_filepath: str, produce_plot: bool
 ) -> None:  # sourcery skip: move-assign
 
-    configuration = get_configs_from_file(config_filepath)
+    configuration = get_config_from_file(config_filepath)
 
     # initialize filter and smoother objects with parameters
     filter_runner = build_filter_runner_from_config(configuration)
-    smoother = build_smoother_from_config(configuration.smoother)
+    smoother = build_smoother_from_config(configuration)
 
     # apply filter and smnoother to a dummy time series for demonstration purposes
     data = extract_data(data_filepath, column_index, configuration.filtration_period)

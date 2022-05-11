@@ -1,4 +1,4 @@
-from typing import Any, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -66,3 +66,40 @@ def combine_smooth_and_univariate(
         .sort_values("date")
         .reset_index(drop=True)
     )
+
+
+def mirror(
+    df: Union[pd.DataFrame, pd.Series],
+    first_date: Optional[str] = None,
+    last_date: Optional[str] = None,
+) -> pd.DataFrame:
+    is_series = isinstance(df, pd.Series)
+    series_name = ""
+    if is_series:
+        series_name = df.name
+        df = pd.DataFrame(df)
+    df = df.copy()
+
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise TypeError("DataFrame should be index by time")
+    if df.index.freqstr != "D":
+        raise ValueError("Index frequency should be 'D'")
+
+    if first_date:
+        first_date = pd.to_datetime(first_date, format="%Y-%m-%d")
+        df = df.loc[df.index > first_date]
+    if last_date:
+        last_date = pd.to_datetime(last_date, format="%Y-%m-%d")
+        df = df.loc[df.index < last_date]
+
+    index_name = df.index.name
+    df = df.reset_index()
+    reversed_df = df[::-1].copy()
+    reversed_df[index_name] = reversed_df[index_name] - 2 * pd.to_timedelta(
+        reversed_df.index, unit="D"
+    )
+    reversed_df = reversed_df.iloc[:-1]
+    result = pd.concat([reversed_df, df], axis=0)
+    result.set_index(index_name, inplace=True)
+    result = result.asfreq("D")
+    return result[series_name] if is_series else result

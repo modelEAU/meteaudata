@@ -133,7 +133,7 @@ def test_alferes_filter_in_batch(
         filter_obj.update_filter()
         df = filter_obj.to_dataframe()
         plotter = UnivariatePlotter(signal_name=signal_name, df=df)
-        plotter.plot(title=f"Smoother results: {signal_name}")  # .show()
+        plotter.plot(title=f"Smoother results: {signal_name}").show()
         succeeded = True
     except Exception:
         succeeded = False

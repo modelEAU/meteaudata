@@ -161,3 +161,9 @@ cython_debug/
 
 # VS Code
 .vscode/
+
+fig.json
+signal.csv
+scratch.ipynb
+covid_tests.py
+*.DS_Store
