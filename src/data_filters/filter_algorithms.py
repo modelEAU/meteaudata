@@ -4,9 +4,14 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from filters.protocols import (FilterAlgorithm, FilterRow, Input, Model,
-                               UncertaintyModel)
-from filters.utilities import calculate_error
+from data_filters.protocols import (
+    FilterAlgorithm,
+    FilterRow,
+    Input,
+    Model,
+    UncertaintyModel,
+)
+from data_filters.utilities import calculate_error
 
 
 class AlferesAlgorithm(FilterAlgorithm):

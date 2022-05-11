@@ -5,11 +5,14 @@ import numpy as np
 import numpy.typing as npt
 from scipy.optimize import minimize
 
-from filters import utilities
-from filters.exceptions import (InputShapeException, InvalidHorizonException,
-                                WrongDimensionsError)
-from filters.protocols import Kernel, Parameters
-from filters.utilities import rmse
+from data_filters import utilities
+from data_filters.exceptions import (
+    InputShapeException,
+    InvalidHorizonException,
+    WrongDimensionsError,
+)
+from data_filters.protocols import Kernel, Parameters
+from data_filters.utilities import rmse
 
 
 def auto_regresive(

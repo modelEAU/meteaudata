@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
-from filters.config import Parameters
-from filters.kernels import EwmaKernel1, EwmaKernel3
-from filters.utilities import rmse
+from data_filters.config import Parameters
+from data_filters.kernels import EwmaKernel1, EwmaKernel3
+from data_filters.utilities import rmse
 
 
 def good_input_data1():

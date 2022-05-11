@@ -4,9 +4,16 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 
-from filters.config import Parameters
-from filters.protocols import (Filter, FilterAlgorithm, FilterDirection,
-                               FilterRow, Model, UncertaintyModel, Window)
+from data_filters.config import Parameters
+from data_filters.protocols import (
+    Filter,
+    FilterAlgorithm,
+    FilterDirection,
+    FilterRow,
+    Model,
+    UncertaintyModel,
+    Window,
+)
 
 
 @dataclass

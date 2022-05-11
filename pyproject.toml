@@ -1,9 +1,9 @@
 [tool.poetry]
-name = "ewma"
+name = "filters"
 version = "0.1.0"
-description = "Exponentially weighted moving filter"
+description = "data filtration libray for the modelEAU research group"
 authors = ["Jean-David Therrien <jeandavidt@gmail.com>"]
-license = "All rights reserved"
+license = "All rights reserved modelEAU"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
@@ -23,6 +23,7 @@ flake8 = "^4.0.1"
 pytest = "^7.1.2"
 types-PyYAML = "^6.0.7"
 black = "^22.3.0"
+pre-commit = "^2.19.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

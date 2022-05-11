@@ -1,28 +1,25 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 
-from filters.config import Parameters
-from filters.protocols import Filter, FilterAlgorithm, FilterRow, Model, Window
+from data_filters.config import Parameters
+from data_filters.protocols import Filter, FilterAlgorithm, FilterRow, Model, Window
 
 
 def new_kernel_smoother(size: int):
-    return KernelSmoother(
-        algorithm=None,
-        signal_model=None,
-        uncertainty_model=None,
-        control_parameters={"size": 2},
+    return HKernelSmoother(
+        control_parameters=Parameters(size=size),
     )
 
 
 @dataclass
-class KernelSmoother(Filter):
-    algorithm: FilterAlgorithm
-    signal_model: Model
-    uncertainty_model: Model
+class HKernelSmoother(Filter):
     control_parameters: Parameters
+    algorithm: Optional[FilterAlgorithm] = field(default=None)
+    signal_model: Optional[Model] = field(default=None)
+    uncertainty_model: Optional[Model] = field(default=None)
     current_position: int = field(default=0)
     input_data: pd.Series = field(default=pd.DataFrame())
     results: List[FilterRow] = field(default_factory=list)
@@ -61,15 +58,21 @@ class KernelSmoother(Filter):
             values = input_data.to_numpy()
             middle_index = len(input_data) // 2
             middle_date = dates[middle_index]
-            values = values.reshape(-1,)
+            values = values.reshape(
+                -1,
+            )
             window_size = self.control_parameters["size"]
             window_positions = np.linspace(
                 -window_size, window_size, 2 * window_size + 1
             ).astype(int)
-            window_weights = np.array([
-                1 / np.sqrt(2 * np.pi) * np.exp(-(position / window_size) ** 2 / 2)
-                for position in window_positions
-            ])
+            window_weights = np.array(
+                [
+                    1
+                    / np.sqrt(2 * np.pi)
+                    * np.exp(-((position / window_size) ** 2) / 2)
+                    for position in window_positions
+                ]
+            )
             weighted = np.multiply(values, window_weights)
             weighted_numerator = weighted[~np.isnan(weighted)]
             weighted_denominator = window_weights[~np.isnan(weighted)]

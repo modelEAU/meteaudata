@@ -1,16 +1,16 @@
 import numpy as np
 import pandas as pd
 import pytest
-from filters.filter_algorithms import AlferesAlgorithm
-from filters.filters import AlferesFilter
-from filters.plots import UnivariatePlotter
-from filters.protocols import FilterRow
-from filters.smoothers import KernelSmoother
+from data_filters.filter_algorithms import AlferesAlgorithm
+from data_filters.filters import AlferesFilter
+from data_filters.plots import UnivariatePlotter
+from data_filters.protocols import FilterRow
+from data_filters.smoothers import HKernelSmoother
 
 from test_models import get_model
 
 
-def get_data(series_name, path="tests/test_data.csv") -> pd.Series:
+def get_data(series_name, path="tests/sample_data/test_data.csv") -> pd.Series:
     df = pd.read_csv(path, index_col=0)
     df.index = pd.to_datetime(df.index)
     return df[series_name]
@@ -186,7 +186,7 @@ def test_kernel_smoother_in_batch():
     signal_name = "dirty sine jump"
     raw_data = get_data(signal_name)
     try:
-        filter_obj = KernelSmoother(
+        filter_obj = HKernelSmoother(
             algorithm=None,
             signal_model=None,
             uncertainty_model=None,

@@ -6,8 +6,8 @@ from typing import Dict, List, Literal, Optional, Protocol, Tuple, Union
 import numpy.typing as npt
 import pandas as pd
 
-from filters.config import Parameters
-from filters.exceptions import BadWindowError, WrongColumnsException
+from data_filters.config import Parameters
+from data_filters.exceptions import BadWindowError, WrongColumnsException
 
 
 @dataclass
@@ -116,9 +116,9 @@ class FilterDirection(Enum):
 
 
 class Filter(AbstractDataclass):
-    algorithm: FilterAlgorithm
-    signal_model: Model
-    uncertainty_model: Model
+    algorithm: Optional[FilterAlgorithm]
+    signal_model: Optional[Model]
+    uncertainty_model: Optional[Model]
     control_parameters: Parameters
     current_position: int
     input_data: Union[pd.DataFrame, pd.Series]
@@ -159,7 +159,9 @@ class Filter(AbstractDataclass):
     def add_series_line(self, row: Tuple, series_name: str) -> None:
         if columns := list(self.input_data.columns):
             if len(columns) != 1:
-                raise IndexError("Trying to add a Series, but the filter contains multiple columns of data")
+                raise IndexError(
+                    "Trying to add a Series, but the filter contains multiple columns of data"
+                )
             name = columns[0]
         else:
             name = series_name

@@ -3,10 +3,10 @@ from typing import Literal
 import numpy as np
 import numpy.typing as npt
 import pytest
-from filters.config import Parameters
-from filters.kernels import EwmaKernel1, EwmaKernel3
-from filters.models import EwmaUncertaintyModel, SignalModel
-from filters.protocols import Model
+from data_filters.config import Parameters
+from data_filters.kernels import EwmaKernel1, EwmaKernel3
+from data_filters.models import EwmaUncertaintyModel, SignalModel
+from data_filters.protocols import Model
 
 
 def get_kernel(order: Literal[1, 3], forgetting_factor: float = 0.25):

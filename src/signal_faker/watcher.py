@@ -27,7 +27,7 @@ def get_models() -> Tuple[SignalModel, EwmaUncertaintyModel]:
         kernel=error_kernel,
         initial_uncertainty=5,
         minimum_uncertainty=0.5,
-        uncertainty_gain=2
+        uncertainty_gain=2,
     )
     return signal, error
 
@@ -38,15 +38,15 @@ def read_data(file: str, length: Optional[int] = None):
         header=0,
         index_col=0,
         infer_datetime_format=True,
-        dtype={"date": str, "value":float},
+        dtype={"date": str, "value": float},
         parse_dates=["date"],
-        nrows=length
+        nrows=length,
     )
 
 
 def get_new_data(old: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
     df = pd.concat([old, new])
-    return df[~df.index.duplicated(keep='first')].sort_index()
+    return df[~df.index.duplicated(keep="first")].sort_index()
 
 
 def main():
@@ -84,12 +84,14 @@ def main():
 
         filter_results = filter_obj.to_dataframe()
         smoother_results = smoother.to_dataframe()
-        results = combine_smooth_and_univariate(smoother_results, filter_results).iloc[:-200]
+        results = combine_smooth_and_univariate(smoother_results, filter_results).iloc[
+            :-200
+        ]
         plotter = UnivariatePlotter(
             signal_name="Fake signal",
             df=results,
             template="plotly_white",
-            language="english"
+            language="english",
         )
         fig = plotter.plot()
         with open("fig.json", "w") as f:
@@ -97,5 +99,5 @@ def main():
         time.sleep(5)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

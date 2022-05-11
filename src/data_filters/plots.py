@@ -8,8 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
-from filters.utilities import (align_results_in_time,
-                               apply_observations_to_outliers)
+from data_filters.utilities import align_results_in_time, apply_observations_to_outliers
 
 pio.templates.default = "plotly_white"
 

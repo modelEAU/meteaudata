@@ -5,9 +5,9 @@ import numpy as np
 import numpy.typing as npt
 from scipy.optimize import minimize
 
-from filters.config import Parameters
-from filters.exceptions import NotCalibratedError
-from filters.protocols import Kernel, Model, UncertaintyModel
+from data_filters.config import Parameters
+from data_filters.exceptions import NotCalibratedError
+from data_filters.protocols import Kernel, Model, UncertaintyModel
 
 
 @dataclass
@@ -24,7 +24,8 @@ class SignalModel(Model):
     def predict(self, input_data: npt.NDArray) -> npt.NDArray:
         if not self.calibrated:
             raise NotCalibratedError(
-                "The model has not been calibrated yet. Please calibrate the model on a trusted data deries."
+                "The model has not been calibrated yet. "
+                "Please calibrate the model on a validated data deries."
             )
         return self.kernel.predict(input_data, horizon=1)
 
@@ -62,7 +63,11 @@ class EwmaUncertaintyModel(UncertaintyModel):
     ) -> npt.NDArray:
         self.kernel.calibrate(input_data, initial_guesses)
 
-        guess_initial_uncertainty = initial_guesses["initial_uncertainty"] if initial_guesses else self.initial_uncertainty
+        guess_initial_uncertainty = (
+            initial_guesses["initial_uncertainty"]
+            if initial_guesses
+            else self.initial_uncertainty
+        )
 
         initial_uncertainty = optimize_initial_uncertainty(
             input_data, self.kernel, guess_initial_uncertainty
@@ -80,7 +85,8 @@ class EwmaUncertaintyModel(UncertaintyModel):
     def predict(self, input_data: npt.NDArray) -> npt.NDArray:
         if not self.calibrated:
             raise NotCalibratedError(
-                "The model has not been calibrated yet. Please calibrate the model on a trusted data deries."
+                "The model has not been calibrated yet. ",
+                "Please calibrate the model on a validated data deries.",
             )
         predicted = self.kernel.predict(input_data, horizon=1)
         result = np.maximum(self.minimum_uncertainty, predicted)
