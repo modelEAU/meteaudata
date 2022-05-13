@@ -90,9 +90,9 @@ def filter_data(
     calibration_period: DateInterval,
     filter_runner: Filter,
 ) -> pd.DataFrame:
-    filter_runner.add_dataframe(data)
     calibration_data = get_calibration_data_from_df(data, calibration_period)
     filter_runner.calibrate_models(calibration_data)
+    filter_runner.add_dataframe(data)
     filter_runner.update_filter()
 
     return filter_runner.to_dataframe()

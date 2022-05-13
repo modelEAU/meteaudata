@@ -1,0 +1,39 @@
+config_name: with flow, no log
+calibration_period:
+  start: 2022-03-22
+  end: 2022-03-28
+filtration_period:
+  start: 2022-03-22
+  end: null
+signal_model:
+  name: signal_model
+  kernel:
+    name: ewma
+    parameters:
+      order: 3
+      forgetting_factor: null
+  parameters: null
+uncertainty_model:
+  name: ewma_uncertainty_model
+  kernel:
+    name: ewma
+    parameters:
+      order: 1
+      forgetting_factor: null
+  parameters:
+    initial_uncertainty: 1000
+    minimum_uncertainty: 1000
+    uncertainty_gain: 1.5
+filter_algorithm:
+  name: alferes
+  parameters: null
+filter_runner:
+  name: alferes
+  parameters:
+    n_outlier_threshold: 2
+    n_steps_back: 5
+    n_warmup_steps: 2
+smoother:
+  name: h_kernel
+  parameters:
+    size: 2
