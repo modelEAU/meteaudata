@@ -171,7 +171,7 @@ def test_alferes_in_bits(outlier: int, steps_back: int, warmup: int, succeeds: b
         df = filter_obj.to_dataframe()
         df.to_csv("tests/test_filter_results.csv")
         plotter = UnivariatePlotter(signal_name=signal_name, df=df)
-        plotter.plot(title=f"Smoother results: {signal_name}")  # .show()
+        plotter.plot(title=f"Smoother results: {signal_name}").show()
         succeeded = True
     except Exception:
         succeeded = False
@@ -196,7 +196,7 @@ def test_kernel_smoother_in_batch():
         filter_obj.update_filter()
         df = filter_obj.to_dataframe()
         plotter = UnivariatePlotter(signal_name=signal_name, df=df)
-        plotter.plot(title=f"Smoother results: {signal_name}")  # .show()
+        plotter.plot(title=f"Smoother results: {signal_name}").show()
         succeeded = True
     except Exception:
         succeeded = False

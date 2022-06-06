@@ -1,7 +1,7 @@
-config_name: with flow, no log
+config_name: sample_config
 calibration_period:
-  start: 2022-01-25
-  end: 2022-02-10
+  start: 2022-05-01
+  end: 2022-05-21
 filtration_period:
   start: null
   end: null
@@ -21,8 +21,8 @@ uncertainty_model:
       order: 1
       forgetting_factor: null
   parameters:
-    initial_uncertainty: 10
-    minimum_uncertainty: 10
+    initial_uncertainty: 1
+    minimum_uncertainty: 1
     uncertainty_gain: 1.5
 filter_algorithm:
   name: alferes
