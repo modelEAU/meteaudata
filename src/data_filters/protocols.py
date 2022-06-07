@@ -12,7 +12,7 @@ from data_filters.exceptions import BadWindowError, WrongColumnsException
 
 @dataclass
 class AbstractDataclass(ABC):
-    """Allows the clreation of abstract dataclasses without mypy raising an error.
+    """Allows the creation of abstract dataclasses without mypy raising an error.
     See https://stackoverflow.com/questions/60590442/
     abstract-dataclass-without-abstract-methods-in-python-
     prohibit-instantiation"""
