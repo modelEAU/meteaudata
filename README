@@ -1,1 +1,54 @@
-An object-oriented re-implementaiton of the Alferes univariate outlier detection and time series smoothing.
+# model*EAU* data filters
+
+This repository contains:
+
+- An object-oriented re-implementaiton of the Alferes univariate outlier detection algorithm
+- An implementation of the Alferes kernel smoother for time series.
+
+
+## How to run the code in this repo
+
+### Software requirements
+
+1. python >= 3.9.0
+
+### Instructions
+
+1. Install the poetry dependency manager for python by running the following command [see the poetry website](https://python-poetry.org/docs/#installation)
+
+1. initialize a virtual environment by running the following command:
+
+    ```bash
+    poetry shell
+    ```
+
+1. Install the dependencies by running the following command:
+
+    ```bash
+    poetry init
+    ```
+
+1. Run the main script by using the following command:
+
+    ```bash
+    python ./src/data_filters/main.py
+    ```
+
+This should result in a graph showing in your web browser. If so, the package was installed successfully.
+
+## Using the main script on your own data
+
+The `main.py` file is the entry point for the project. Running it will filter a sample set of data. To run it, from the root directory of the repo, run the following command:
+
+```bash
+python ./src/data_filters/main.py --file /path/to/source/data/file.csv
+````
+
+Additional arguments can be added at the end of this command to modify the behavior of the script:
+
+`--index`: Used to indicate which column of the csv file contains the index of the data. By default, the value is `0`.
+
+`--config` : Used to point to the config file of your choice. By default, it will point to the config file at the root of this repo (which contains default values.
+
+`--plot`: Indicates whether you want the script to output a plot of the results. Use with values `"true"` or `"false"`
+
