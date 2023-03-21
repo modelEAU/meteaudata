@@ -34,21 +34,9 @@ class ModelConfig(BaseModel):
     parameters: Optional[Parameters]
 
 
-class DateInterval(BaseModel):
-    start: Optional[Union[str, datetime.date, datetime.datetime]]
-    end: Optional[Union[str, datetime.date, datetime.datetime]]
-
-    @validator("start", "end", pre=True)
-    def parse_foobar(cls, value):
-        if not value:
-            return None
-        try:
-            return pd.to_datetime(value)
-        except Exception as e:
-            raise ValueError(
-                "Received a start or end value that ",
-                f" could not be parsed to datetime ({value})",
-            ) from e
+class Interval(BaseModel):
+    start: Optional[Union[float, int, str, datetime.date, datetime.datetime]]
+    end: Optional[Union[float, int, str, datetime.date, datetime.datetime]]
 
 
 class AlgorithmConfig(BaseModel):
@@ -63,8 +51,8 @@ class FilterConfig(BaseModel):
 
 class Config(BaseModel):
     config_name: str
-    calibration_period: DateInterval
-    filtration_period: DateInterval
+    calibration_period: Interval
+    filtration_period: Interval
     signal_model: ModelConfig
     uncertainty_model: ModelConfig
     filter_algorithm: AlgorithmConfig
