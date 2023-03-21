@@ -6,7 +6,7 @@ import pandas as pd
 from data_filters.config import (
     AlgorithmConfig,
     Config,
-    DateInterval,
+    Interval,
     KernelConfig,
     ModelConfig,
     get_config_from_file,
@@ -81,16 +81,15 @@ def build_smoother_from_config(
         raise ValueError("Only the h-kernel smoother is available currently.")
 
 
-def get_calibration_data_from_df(data: pd.DataFrame, configuration: DateInterval):
+def get_calibration_data_from_df(data: pd.DataFrame, configuration: Interval):
     return data.loc[configuration.start : configuration.end]
 
 
 def filter_data(
     data: pd.DataFrame,
-    calibration_period: DateInterval,
+    calibration_period: Interval,
     filter_runner: Filter,
 ) -> pd.DataFrame:
-
     calibration_data = get_calibration_data_from_df(data, calibration_period)
 
     filter_runner.calibrate_models(calibration_data)
@@ -111,11 +110,10 @@ def smooth_filtered_data(filtered_data: pd.DataFrame, smoother: Filter) -> pd.Da
 
 def univariate_process(
     raw_data: pd.DataFrame,
-    calibration_period: DateInterval,
+    calibration_period: Interval,
     filter_runner: Filter,
     smoother: Filter,
 ) -> pd.DataFrame:
-
     filter_results = filter_data(raw_data, calibration_period, filter_runner)
 
     smoother_results = smooth_filtered_data(filter_results, smoother)
@@ -123,12 +121,7 @@ def univariate_process(
     return combine_smooth_and_univariate(smoother_results, filter_results)
 
 
-def extract_data(
-    path: str, index_column: int, filtration_period: DateInterval
-) -> pd.DataFrame:
-    df = pd.read_csv(
-        path, header=0, index_col=0, usecols=[0, index_column], parse_dates=True
-    )
+def clip_data(df: pd.DataFrame, filtration_period: Interval) -> pd.DataFrame:
     if filtration_period.start is None and filtration_period.end is None:
         return df
     elif filtration_period.start is None:
@@ -138,10 +131,9 @@ def extract_data(
     return df.loc[filtration_period.start : filtration_period.end]
 
 
-def main(
-    data_filepath: str, column_index: int, config_filepath: str, produce_plot: bool
+def run_filter(
+    df: pd.DataFrame, config_filepath: str, produce_plot: bool
 ) -> None:  # sourcery skip: move-assign
-
     configuration = get_config_from_file(config_filepath)
 
     # initialize filter and smoother objects with parameters
@@ -149,7 +141,7 @@ def main(
     smoother = build_smoother_from_config(configuration)
 
     # apply filter and smoother to a dummy time series for demonstration purposes
-    data = extract_data(data_filepath, column_index, configuration.filtration_period)
+    data = clip_data(df, configuration.filtration_period)
     if isinstance(data, pd.DataFrame):
         signal_name = list(data.columns)[0]
     else:  # series
@@ -166,7 +158,7 @@ def main(
         fig.write_html(f"{signal_name}_{timestamp}.html")
         fig.show()
 
-    save_path = f"{data_filepath.split('.csv')[0]}_filtered.csv"
+    save_path = "filtered.csv"
     results.to_csv(save_path)
 
 
@@ -177,7 +169,7 @@ if __name__ == "__main__":
         "-f",
         "--file",
         type=str,
-        default="tests/sample_data/test_data.csv",
+        default="tests/loes-data/Qair.txt",
         help="file to load data from",
     )  # noqa
     parser.add_argument(
@@ -187,7 +179,7 @@ if __name__ == "__main__":
         "-c",
         "--config",
         type=str,
-        default="config.yaml",
+        default="config-loes.yaml",
         help="Path to the configuration file used.",
     )  # noqa
     parser.add_argument(
@@ -201,9 +193,27 @@ if __name__ == "__main__":
     config_path = args.config
     produce_plot = bool(args.plot)
 
-    main(
-        data_filepath=filepath,
-        column_index=column_index,
+    if "loes" in filepath:
+        df = pd.read_csv(
+            filepath,
+            sep="\t",
+            header=2,
+            index_col=0,
+            usecols=[0, column_index],
+            parse_dates=True,
+        )
+        df = pd.DataFrame(df.iloc[2:])
+        df.index = df.index.astype(float)
+    else:
+        df = pd.read_csv(
+            filepath,
+            header=0,
+            index_col=0,
+            usecols=[0, column_index],
+            parse_dates=True,
+        )
+    run_filter(
+        df=df,
         config_filepath=config_path,
         produce_plot=produce_plot,
     )
