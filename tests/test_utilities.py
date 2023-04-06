@@ -1,14 +1,6 @@
 import pandas as pd
-from data_filters.utilities import align_results_in_time, combine_smooth_and_univariate
 
-
-def test_align_results_in_time():
-    df = pd.read_csv(
-        "tests/test_filter_results.csv", index_col=0, header=0, parse_dates=["date"]
-    )
-
-    df = align_results_in_time(df)
-    assert len(df.dropna(subset="date")) == len(df)
+from data_filters.utilities import combine_smooth_and_univariate
 
 
 def test_combine_smooth_and_univariate():

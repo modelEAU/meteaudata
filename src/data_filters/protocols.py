@@ -3,11 +3,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Literal, Optional, Protocol, Tuple, Union
 
+import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
 from data_filters.config import Parameters
-from data_filters.exceptions import BadWindowError, WrongColumnsException
+from data_filters.exceptions import BadWindowError
 
 
 @dataclass
@@ -35,7 +36,7 @@ class Window:
 
 @dataclass
 class FilterRow:
-    date: pd.DatetimeIndex
+    index: int
     input_values: npt.NDArray
     inputs_are_outliers: npt.NDArray
     accepted_values: npt.NDArray
@@ -121,72 +122,53 @@ class Filter(AbstractDataclass):
     uncertainty_model: Optional[Model]
     control_parameters: Parameters
     current_position: int
-    input_data: Union[pd.DataFrame, pd.Series]
+    input_data: Optional[npt.NDArray]
     results: List[FilterRow]
     results_window: Window
     inputs_window: Window
 
     def __post_init__(self):
-        self.input_data = pd.DataFrame(self.input_data)
+        self.input_data = self.check_array_shape(self.input_data)
         self.check_windows()
         self.check_control_parameters()
+
+    def check_array_shape(self, array: Optional[npt.NDArray]) -> Optional[npt.NDArray]:
+        if array is None:
+            return None
+        if array.ndim == 1:
+            array = array.reshape(-1, 1)
+        elif array.ndim > 2:
+            raise ValueError("Input data must be a 1D or 2D array.")
+        return array
 
     @abstractmethod
     def check_control_parameters(self) -> None:
         ...
 
     @abstractmethod
-    def calibrate_models(self, calibration_series: pd.Series) -> None:
+    def calibrate_models(self, calibration_series: np.ndarray) -> None:
         ...
 
     @abstractmethod
     def step(self) -> FilterRow:
         ...
 
-    def add_df_line(self, row: Tuple) -> None:
-        index = row[0]
-        values = row[1]
-        if isinstance(values, pd.Series):
-            self.input_data = pd.concat(
-                [
-                    self.input_data,
-                    pd.DataFrame.from_dict({index: values.to_dict()}, orient="index"),
-                ]
-            )
-        else:
-            raise TypeError("Expected the values to be presented as a Series.")
-
-    def add_series_line(self, row: Tuple, series_name: str) -> None:
-        if columns := list(self.input_data.columns):
-            if len(columns) != 1:
-                raise IndexError(
-                    "Trying to add a Series, but the filter contains multiple columns of data"
-                )
-            name = columns[0]
-        else:
-            name = series_name
-        index = row[0]
-        values = row[1]
-        self.input_data = pd.concat(
-            [
-                self.input_data,
-                pd.DataFrame.from_dict({index: {name: values}}, orient="index"),
-            ]
-        )
-
-    def add_dataframe(self, new_data: Union[pd.DataFrame, pd.Series]) -> None:
-        if isinstance(new_data, pd.DataFrame) and set(
-            self.input_data.columns
-        ).difference(set(new_data.columns)):
-            raise WrongColumnsException(
-                "Attempting to add data with ",
-                "different columns than the data already ",
-                "present in the filter",
-            )
-        self.input_data = pd.concat([self.input_data, pd.DataFrame(new_data)], axis=0)
+    def add_array_to_input(self, new_input: Union[float, int, npt.NDArray]) -> None:
+        # enforce 2D shape
+        new_input = self.check_array_shape(new_input)  # type: ignore
+        if new_input is None:
+            return
+        if isinstance(new_input, (int, float)):
+            new_input = np.array(new_input).reshape(1, 1)
+        if self.input_data is None:
+            self.input_data = new_input
+            return
+        self.input_data = np.vstack((self.input_data, new_input))
 
     def update_filter(self) -> List[FilterRow]:
         last_full_requirements = self.get_last_full_requirements_index()
+        if last_full_requirements is None:
+            return []
         for _ in range(last_full_requirements - self.current_position + 1):
             self.step()
         return self.results
@@ -215,35 +197,40 @@ class Filter(AbstractDataclass):
             )
         elif position == "front":
             min_index, max_index = current_index + 1, current_index + 1 + size
+        else:
+            raise BadWindowError(
+                "Window position must be one of 'back', 'front', or 'centered'"
+            )
+
         return min_index, max_index
 
-    def get_internal_inputs(self) -> pd.DataFrame:
+    def get_internal_inputs(self) -> Optional[npt.NDArray]:
         min_index, max_index = self.get_window_indices(self.inputs_window)
         if min_index is None or max_index is None:
             return None
-        # we are picking through a dataframe, so the indexing is inclusive.
-        # We must decrement the max by one
-        # max_index -= 1
-        if max_index == min_index:
-            return pd.DataFrame(self.input_data.iloc[min_index])
-        if max_index <= len(self.input_data) and min_index >= 0:
-            return self.input_data.iloc[min_index:max_index]
-        else:
+        if self.input_data is None:
             return None
+        length = len(self.input_data)
+        if max_index > length or min_index < 0:
+            return None
+        return self.input_data[min_index:max_index]
 
     def get_internal_results(self) -> Optional[List[FilterRow]]:
         min_index, max_index = self.get_window_indices(self.results_window)
-        if not min_index or not max_index:
+        length = len(self.results)
+        if min_index is None or max_index is None:
             return None
-        # we are picking through a List here, so the indexing is exclusive.
-        if max_index <= len(self.results) and min_index >= 0:
-            return self.results[min_index:max_index]
-        else:
+        if max_index > length or min_index < 0:
             return None
+        if min_index is None or max_index is None:
+            return None
+        return self.results[min_index:max_index]
 
     def get_last_full_requirements_index(self):
         position = self.inputs_window.position
         size = self.inputs_window.size
+        if self.input_data is None:
+            return -1
         last_index = len(self.input_data) - 1
         if position == "back":
             return last_index
@@ -253,8 +240,8 @@ class Filter(AbstractDataclass):
             return last_index - size
 
     @staticmethod
-    def expand_filter_row(row: FilterRow) -> Dict[str, Union[bool, float]]:
-        expanded_row = {"date": row.date}
+    def expand_filter_row(row: FilterRow) -> Dict[str, Union[bool, float, int]]:
+        expanded_row: Dict[str, Union[bool, float, int]] = {"index": row.index}
         for attr_name in [
             "input_values",
             "inputs_are_outliers",
@@ -283,4 +270,7 @@ class Filter(AbstractDataclass):
                 continue
             else:
                 df[col] = df[col].astype(float)
+        df.set_index("index", inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        df.reset_index(inplace=True)
         return df

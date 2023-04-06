@@ -1,8 +1,7 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 
 from data_filters.protocols import (
     FilterAlgorithm,
@@ -33,7 +32,7 @@ class AlferesAlgorithm(FilterAlgorithm):
     def initial_row(
         self,
         current_observation: float,
-        current_index: Union[pd.DatetimeIndex, int],
+        current_index: int,
         initial_uncertainty: float,
     ) -> FilterRow:
         next_lower_limit = self.calculate_lower_limit(
@@ -43,7 +42,7 @@ class AlferesAlgorithm(FilterAlgorithm):
             current_observation, initial_uncertainty
         )
         return FilterRow(
-            date=current_index,
+            index=current_index,
             input_values=np.array([current_observation]),
             inputs_are_outliers=np.array([False]),
             accepted_values=np.array([current_observation]),
@@ -55,7 +54,7 @@ class AlferesAlgorithm(FilterAlgorithm):
     def step(
         self,
         current_observation: npt.NDArray,
-        current_index: Union[pd.DatetimeIndex, int],
+        current_index: int,
         other_results: Optional[List[FilterRow]],
         other_observations: Optional[Input],
         signal_model: Model,
@@ -90,7 +89,7 @@ class AlferesAlgorithm(FilterAlgorithm):
         )
 
         return FilterRow(
-            date=current_index,
+            index=current_index,
             input_values=current_observation,
             inputs_are_outliers=np.array([not is_accepted]),
             accepted_values=np.array([accepted_value]),

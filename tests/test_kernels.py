@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
+
 from data_filters.config import Parameters
-from data_filters.kernels import EwmaKernel1, EwmaKernel3
+from data_filters.kernels import EwmaKernel1, EwmaKernel3, compute_current_s_stats
 from data_filters.utilities import rmse
 
 
@@ -31,9 +32,13 @@ def test_ewma_forgetting_factor_bounds(order, forgetting_factor):
 
 
 def test_compute_current_s_stat_ewma3():
-    kernel = get_kernel(3, 0.25)
-    kernel.previous_s_stats = np.array([1, 2, 3])
-    result = kernel.compute_current_s_stats(current_value=2)
+    forgetting_factor = 0.25
+    kernel: EwmaKernel3 = get_kernel(3, forgetting_factor)
+    s1 = 1.0
+    s2 = 2.0
+    s3 = 3.0
+    kernel.previous_s_stats = np.array([s1, s2, s3])
+    result = compute_current_s_stats(2, s1, s2, s3, forgetting_factor)
     expected = np.array([1.25, 1.8125, 2.703125])
     assert np.allclose(result, expected)
 

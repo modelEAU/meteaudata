@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+from numba import njit
 from scipy.optimize import minimize
 
 from data_filters import utilities
@@ -15,6 +16,7 @@ from data_filters.protocols import Kernel, Parameters
 from data_filters.utilities import rmse
 
 
+@njit
 def auto_regresive(
     current_value: float, preceding_stat: float, forgetting_factor: float
 ) -> float:
@@ -33,6 +35,42 @@ def to_1item_array(item: Union[float, int, np.number, npt.NDArray]) -> npt.NDArr
     )
 
 
+def compute_current_s_stats(
+    current_value: float,
+    previous_s1: float,
+    previous_s2: float,
+    previous_s3: float,
+    forgetting_factor: float,
+) -> npt.NDArray:
+
+    s = np.empty(shape=3)
+    s[0] = auto_regresive(current_value, previous_s1, forgetting_factor)
+    s[1] = auto_regresive(s[0], previous_s2, forgetting_factor)
+    s[2] = auto_regresive(s[1], previous_s3, forgetting_factor)
+
+    return s
+
+
+@njit
+def compute_c(s1: float, s2: float, s3: float, forgetting_factor: float) -> float:
+    factor = (forgetting_factor / (forgetting_factor - 1)) ** 2
+    return factor * (s1 - 2 * s2 + s3)
+
+
+@njit
+def compute_a(s1: float, s2: float, s3: float) -> float:
+    return 3 * s1 - 3 * s2 + s3
+
+
+@njit
+def compute_b(s1: float, s2: float, s3: float, forgetting_factor: float) -> float:
+    factor = forgetting_factor / (2 * (forgetting_factor - 1) ** 2)
+    term_1 = (6 - 5 * forgetting_factor) * s1
+    term_2 = -2 * (5 - 4 * forgetting_factor) * s2
+    term_3 = (4 - 3 * forgetting_factor) * s3
+    return factor * (term_1 + term_2 + term_3)
+
+
 @dataclass
 class EwmaKernel3(Kernel):
     forgetting_factor: float
@@ -49,53 +87,16 @@ class EwmaKernel3(Kernel):
             )
         self.initialized = False
 
-    def compute_a(self) -> float:
-        s1, s2, s3 = (
-            self.current_s_stats[0],
-            self.current_s_stats[1],
-            self.current_s_stats[2],
-        )
-        return 3 * s1 - 3 * s2 + s3
-
-    def compute_b(self) -> float:
-        s1, s2, s3 = (
-            self.current_s_stats[0],
-            self.current_s_stats[1],
-            self.current_s_stats[2],
-        )
-        forgetting_factor = self.forgetting_factor
-        factor = forgetting_factor / (2 * (forgetting_factor - 1) ** 2)
-        term_1 = (6 - 5 * forgetting_factor) * s1
-        term_2 = -2 * (5 - 4 * forgetting_factor) * s2
-        term_3 = (4 - 3 * forgetting_factor) * s3
-        return factor * (term_1 + term_2 + term_3)
-
-    def compute_c(self) -> float:
-        s1, s2, s3 = (
-            self.current_s_stats[0],
-            self.current_s_stats[1],
-            self.current_s_stats[2],
-        )
-        forgetting_factor = self.forgetting_factor
-        factor = (forgetting_factor / (forgetting_factor - 1)) ** 2
-        return factor * (s1 - 2 * s2 + s3)
-
-    def compute_current_s_stats(self, current_value: float) -> npt.NDArray:
-        previous_s1, previous_s2, previous_s3 = (
+    def update_s_stats(self, current_value: float) -> None:
+        self.previous_s_stats = self.current_s_stats
+        current_s_stats = compute_current_s_stats(
+            current_value,
             self.previous_s_stats[0],
             self.previous_s_stats[1],
             self.previous_s_stats[2],
+            self.forgetting_factor,
         )
-        s1 = auto_regresive(current_value, previous_s1, self.forgetting_factor)
-        s2 = auto_regresive(s1, previous_s2, self.forgetting_factor)
-        s3 = auto_regresive(s2, previous_s3, self.forgetting_factor)
-        result = np.array([s1, s2, s3])
-        self.current_s_stats = result
-        return result
-
-    def update_s_stats(self, current_value: float) -> None:
-        self.previous_s_stats = self.current_s_stats
-        self.current_s_stats = self.compute_current_s_stats(current_value)
+        self.current_s_stats = current_s_stats
 
     def initialize_s_stats(self, seed_value: float) -> None:
         self.previous_s_stats = np.full(shape=3, fill_value=seed_value)
@@ -116,9 +117,21 @@ class EwmaKernel3(Kernel):
         if not self.initialized:
             self.initialize(to_1item_array(input_data[0]))
         self.update_s_stats(input_data[0])
-        a = self.compute_a()
-        b = self.compute_b()
-        c = self.compute_c()
+        a = compute_a(
+            self.current_s_stats[0], self.current_s_stats[1], self.current_s_stats[2]
+        )
+        b = compute_b(
+            self.current_s_stats[0],
+            self.current_s_stats[1],
+            self.current_s_stats[2],
+            self.forgetting_factor,
+        )
+        c = compute_c(
+            self.current_s_stats[0],
+            self.current_s_stats[1],
+            self.current_s_stats[2],
+            self.forgetting_factor,
+        )
         result = np.array([a + b + c / 2])  # predicted value
         return result[:horizon]
 

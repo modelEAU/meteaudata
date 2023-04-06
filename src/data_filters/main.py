@@ -1,12 +1,15 @@
 import argparse
 import datetime
+from typing import Union
 
 import pandas as pd
+
+# import typing information for numpy
+from numpy import ndarray
 
 from data_filters.config import (
     AlgorithmConfig,
     Config,
-    Interval,
     KernelConfig,
     ModelConfig,
     get_config_from_file,
@@ -21,7 +24,9 @@ from data_filters.smoothers import HKernelSmoother
 from data_filters.utilities import combine_smooth_and_univariate
 
 
-def get_ewma_kernel_from_config(configuration: KernelConfig):
+def get_ewma_kernel_from_config(
+    configuration: KernelConfig,
+) -> Union[EwmaKernel1, EwmaKernel3]:
     parameters = configuration.parameters
     forgetting_factor = parameters["forgetting_factor"]
     order = parameters["order"]
@@ -31,6 +36,8 @@ def get_ewma_kernel_from_config(configuration: KernelConfig):
         return EwmaKernel1(forgetting_factor=forgetting_factor)
     elif order == 3:
         return EwmaKernel3(forgetting_factor=forgetting_factor)
+    else:
+        raise ValueError("Only the 1st and 3rd order kernels are available.")
 
 
 def get_signal_model_from_config(configuration: ModelConfig) -> SignalModel:
@@ -81,80 +88,103 @@ def build_smoother_from_config(
         raise ValueError("Only the h-kernel smoother is available currently.")
 
 
-def get_calibration_data_from_df(data: pd.DataFrame, configuration: Interval):
-    return data.loc[configuration.start : configuration.end]
+def clip_data(
+    data: Union[pd.DataFrame, pd.Series], start, end
+) -> Union[pd.DataFrame, pd.Series]:
+    if start is None:
+        raise ValueError("Start date for calibration period is missing.")
+    if end is None:
+        raise ValueError("End date for calibration period is missing.")
+    if isinstance(start, datetime.datetime):
+        start = start.strftime("%Y-%m-%d %H:%M:%S")
+    elif isinstance(start, datetime.date):
+        start = start.strftime("%Y-%m-%d")
+    elif isinstance(start, (str, int, float)):
+        start = start  # type: ignore
+    else:
+        raise ValueError("Start date for calibration period is invalid.")
+
+    if isinstance(end, datetime.datetime):
+        end = end.strftime("%Y-%m-%d %H:%M:%S")
+    elif isinstance(end, datetime.date):
+        end = end.strftime("%Y-%m-%d")
+    elif isinstance(end, (str, int, float)):
+        end = end  # type: ignore
+    else:
+        raise ValueError("End date for calibration period is invalid.")
+    return data.loc[start:end]  # type: ignore
 
 
 def filter_data(
-    data: pd.DataFrame,
-    calibration_period: Interval,
+    data: ndarray,
+    calibration_data: ndarray,
     filter_runner: Filter,
 ) -> pd.DataFrame:
-    calibration_data = get_calibration_data_from_df(data, calibration_period)
 
     filter_runner.calibrate_models(calibration_data)
 
-    filter_runner.add_dataframe(data)
+    filter_runner.add_array_to_input(data)
 
     filter_runner.update_filter()
 
     return filter_runner.to_dataframe()
 
 
-def smooth_filtered_data(filtered_data: pd.DataFrame, smoother: Filter) -> pd.DataFrame:
-    to_smooth = filtered_data[["date", "accepted_values"]].set_index("date")
-    smoother.add_dataframe(to_smooth)
+def smooth_filtered_data(filtered_array: ndarray, smoother: Filter) -> pd.DataFrame:
+    smoother.add_array_to_input(filtered_array)
     smoother.update_filter()
     return smoother.to_dataframe()
 
 
 def univariate_process(
-    raw_data: pd.DataFrame,
-    calibration_period: Interval,
+    raw_data: ndarray,
+    calibration_data: ndarray,
     filter_runner: Filter,
     smoother: Filter,
 ) -> pd.DataFrame:
-    filter_results = filter_data(raw_data, calibration_period, filter_runner)
 
-    smoother_results = smooth_filtered_data(filter_results, smoother)
+    filter_results = filter_data(raw_data, calibration_data, filter_runner)
+    to_smooth = filter_results["accepted_values"].to_numpy()
+
+    smoother_results = smooth_filtered_data(to_smooth, smoother)
 
     return combine_smooth_and_univariate(smoother_results, filter_results)
 
 
-def clip_data(df: pd.DataFrame, filtration_period: Interval) -> pd.DataFrame:
-    if filtration_period.start is None and filtration_period.end is None:
-        return df
-    elif filtration_period.start is None:
-        return df.loc[: filtration_period.end]
-    elif filtration_period.end is None:
-        df.loc[filtration_period.start :]
-    return df.loc[filtration_period.start : filtration_period.end]
-
-
 def run_filter(
-    df: pd.DataFrame, config_filepath: str, produce_plot: bool
+    series: pd.Series, config_filepath: str, produce_plot: bool
 ) -> None:  # sourcery skip: move-assign
     configuration = get_config_from_file(config_filepath)
-
+    if not series.index.is_monotonic_increasing:
+        series = series.sort_index()
     # initialize filter and smoother objects with parameters
     filter_runner = build_filter_runner_from_config(configuration)
     smoother = build_smoother_from_config(configuration)
 
-    # apply filter and smoother to a dummy time series for demonstration purposes
-    data = clip_data(df, configuration.filtration_period)
-    if isinstance(data, pd.DataFrame):
-        signal_name = list(data.columns)[0]
-    else:  # series
-        signal_name = data.name
+    filtration_start = configuration.filtration_period.start
+    filtration_end = configuration.filtration_period.end
+    if filtration_start is None:
+        filtration_start = series.index[0]
+    if filtration_end is None:
+        filtration_end = series.index[-1]
+    data = clip_data(series, filtration_start, filtration_end)
 
-    results = univariate_process(
-        data, configuration.calibration_period, filter_runner, smoother
-    )
+    signal_name = str(data.name)
+    data = data[~data.index.duplicated(keep="first")]
+    data_indices = data.index
+    data_array = data.to_numpy()
+
+    calibration_start = configuration.calibration_period.start
+    calibration_end = configuration.calibration_period.end
+    calibration_data = clip_data(series, calibration_start, calibration_end).to_numpy()
+
+    results = univariate_process(data_array, calibration_data, filter_runner, smoother)
+    data = pd.DataFrame(results, index=data_indices)
 
     if produce_plot:
         plotter = UnivariatePlotter(signal_name=signal_name, df=results)
         fig = plotter.plot(title=f"Smoother results: {signal_name}")
-        timestamp = datetime.datetime.now().isoformat()
+        timestamp = datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S")
         fig.write_html(f"{signal_name}_{timestamp}.html")
         fig.show()
 
@@ -193,27 +223,16 @@ if __name__ == "__main__":
     config_path = args.config
     produce_plot = bool(args.plot)
 
-    if "loes" in filepath:
-        df = pd.read_csv(
-            filepath,
-            sep="\t",
-            header=2,
-            index_col=0,
-            usecols=[0, column_index],
-            parse_dates=True,
-        )
-        df = pd.DataFrame(df.iloc[2:])
-        df.index = df.index.astype(float)
-    else:
-        df = pd.read_csv(
-            filepath,
-            header=0,
-            index_col=0,
-            usecols=[0, column_index],
-            parse_dates=True,
-        )
+    df = pd.read_csv(
+        filepath,
+        header=0,
+        index_col=0,
+        usecols=[0, column_index],
+        parse_dates=True,
+    )
+    series = df.iloc[:, 0].dropna()
     run_filter(
-        df=df,
+        series=series,
         config_filepath=config_path,
         produce_plot=produce_plot,
     )

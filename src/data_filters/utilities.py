@@ -1,8 +1,9 @@
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+from numba import njit
 
 
 def shapes_are_equivalent(shape_a: Tuple, shape_b: Tuple) -> bool:
@@ -11,14 +12,16 @@ def shapes_are_equivalent(shape_a: Tuple, shape_b: Tuple) -> bool:
     )
 
 
+@njit(fastmath=True)
 def calculate_error(
     prediction: Union[float, npt.NDArray], observed: Union[float, npt.NDArray]
 ) -> Union[float, npt.NDArray]:
     return np.abs(prediction - observed)
 
 
+@njit(fastmath=True)
 def rmse(observed: npt.NDArray, predicted: npt.NDArray) -> float:
-    return np.sqrt(np.mean((calculate_error(predicted, observed)) ** 2))
+    return np.sqrt(np.mean((predicted - observed) ** 2))
 
 
 def replace_with_null(item: Any) -> Any:
@@ -41,65 +44,32 @@ def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def align_results_in_time(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    time_delta = (
-        df.loc[max(df.index), "date"] - df.loc[max(df.index) - 1, "date"]
-    ).total_seconds()
-    df.loc[max(df.index) + 1] = df.loc[max(df.index)].apply(replace_with_null)
-    if prediction_columns := [col for col in df.columns if "predicted" in col]:
-        df.loc[:, prediction_columns] = df[prediction_columns].shift(1)
-    df.loc[max(df.index), "date"] = df.loc[max(df.index) - 1, "date"] + pd.to_timedelta(
-        time_delta, "s"
-    )
-    return df
-
-
 def combine_smooth_and_univariate(
     smooth_df: pd.DataFrame, univariate_df: pd.DataFrame
 ) -> pd.DataFrame:
-    smooth_df = smooth_df.dropna(subset=["date"])
+    smooth_df = smooth_df.copy()
+    univariate_df = univariate_df.copy()
     if "input_values" in smooth_df.columns:
         smooth_df.drop(["input_values"], axis=1, inplace=True)
-    return (
-        pd.merge(smooth_df, univariate_df, how="outer", on="date")
-        .sort_values("date")
-        .reset_index(drop=True)
-    )
+    smooth_df.set_index("index", inplace=True)
+    univariate_df.set_index("index", inplace=True)
+    return pd.concat([smooth_df, univariate_df], axis=1)
 
 
 def mirror(
-    df: Union[pd.DataFrame, pd.Series],
-    first_date: Optional[str] = None,
-    last_date: Optional[str] = None,
-) -> pd.DataFrame:
-    is_series = isinstance(df, pd.Series)
-    series_name = ""
-    if is_series:
-        series_name = df.name
-        df = pd.DataFrame(df)
-    df = df.copy()
+    series: pd.Series,
+    first_index: Union[str, int],
+    last_index: Union[str, int],
+) -> pd.Series:
 
-    if not isinstance(df.index, pd.DatetimeIndex):
-        raise TypeError("DataFrame should be index by time")
-    if df.index.freqstr != "D":
-        raise ValueError("Index frequency should be 'D'")
+    series = series.copy()
 
-    if first_date:
-        first_date = pd.to_datetime(first_date, format="%Y-%m-%d")
-        df = df.loc[df.index > first_date]
-    if last_date:
-        last_date = pd.to_datetime(last_date, format="%Y-%m-%d")
-        df = df.loc[df.index < last_date]
+    series = series[first_index:last_index]  # type: ignore
 
-    index_name = df.index.name
-    df = df.reset_index()
-    reversed_df = df[::-1].copy()
-    reversed_df[index_name] = reversed_df[index_name] - 2 * pd.to_timedelta(
-        reversed_df.index, unit="D"
-    )
-    reversed_df = reversed_df.iloc[:-1]
-    result = pd.concat([reversed_df, df], axis=0)
-    result.set_index(index_name, inplace=True)
-    result = result.asfreq("D")
-    return result[series_name] if is_series else result
+    reversed_series = series[::-1].copy()
+
+    reversed_series = reversed_series[:-1]
+    result = pd.concat([reversed_series, series])
+    result = result.reset_index(drop=True)
+
+    return result

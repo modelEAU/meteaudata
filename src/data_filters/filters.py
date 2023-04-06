@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
+import numpy.typing as npt
 
 from data_filters.config import Parameters
 from data_filters.protocols import (
@@ -24,7 +24,7 @@ class AlferesFilter(Filter):
     uncertainty_model: UncertaintyModel
     control_parameters: Parameters
     current_position: int = field(default=0)
-    input_data: pd.Series = field(default=pd.DataFrame())
+    input_data: Optional[npt.NDArray] = field(default=None)
     results: List[FilterRow] = field(default_factory=list)
     results_window: Window = field(
         default=Window(source="results", size=1, position="back")
@@ -57,13 +57,11 @@ class AlferesFilter(Filter):
         input_data = self.get_internal_inputs()
         if input_data is None:
             raise ValueError("Input data should have be returned but none was found.")
-        line = input_data.iloc[0]
-        index = input_data.index[0]
-        observations = line.values
+
         previous_results = self.get_internal_results()
         result = self.algorithm.step(
-            current_observation=np.array(observations),
-            current_index=index,
+            current_observation=input_data,
+            current_index=self.current_position,
             other_results=previous_results,
             other_observations=None,
             signal_model=self.signal_model,
@@ -84,12 +82,13 @@ class AlferesFilter(Filter):
 
     def update_filter(self) -> List[FilterRow]:
         last_full_requirements = self.get_last_full_requirements_index()
+        if last_full_requirements is None:
+            return []
         for _ in range(last_full_requirements - self.current_position + 1):
             self.step()
         return self.results
 
-    def calibrate_models(self, calibration_series: pd.Series) -> None:
-        calibration_data = calibration_series.to_numpy()
+    def calibrate_models(self, calibration_data: np.ndarray) -> None:
         predicted_calibration_signal = self.signal_model.calibrate(calibration_data)
         predicted_calibration_signal = predicted_calibration_signal.reshape(
             -1,
@@ -117,7 +116,7 @@ class AlferesFilter(Filter):
     @classmethod
     def get_new_instance_for_recovery(
         cls,
-        input_data: pd.Series,
+        input_data: npt.NDArray,
         algorithm: FilterAlgorithm,
         signal_model: Model,
         uncertainty_model: UncertaintyModel,
@@ -133,6 +132,8 @@ class AlferesFilter(Filter):
         )
 
     def calculate_out_of_control_positions(self) -> Tuple[int, int]:
+        if self.input_data is None:
+            raise ValueError("There is no input data in the filter.")
         highest_index = min(self.current_position, len(self.input_data))
         lowest_index = max(
             self.current_position - self.control_parameters["n_steps_back"], 0
@@ -167,6 +168,8 @@ class AlferesFilter(Filter):
         if not self.out_of_control_positions:
             raise ValueError("The out-of-control range is not defined.")
         low_index, high_index = self.out_of_control_positions
+        if self.input_data is None:
+            raise ValueError("There is no input data in the filter.")
         last_valid_index = len(self.input_data) - 1
         n_warmup_steps = (
             self.control_parameters["n_warmup_steps"]
@@ -178,7 +181,7 @@ class AlferesFilter(Filter):
         )
         high_index = high_index + n_warmup_steps
 
-        backwards_data = self.input_data.iloc[low_index : high_index + 1][::-1]
+        backwards_data = self.input_data[low_index : high_index + 1][::-1]
         backwards_results = self.apply_sub_filter(backwards_data)
         results = list(reversed(backwards_results))
         # results = self.shift_predictions_to_back(results)
@@ -198,8 +201,9 @@ class AlferesFilter(Filter):
             else low_index
         )
         low_index = low_index - n_warmup_steps
-
-        forwards_data = self.input_data.iloc[low_index : high_index + 1]
+        if self.input_data is None:
+            raise ValueError("There is no input data in the filter.")
+        forwards_data = self.input_data[low_index : high_index + 1]
         return self.apply_sub_filter(forwards_data)[n_warmup_steps:]
 
     def apply_sub_filter(self, input_data) -> List[FilterRow]:

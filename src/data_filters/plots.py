@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
 
-from data_filters.utilities import align_results_in_time, apply_observations_to_outliers
+from data_filters.utilities import apply_observations_to_outliers
 
 pio.templates.default = "plotly_white"
 
@@ -70,8 +70,8 @@ def add_traces_to_other_plot(
 
 def plot_array(
     data: npt.NDArray,
-    series_name: str = None,
-    plot_title: Optional[str] = None,
+    series_name: str = "series",
+    plot_title: str = "title",
     template: Literal["presentation", "plotly_white"] = "plotly_white",
 ) -> go.Figure:
     fig = go.Figure()
@@ -87,6 +87,7 @@ def plot_array(
     fig.add_trace(scatter)
     layout = get_default_plot_elements(template=template)
     fig.update_layout(layout)
+    fig.update_layout(title=plot_title)
     return fig
 
 
@@ -106,10 +107,9 @@ class UnivariatePlotter:
 
     def __post_init__(self):
         if not self.df.empty:
-            self.df = align_results_in_time(self.df)
             self.df = apply_observations_to_outliers(self.df)
         self.plot_data = self.df
-        self.x = self.plot_data["date"]
+        self.x = self.plot_data.index
         self.names = get_clean_column_names(self.language)
 
     def lower_limit(self) -> Optional[go.Trace]:
@@ -229,7 +229,7 @@ class UnivariatePlotter:
             title = f"{title_start}: {self.signal_name}"
         fig.update_layout(
             title=title,
-            xaxis=dict(title="Date"),
+            xaxis=dict(title="Index"),
             yaxis=dict(title="Value" if self.language == "english" else "Valeur"),
         )
         return fig
