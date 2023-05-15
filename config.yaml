@@ -1,7 +1,7 @@
 config_name: sample_config
 calibration_period:
-  start: 2022-04-02
-  end: 2022-04-04
+  start: 2022-05-02
+  end: 2022-05-20
 filtration_period:
   start: null
   end: null

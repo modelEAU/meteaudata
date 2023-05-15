@@ -7,13 +7,13 @@ from numba import njit
 from scipy.optimize import minimize
 
 from data_filters import utilities
-from data_filters.exceptions import (
-    InputShapeException,
-    InvalidHorizonException,
-    WrongDimensionsError,
-)
+from data_filters.exceptions import (InputShapeException,
+                                     InvalidHorizonException,
+                                     WrongDimensionsError)
 from data_filters.protocols import Kernel, Parameters
 from data_filters.utilities import rmse
+
+EPSILON = 1e-8
 
 
 @njit
@@ -53,7 +53,7 @@ def compute_current_s_stats(
 
 @njit
 def compute_c(s1: float, s2: float, s3: float, forgetting_factor: float) -> float:
-    factor = (forgetting_factor / (forgetting_factor - 1)) ** 2
+    factor = (forgetting_factor / (forgetting_factor - 1 + EPSILON)) ** 2
     return factor * (s1 - 2 * s2 + s3)
 
 
@@ -64,7 +64,7 @@ def compute_a(s1: float, s2: float, s3: float) -> float:
 
 @njit
 def compute_b(s1: float, s2: float, s3: float, forgetting_factor: float) -> float:
-    factor = forgetting_factor / (2 * (forgetting_factor - 1) ** 2)
+    factor = forgetting_factor / (2 * (forgetting_factor - 1 + EPSILON) ** 2)
     term_1 = (6 - 5 * forgetting_factor) * s1
     term_2 = -2 * (5 - 4 * forgetting_factor) * s2
     term_3 = (4 - 3 * forgetting_factor) * s3
