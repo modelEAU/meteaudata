@@ -50,6 +50,5 @@ Additional arguments can be added at the end of this command to modify the behav
 
 `--index`: Used to indicate which column of the csv file to filter. By default, the value is `1`. The 0th column is assumed to be the time column.
 
-`--config` : Used to point to the config file of your choice. By default, it will point to the config file at the root of this repo (which contains default values.
+`--plot`: Indicates whether you want the script to output a plot of the results. Use with values `0` or `1`
 
-`--plot`: Indicates whether you want the script to output a plot of the results. Use with values `1` (true) or `0` (false)
