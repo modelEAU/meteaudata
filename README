@@ -46,9 +46,10 @@ python ./src/data_filters/main.py --file /path/to/source/data/file.csv
 
 Additional arguments can be added at the end of this command to modify the behavior of the script:
 
-`--index`: Used to indicate which column of the csv file contains the index of the data. By default, the value is `0`.
+`--file`: Used to point to the file you want to filter.
+
+`--index`: Used to indicate which column of the csv file to filter. By default, the value is `1`. The 0th column is assumed to be the time column.
 
 `--config` : Used to point to the config file of your choice. By default, it will point to the config file at the root of this repo (which contains default values.
 
-`--plot`: Indicates whether you want the script to output a plot of the results. Use with values `"true"` or `"false"`
-
+`--plot`: Indicates whether you want the script to output a plot of the results. Use with values `1` (true) or `0` (false)
