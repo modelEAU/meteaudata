@@ -142,7 +142,8 @@ def univariate_process(
     filter_runner: Filter,
     smoother: Filter,
 ) -> pd.DataFrame:
-
+    if len(raw_data) == 0 or len(calibration_data) == 0:
+        raise ValueError("No data to process.")
     filter_results = filter_data(raw_data, calibration_data, filter_runner)
     to_smooth = filter_results["accepted_values"].to_numpy()
 
@@ -199,7 +200,7 @@ if __name__ == "__main__":
         "-f",
         "--file",
         type=str,
-        default="tests/loes-data/Qair.txt",
+        default="tests/sample_data/03-MeasuredPascal.csv",
         help="file to load data from",
     )  # noqa
     parser.add_argument(
@@ -209,7 +210,7 @@ if __name__ == "__main__":
         "-c",
         "--config",
         type=str,
-        default="config-loes.yaml",
+        default="../../config.yaml",
         help="Path to the configuration file used.",
     )  # noqa
     parser.add_argument(
@@ -230,7 +231,8 @@ if __name__ == "__main__":
         usecols=[0, column_index],
         parse_dates=True,
     )
-    series = df.iloc[:, 0].dropna()
+    df.iloc[:, column_index-1] = pd.to_numeric(df.iloc[:, column_index-1], errors="coerce")
+    series = df.iloc[:, column_index-1].dropna()
     run_filter(
         series=series,
         config_filepath=config_path,
