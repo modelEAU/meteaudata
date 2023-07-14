@@ -6,6 +6,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import plotly.io as pio
 
 from data_filters.utilities import apply_observations_to_outliers
@@ -44,6 +45,58 @@ CLEAN_NAMES = {
     "smoothed": {
         "english": "Smoothed",
         "french": "Lissé",
+    },
+    "slope": {
+        "english": "Slope",
+        "french": "Pente",
+    },
+    "slope_test": {
+        "english": "Slope",
+        "french": "Pente",
+    },
+    "failed_slope_test": {
+        "english": "Failed Slope Test",
+        "french": "Test de Pente Échoué",
+    },
+    "residuals": {
+        "english": "Residuals",
+        "french": "Résidus",
+    },
+    "residuals_test": {
+        "english": "Residuals",
+        "french": "Résidus",
+    },
+    "range_test": {
+        "english": "Range",
+        "french": "Plage",
+    },
+    "failed_residuals_test": {
+        "english": "Failed Residuals Test",
+        "french": "Test de Résidus Échoué",
+    },
+    "correlation_score": {
+        "english": "Residual Correlation Score",
+        "french": "Score de Corrélation des Résiduels",
+    },
+    "correlation_test": {
+        "english": "Residuals Correlation Score",
+        "french": "Score de Corrélation des Résiduels",
+    },
+    "failed_correlation_test": {
+        "english": "Failed Signs Correlation Test",
+        "french": "Test de Corrélation des Signes Échoué",
+    },
+    "failed_range_test": {
+        "english": "Failed Range Test",
+        "french": "Test de Plage Échoué",
+    },
+    "accepted": {
+        "english": "Accepted",
+        "french": "Filtré",
+    },
+    "rejected": {
+        "english": "Rejected",
+        "french": "Rejeté",
     },
 }
 
@@ -94,7 +147,6 @@ def plot_array(
 def get_clean_column_names(
     language: Literal["french", "english"] = "english"
 ) -> Dict[str, str]:
-
     return {x: CLEAN_NAMES[x][language] for x in CLEAN_NAMES}
 
 
@@ -112,7 +164,7 @@ class UnivariatePlotter:
         self.x = self.plot_data.index
         self.names = get_clean_column_names(self.language)
 
-    def lower_limit(self) -> Optional[go.Trace]:
+    def lower_limit(self) -> Optional[go.Scatter]:
         if "predicted_lower_limits" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -124,7 +176,7 @@ class UnivariatePlotter:
             showlegend=False,
         )
 
-    def upper_limit(self) -> Optional[go.Trace]:
+    def upper_limit(self) -> Optional[go.Scatter]:
         if "predicted_upper_limits" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -138,7 +190,7 @@ class UnivariatePlotter:
             showlegend=True,
         )
 
-    def input_values(self) -> Optional[go.Trace]:
+    def input_values(self) -> Optional[go.Scatter]:
         if "input_values" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -150,7 +202,7 @@ class UnivariatePlotter:
             showlegend=True,
         )
 
-    def predicted_values(self) -> Optional[go.Trace]:
+    def predicted_values(self) -> Optional[go.Scatter]:
         if "predicted_values" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -162,7 +214,7 @@ class UnivariatePlotter:
             showlegend=True,
         )
 
-    def outlier_values(self) -> Optional[go.Trace]:
+    def outlier_values(self) -> Optional[go.Scatter]:
         if "outlier_values" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -175,7 +227,7 @@ class UnivariatePlotter:
             showlegend=True,
         )
 
-    def accepted_values(self) -> Optional[go.Trace]:
+    def accepted_values(self) -> Optional[go.Scatter]:
         if "accepted_values" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -187,7 +239,7 @@ class UnivariatePlotter:
             showlegend=True,
         )
 
-    def smoothed(self) -> Optional[go.Trace]:
+    def smoothed(self) -> Optional[go.Scatter]:
         if "smoothed" not in self.plot_data.columns:
             return None
         return go.Scatter(
@@ -199,7 +251,7 @@ class UnivariatePlotter:
             showlegend=True,
         )
 
-    def plot(
+    def plot_outlier_results(
         self, series_names: Optional[List[str]] = None, title: Optional[str] = None
     ) -> go.Figure:
         fig = go.Figure()
@@ -232,4 +284,172 @@ class UnivariatePlotter:
             xaxis=dict(title="Index"),
             yaxis=dict(title="Value" if self.language == "english" else "Valeur"),
         )
+        return fig
+
+    def plot_quality_test_result(
+        self,
+        test_name: Literal[
+            "slope_test", "range_test", "correlation_test", "residuals_test"
+        ],
+        min_value,
+        max_value,
+        title: Optional[str] = None,
+    ) -> go.Figure:
+        col_lookup = {
+            "slope_test": {
+                "value": "slope",
+                "failed_test": "failed_slope_test",
+            },
+            "range_test": {
+                "value": "smoothed",
+                "failed_test": "failed_range_test",
+            },
+            "correlation_test": {
+                "value": "correlation_score",
+                "failed_test": "failed_correlation_test",
+            },
+            "residuals_test": {
+                "value": "residuals",
+                "failed_test": "failed_residuals_test",
+            },
+        }
+
+        if test_name not in col_lookup.keys():
+            raise ValueError(
+                f"test_name must be one of {list(col_lookup)} but got {test_name}"
+            )
+
+        # Create subplot with 2 y-axes
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+        fig.update_layout(get_default_plot_elements(self.template))
+
+        df = self.df
+        # if the test is the range test, don't plot the accepted values here
+        if test_name in ["correlation_test", "slope_test"]:
+            # Line for smoothed data
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df["smoothed"],
+                    mode="lines",
+                    name=CLEAN_NAMES["smoothed"][self.language],
+                ),
+                secondary_y=False,
+            )
+        if test_name == ["correlation_test"]:
+            # Line for smoothed data
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df["accepted_values"],
+                    mode="lines",
+                    name=CLEAN_NAMES["accepted_values"][self.language],
+                ),
+                secondary_y=False,
+            )
+
+        # if the test is the signs test or the slope test, we plot the absolute values
+        if test_name in ["correlation_test", "slope_test", "residuals_test"]:
+            df[col_lookup[test_name]["value"]] = np.abs(
+                df[col_lookup[test_name]["value"]]
+            )
+        # Scatter plot for slope with color depending on 'failed_slope_test'
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df[col_lookup[test_name]["value"]],
+                mode="markers",
+                name=CLEAN_NAMES[test_name][self.language],
+                marker=dict(
+                    color=df[col_lookup[test_name]["failed_test"]].map(
+                        {True: "red", False: "green"}
+                    ),  # Map 'failed_slope_test' to colors
+                    size=7,
+                ),
+            ),
+            secondary_y=test_name in ["slope_test", "correlation_test"],
+        )
+
+        # Add constant lines for min_slope and max_slope
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=[min_value] * np.ones(len(df.index)),
+                mode="lines",
+                name="Min",
+                marker=dict(
+                    color="red",
+                ),
+            ),
+            secondary_y=test_name in ["slope_test", "correlation_test"],
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=max_value * np.ones(len(df.index)),
+                mode="lines",
+                name="Max",
+                marker=dict(
+                    color="red",
+                    # make it dashed
+                ),
+            ),
+            secondary_y=test_name in ["slope_test", "correlation_test"],
+        )
+        # Set titles
+        fig.update_layout(
+            title_text=f"{test_name.title()} results for {self.signal_name}"
+        )
+
+        fig.update_yaxes(title_text="Accepted Values", secondary_y=False)
+
+        if test_name in ["slope_test", "correlation_test"]:
+            fig.update_yaxes(
+                title_text=CLEAN_NAMES[col_lookup[test_name]["value"]][self.language],
+                secondary_y=True,
+            )
+
+        return fig
+
+    def plot_original_and_final_data(
+        self,
+    ) -> go.Figure:
+        df = self.df
+
+        fig = go.Figure()
+        fig.update_layout(get_default_plot_elements(self.template))
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df["input_values"],
+                mode="lines",
+                name=CLEAN_NAMES["input_values"][self.language],
+                marker=dict(
+                    color="blue",
+                ),
+            ),
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df["accepted"],
+                mode="markers",
+                name=CLEAN_NAMES["accepted"][self.language],
+                marker=dict(
+                    color="green",
+                ),
+            ),
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=df.index,
+                y=df["rejected"],
+                mode="markers",
+                name=CLEAN_NAMES["rejected"][self.language],
+                marker=dict(
+                    color="red",
+                ),
+            ),
+        )
+        fig.update_layout(title_text=f"Original and Final Data for {self.signal_name}")
         return fig

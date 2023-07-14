@@ -9,7 +9,7 @@ from data_filters.kernels import EwmaKernel1, EwmaKernel3
 from data_filters.models import EwmaUncertaintyModel, SignalModel
 from data_filters.plots import UnivariatePlotter
 from data_filters.smoothers import new_kernel_smoother
-from data_filters.utilities import combine_smooth_and_univariate
+from data_filters.utilities import combine_filter_results
 
 FILE = "signal.csv"
 CONTROL = {
@@ -85,16 +85,14 @@ def main():
 
         filter_results = filter_obj.to_dataframe()
         smoother_results = smoother.to_dataframe()
-        results = combine_smooth_and_univariate(smoother_results, filter_results).iloc[
-            :-200
-        ]
+        results = combine_filter_results(smoother_results, filter_results).iloc[:-200]
         plotter = UnivariatePlotter(
             signal_name="Fake signal",
             df=results,
             template="plotly_white",
             language="english",
         )
-        fig = plotter.plot()
+        fig = plotter.plot_outlier_results()
         with open("fig.json", "w") as f:
             f.write(pio.to_json(fig))
         time.sleep(5)

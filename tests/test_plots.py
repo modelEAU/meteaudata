@@ -38,4 +38,4 @@ def test_plot_results(language):
     plotter = UnivariatePlotter(
         signal_name="dirty sine + shift", df=df, language="english"
     )
-    plotter.plot(title="dirty sine + shift")  # .show()
+    plotter.plot_outlier_results(title="dirty sine + shift")  # .show()

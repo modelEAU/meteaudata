@@ -19,7 +19,7 @@ uncertainty_model:
     name: ewma
     parameters:
       order: 1
-      forgetting_factor: null
+      forgetting_factor: 0.9
   parameters:
     initial_uncertainty: 1
     minimum_uncertainty: 1
@@ -37,3 +37,28 @@ smoother:
   name: h_kernel
   parameters:
     size: 2
+slope_test:
+  name: linear_regression
+  parameters:
+    min_slope: 0.01
+    max_slope: 1.0
+    window_size: 5
+residuals_test:
+  name: smoothing_residuals
+  parameters:
+    min_residual: 0.0
+    max_residual: 3.0
+range_test:
+  name: simple_range
+  parameters:
+    min_value: 0
+    max_value: 16
+correlation_test:
+  #name: alferes_sign_correlation_score
+  name: durbin_watson
+  parameters:
+    min_score: 0.8
+    max_score: 3.2
+    window_size: 10
+
+

@@ -104,5 +104,4 @@ class HKernelSmoother(Filter):
         expanded_results = [self.expand_filter_row(result) for result in self.results]
         df = pd.DataFrame(expanded_results)
         df = df[["index", "input_values", "accepted_values"]]
-        df = df.rename(columns={"accepted_values": "smoothed"})
-        return df
+        return df.rename(columns={"accepted_values": "smoothed"})

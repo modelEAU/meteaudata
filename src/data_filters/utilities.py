@@ -44,16 +44,16 @@ def apply_observations_to_outliers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def combine_smooth_and_univariate(
-    smooth_df: pd.DataFrame, univariate_df: pd.DataFrame
-) -> pd.DataFrame:
-    smooth_df = smooth_df.copy()
-    univariate_df = univariate_df.copy()
-    if "input_values" in smooth_df.columns:
-        smooth_df.drop(["input_values"], axis=1, inplace=True)
-    smooth_df.set_index("index", inplace=True)
-    univariate_df.set_index("index", inplace=True)
-    return pd.concat([smooth_df, univariate_df], axis=1)
+def combine_filter_results(main_df: pd.DataFrame, new_df: pd.DataFrame) -> pd.DataFrame:
+    new_df = new_df.copy()
+    main_df = main_df.copy()
+    if "input_values" in new_df.columns:
+        new_df.drop(["input_values"], axis=1, inplace=True)
+    if "index" in main_df.columns:
+        main_df.set_index("index", inplace=True)
+    if "index" in new_df.columns:
+        new_df.set_index("index", inplace=True)
+    return pd.concat([main_df, new_df], axis=1)
 
 
 def mirror(
@@ -61,7 +61,6 @@ def mirror(
     first_index: Union[str, int],
     last_index: Union[str, int],
 ) -> pd.Series:
-
     series = series.copy()
 
     series = series[first_index:last_index]  # type: ignore

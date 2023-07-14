@@ -58,6 +58,10 @@ class Config(BaseModel):
     filter_algorithm: AlgorithmConfig
     filter_runner: FilterConfig
     smoother: SmootherConfig
+    slope_test: FilterConfig
+    residuals_test: FilterConfig
+    range_test: FilterConfig
+    correlation_test: FilterConfig
 
 
 def get_config_from_file(path: str) -> Config:

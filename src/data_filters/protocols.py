@@ -217,14 +217,14 @@ class Filter(AbstractDataclass):
 
     def get_internal_results(self) -> Optional[List[FilterRow]]:
         min_index, max_index = self.get_window_indices(self.results_window)
+        if min_index is None or max_index is None:
+            return None
         length = len(self.results)
-        if min_index is None or max_index is None:
-            return None
-        if max_index > length or min_index < 0:
-            return None
-        if min_index is None or max_index is None:
-            return None
-        return self.results[min_index:max_index]
+        return (
+            None
+            if max_index > length or min_index < 0
+            else self.results[min_index:max_index]
+        )
 
     def get_last_full_requirements_index(self):
         position = self.inputs_window.position
