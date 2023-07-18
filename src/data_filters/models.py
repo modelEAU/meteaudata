@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Optional, Union
 
 import numpy as np
@@ -13,6 +13,7 @@ from data_filters.protocols import Kernel, Model, UncertaintyModel
 @dataclass
 class SignalModel(Model):
     kernel: Kernel
+    horizon: int = field(default=1, init=True)
 
     def calibrate(
         self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
@@ -27,7 +28,7 @@ class SignalModel(Model):
                 "The model has not been calibrated yet. "
                 "Please calibrate the model on a validated data deries."
             )
-        return self.kernel.predict(input_data, horizon=1)
+        return self.kernel.predict(input_data, horizon=self.horizon)
 
     def reset(self):
         self.kernel.reset_state()
@@ -109,7 +110,7 @@ def objective_initial_uncertainty(
     if objective == "rmse":
         return np.abs(initial_uncertainty - np.mean(predicted_deviations))
     elif objective == "minimum uncertainty":
-        return np.median(predicted_deviations)
+        return np.median(predicted_deviations).item()
 
 
 def optimize_initial_uncertainty(

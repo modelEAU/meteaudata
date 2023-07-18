@@ -106,7 +106,7 @@ class FilterAlgorithm(Protocol):
         other_results: Optional[List[FilterRow]],
         other_observations: Optional[Input],
         signal_model: Model,
-        uncertainty_model: UncertaintyModel,
+        uncertainty_model: Optional[UncertaintyModel],
     ) -> FilterRow:
         ...
 
@@ -250,10 +250,12 @@ class Filter(AbstractDataclass):
             "predicted_upper_limits",
             "predicted_lower_limits",
         ]:
-            attr_values = list(getattr(row, attr_name))
-            if len(attr_values) == 1:
-                expanded_name = attr_name
-                expanded_row[expanded_name] = attr_values[0]
+            attr_values = getattr(row, attr_name)
+            if isinstance(attr_values, np.ndarray):
+                attr_values = attr_values.flatten()
+            n_values = len(attr_values)
+            if n_values == 1:
+                expanded_row[attr_name] = attr_values[0]
             else:
                 for i, value in enumerate(attr_values):
                     expanded_name = f"{attr_name}_{i+1}"

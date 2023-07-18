@@ -60,5 +60,21 @@ correlation_test:
     min_score: 0.8
     max_score: 3.2
     window_size: 10
+pca_model:
+  name: pca
+  kernel:
+    name: svd
+    parameters:
+      n_components: 2
+      min_explained_variance: 0.5
+hotelling_test:
+  name: t2_test
+  parameters:
+    alpha: 0.05
+q_residuals_test:
+  name: q_test
+  parameters:
+    alpha: 0.05
+    
 
 

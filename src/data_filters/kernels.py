@@ -1,10 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
 from numba import njit
 from scipy.optimize import minimize
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from data_filters import utilities
 from data_filters.exceptions import (
@@ -44,8 +46,6 @@ def compute_current_s_stats(
     previous_s3: float,
     forgetting_factor: float,
 ) -> npt.NDArray:
-    if forgetting_factor is None:
-        forgetting_factor = 0
     s = np.empty(shape=3)
     s[0] = auto_regresive(current_value, previous_s1, forgetting_factor)
     s[1] = auto_regresive(s[0], previous_s2, forgetting_factor)
@@ -114,7 +114,7 @@ class EwmaKernel3(Kernel):
     def reset_state(self):
         self.__post_init__()
 
-    def _predict_step(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
+    def predict_step(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
         if not utilities.shapes_are_equivalent(input_data.shape, self.input_shape):
             raise InputShapeException(
                 f"Prediction step requires shape (1,) and was given {input_data.shape}."
@@ -152,7 +152,7 @@ class EwmaKernel3(Kernel):
         n_steps = input_data.shape[0]
         result_array = np.full(shape=(n_steps, horizon), fill_value=np.nan)
         for i in range(n_steps):
-            result_array[i] = self._predict_step(input_data[i, :], horizon=horizon)
+            result_array[i] = self.predict_step(input_data[i, :], horizon=horizon)
         return result_array
 
     def calibrate(
@@ -194,7 +194,7 @@ class EwmaKernel1(Kernel):
         self.last_prediction = initial_values
         self.initialized = True
 
-    def _predict_step(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
+    def predict_step(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
         if not utilities.shapes_are_equivalent(input_data.shape, self.input_shape):
             raise InputShapeException(
                 f"Prediction step requires shape (1,) and was given {input_data.shape}."
@@ -218,7 +218,7 @@ class EwmaKernel1(Kernel):
         n_steps = input_data.shape[0]
         result_array = np.full(shape=(n_steps, horizon), fill_value=np.nan)
         for i in range(n_steps):
-            result_array[i] = self._predict_step(input_data[i, :], horizon=horizon)
+            result_array[i] = self.predict_step(input_data[i, :], horizon=horizon)
         return result_array
 
     def calibrate(
@@ -261,3 +261,129 @@ def optimize_forgetting_factor(
     )
     log_forgetting_factor = result.x[0]
     return np.exp(-(log_forgetting_factor**2))
+
+
+@dataclass
+class Scaler:
+    means: Optional[npt.NDArray] = None
+    stdevs: Optional[npt.NDArray] = None
+
+    def __post_init__(self):
+        self.means = None
+        self.stdevs = None
+        self.fitted = False
+
+    def fit(self, input_data: npt.NDArray):
+        self.means = np.mean(input_data, axis=0)
+        self.stdevs = np.std(input_data, axis=0)
+        self.fitted = True
+
+    def transform(self, input_data: npt.NDArray):
+        if not self.fitted:
+            raise ValueError("Scaler not fitted")
+        return (input_data - self.means) / self.stdevs
+
+    def inverse_transform(self, input_data: npt.NDArray):
+        if not self.fitted:
+            raise ValueError("Scaler not fitted")
+        return input_data * self.stdevs + self.means
+
+
+@dataclass
+class SVD:
+    u: npt.NDArray
+    s: npt.NDArray
+    vh: npt.NDArray
+
+
+@dataclass
+class SVDKernel(Kernel):
+    n_components: int
+    min_explained_variance: float = field(default=0)
+    scaler: Optional[Scaler] = None
+    svd: Optional[SVD] = None
+    n_inputs: int = field(default=0)
+
+    def __post_init__(self):
+        self.max_prediction_horizon: int = 0
+        self.input_shape: Tuple = (1,)
+        if self.scaler is None:
+            self.scaler = Scaler()
+        if self.n_components < 2:
+            raise ValueError(
+                "Number of components should be at least 2. Please add more data series to your analysis or increase the minimum explained variance."
+            )
+        self.initialized = False
+
+    def reset_state(self):
+        self.scaler = None
+        self.svd = None
+        self.__post_init__()
+
+    def initialize(self) -> None:
+        self.initialized = True
+
+    def predict_step(self, input_data: npt.NDArray, horizon: int) -> npt.NDArray:
+        if input_data.shape != self.input_shape:
+            input_data = input_data.reshape(self.input_shape)
+        if not self.initialized or self.scaler is None or self.svd is None:
+            raise ValueError("Model not initialized")
+
+        scaled_input = self.scaler.transform(input_data)
+
+        vh = self.svd.vh
+
+        n_components = self.n_components
+
+        # Transformed values = input_data @ vh
+
+        return scaled_input @ np.transpose(vh[:n_components, :])
+
+    def predict(self, input_data: npt.NDArray, horizon: int = 0) -> npt.NDArray:
+        if horizon > self.max_prediction_horizon:
+            raise InvalidHorizonException(
+                "This kernel can only predict up to {self.max_prediction_horizon}"
+                f", and was asked to predict {horizon}."
+            )
+        n_steps = input_data.shape[0]
+        result_array = np.full(shape=(n_steps, self.n_components), fill_value=np.nan)
+        for i in range(n_steps):
+            result_array[i] = self.predict_step(input_data[i, :], horizon=horizon)
+        return result_array
+
+    def calibrate(self, input_data: npt.NDArray, initial_guesses=None) -> npt.NDArray:
+        self.reset_state()
+        self.scaler = Scaler()
+        self.scaler.fit(input_data)
+        scaled_input = self.scaler.transform(input_data)
+        u, s, vh = np.linalg.svd(scaled_input, full_matrices=False)
+        self.svd = SVD(u=u, s=s, vh=vh)
+
+        explained_variance = np.divide(s**2, np.sum(s**2))
+        cumulative_explained_variance = np.cumsum(explained_variance)
+
+        n_components_for_variance = (
+            (
+                np.argmax(
+                    cumulative_explained_variance > self.min_explained_variance
+                ).item()
+                + 1
+            )
+            if self.min_explained_variance > 0
+            else self.n_components
+        )
+        if n_components_for_variance > self.n_components:
+            raise ValueError(
+                "The number of components is too small to explain the required amount of variance. Please reduce the minimum explained variance or add more data series to your analysis."
+            )
+
+        self.explained_variance = cumulative_explained_variance[self.n_components - 1]
+        self.input_shape = (1, input_data.shape[1])
+        self.n_inputs = input_data.shape[1]
+        self.initialize()
+        return self.predict(input_data, horizon=0)
+
+    def get_svd(self):
+        if self.svd is None:
+            raise ValueError("Model not initialized")
+        return self.svd
