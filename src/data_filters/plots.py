@@ -453,3 +453,98 @@ class UnivariatePlotter:
         )
         fig.update_layout(title_text=f"Original and Final Data for {self.signal_name}")
         return fig
+
+
+@dataclass
+class MultivariatePlotter:
+    df: pd.DataFrame
+    signal_names: list[str] = field(default_factory=list)
+    template: Literal["presentation", "plotly_white"] = field(default="presentation")
+    language: Literal["french", "english"] = field(default="english")
+
+    def __post_init__(self):
+        self.plot_data = self.df
+        self.x = self.plot_data.index
+        self.names = get_clean_column_names(self.language)
+
+    def plot_2_main_components(self, title: Optional[str] = None) -> go.Figure:
+        fig = go.Figure()
+        fig.update_layout(get_default_plot_elements(self.template))
+        fig.add_trace(
+            go.Scatter(
+                x=self.plot_data["PC_1"],
+                y=self.plot_data["PC_2"],
+                mode="markers",
+                marker=dict(
+                    color=self.plot_data["is_rejected"].map(
+                        {True: "red", False: "green"}
+                    ),  # Map 'failed_slope_test' to colors
+                    size=7,
+                ),
+            )
+        )
+
+        fig.update_xaxes(title_text="PC_1")
+        fig.update_yaxes(title_text="PC_2")
+        if title is None:
+            fig.update_layout(
+                title_text=f"2 Main Components for {', '.join(self.signal_names)}"
+            )
+        else:
+            fig.update_layout(title_text=title)
+        return fig
+
+    def plot_test_results(
+        self,
+        test_name: str,
+        min_value: Optional[float] = None,
+        max_value: Optional[float] = None,
+        title: Optional[str] = None,
+    ) -> go.Figure:
+        fig = go.Figure()
+        fig.update_layout(get_default_plot_elements(self.template))
+        fig.add_trace(
+            go.Scatter(
+                x=self.x,
+                y=self.plot_data[test_name],
+                mode="lines",
+                name=test_name,
+                marker=dict(
+                    color=self.plot_data[f"failed_{test_name}"].map(
+                        {True: "red", False: "green"}
+                    ),  # Map 'failed_slope_test' to colors
+                    size=7,
+                ),
+            )
+        )
+        if min_value is not None:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.x,
+                    y=[min_value] * np.ones(len(self.x)),
+                    mode="lines",
+                    name="Min",
+                    marker=dict(
+                        color="red",
+                    ),
+                )
+            )
+        if max_value is not None:
+            fig.add_trace(
+                go.Scatter(
+                    x=self.x,
+                    y=[max_value] * np.ones(len(self.x)),
+                    mode="lines",
+                    name="Max",
+                    marker=dict(
+                        color="red",
+                    ),
+                )
+            )
+        if title is None:
+            fig.update_layout(
+                title_text=f"{test_name} results for {', '.join(self.signal_names)}"
+            )
+        else:
+            fig.update_layout(title_text=title)
+        return fig

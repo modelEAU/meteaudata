@@ -62,6 +62,9 @@ class Config(BaseModel):
     residuals_test: FilterConfig
     range_test: FilterConfig
     correlation_test: FilterConfig
+    pca_model: ModelConfig
+    hotelling_test: FilterConfig
+    q_residuals_test: FilterConfig
 
 
 def get_config_from_file(path: str) -> Config:

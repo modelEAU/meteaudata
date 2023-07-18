@@ -14,6 +14,7 @@ from data_filters.config import (
     KernelConfig,
     ModelConfig,
     get_config_from_file,
+    FilterConfig,
 )
 from data_filters.filter_algorithms import AlferesAlgorithm
 from data_filters.filters import AlferesFilter
@@ -83,7 +84,9 @@ def build_filter_runner_from_config(configuration: Config) -> Filter:
             control_parameters=configuration.filter_runner.parameters,
         )
     else:
-        raise ValueError("Only the alferes filter is available currently.")
+        raise ValueError(
+            "Only the alferes filter and the pca filter are available currently."
+        )
 
 
 def build_smoother_from_config(
@@ -169,27 +172,22 @@ def clip_data(
     return data.loc[start:end]  # type: ignore
 
 
-def filter_data(
-    data: ndarray,
-    calibration_data: ndarray,
-    filter_runner: Filter,
-) -> pd.DataFrame:
-    filter_runner.calibrate_models(calibration_data)
-
-    filter_runner.add_array_to_input(data)
-
-    filter_runner.update_filter()
-
-    return filter_runner.to_dataframe()
-
-
 def use_filter(input_array: ndarray, _filter: Filter) -> pd.DataFrame:
     _filter.add_array_to_input(input_array)
     _filter.update_filter()
     return _filter.to_dataframe()
 
 
-def univariate_process(
+def use_filter_with_calibration(
+    input_array: ndarray, calibration_data: ndarray, _filter: Filter
+) -> pd.DataFrame:
+    _filter.calibrate_models(calibration_data)
+    _filter.add_array_to_input(input_array)
+    _filter.update_filter()
+    return _filter.to_dataframe()
+
+
+def univariate_pipeline(
     raw_data: ndarray,
     calibration_data: ndarray,
     filter_runner: Filter,
@@ -201,10 +199,13 @@ def univariate_process(
 ) -> pd.DataFrame:
     if len(raw_data) == 0 or len(calibration_data) == 0:
         raise ValueError("No data to process.")
-    outlier_results = filter_data(raw_data, calibration_data, filter_runner)
+    outlier_results = use_filter_with_calibration(
+        raw_data, calibration_data, filter_runner
+    )
     to_smooth = outlier_results["accepted_values"].to_numpy()
 
     smoother_results = use_filter(to_smooth, smoother)
+
     smoothed_values = smoother_results["smoothed"].to_numpy()
     slope_checker_results = use_filter(smoothed_values, slope_checker)
     range_outlier_results = use_filter(smoothed_values, range_filter)
@@ -235,13 +236,10 @@ def reject_based_on_all_tests(df: pd.DataFrame) -> pd.DataFrame:
 
     # select only the columns where a subset of the values are not True
     df["is_rejected"] = df[failure_cols].any(axis=1)
-
-    df["accepted"] = df.loc[~df["is_rejected"], "smoothed"]
-    df["rejected"] = df.loc[df["is_rejected"], "smoothed"]
     return df
 
 
-def run_filter(
+def main(
     series: pd.Series, config_filepath: str, produce_plot: bool, output_directory: Path
 ) -> None:  # sourcery skip: move-assign
     configuration = get_config_from_file(config_filepath)
@@ -273,7 +271,7 @@ def run_filter(
     calibration_end = configuration.calibration_period.end
     calibration_data = clip_data(series, calibration_start, calibration_end).to_numpy()
 
-    results = univariate_process(
+    results = univariate_pipeline(
         data_array,
         calibration_data,
         filter_runner,
@@ -317,6 +315,8 @@ def run_filter(
             fig.show()
 
         results = reject_based_on_all_tests(results)
+        results["accepted"] = results.loc[~results["is_rejected"], "smoothed"]
+        results["rejected"] = results.loc[results["is_rejected"], "smoothed"]
         plotter = UnivariatePlotter(signal_name=signal_name, df=results)
         fig = plotter.plot_original_and_final_data()
         fig.show()
@@ -379,7 +379,7 @@ if __name__ == "__main__":
     series = df.iloc[:, 0]
     series = pd.to_numeric(series, errors="coerce")
     series = series.dropna()
-    run_filter(
+    main(
         series=series,
         config_filepath=config_path,
         produce_plot=produce_plot,

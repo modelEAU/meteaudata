@@ -3,8 +3,10 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 
 from data_filters.config import Parameters
+
 from data_filters.protocols import (
     Filter,
     FilterAlgorithm,
@@ -14,6 +16,7 @@ from data_filters.protocols import (
     UncertaintyModel,
     Window,
 )
+from data_filters.kernels import SVDKernel, SVD
 
 
 @dataclass
@@ -185,9 +188,7 @@ class AlferesFilter(Filter):
         backwards_results = self.apply_sub_filter(backwards_data)
         results = list(reversed(backwards_results))
         # results = self.shift_predictions_to_back(results)
-        if not n_warmup_steps:
-            return results
-        return results[:-n_warmup_steps]
+        return results[:-n_warmup_steps] if n_warmup_steps else results
 
     def forward_recovery(self) -> List[FilterRow]:
         self.direction = FilterDirection.forward
@@ -257,3 +258,85 @@ class AlferesFilter(Filter):
 
         self.clear_outlier_streak()
         self.out_of_control_positions = None
+
+
+@dataclass
+class PCAFilter(Filter):
+    # Attributes from abstract Filter
+    signal_model: Model
+    control_parameters: Optional[Parameters] = field(default=None)
+    algorithm: Optional[FilterAlgorithm] = field(default=None)
+    uncertainty_model: Optional[UncertaintyModel] = field(default=None)
+    current_position: int = field(default=0)
+    input_data: Optional[npt.NDArray] = field(default=None)
+    results: List[FilterRow] = field(default_factory=list)
+    results_window: Window = field(
+        default=Window(source="results", size=1, position="back")
+    )
+    inputs_window: Window = field(
+        default=Window(source="inputs", size=1, position="centered")
+    )
+
+    def check_control_parameters(self) -> None:
+        return None
+
+    def get_svd(self) -> SVD:
+        if self.signal_model is None:
+            raise ValueError("The signal model has not been set.")
+        elif not isinstance(self.signal_model.kernel, SVDKernel):
+            raise ValueError("The signal model is not a PCA model.")
+        return self.signal_model.kernel.get_svd()
+
+    def get_n_components(self) -> int:
+        if self.signal_model is None:
+            raise ValueError("The signal model has not been set.")
+        elif not isinstance(self.signal_model.kernel, SVDKernel):
+            raise ValueError("The signal model is not a PCA model.")
+        return self.signal_model.kernel.n_components
+
+    def step(self) -> FilterRow:
+        input_data = self.get_internal_inputs()
+        if input_data is None:
+            raise ValueError("Input data should have been returned but none was found.")
+
+        values = self.signal_model.predict(input_data)
+        result = FilterRow(
+            index=self.current_position,
+            input_values=np.array([input_data[-1]]),
+            inputs_are_outliers=np.array([np.nan]),
+            accepted_values=np.array([np.nan]),
+            predicted_values=np.array([values[-1]]),
+            predicted_upper_limits=np.array([np.nan]),
+            predicted_lower_limits=np.array([np.nan]),
+        )
+        self.results.append(result)
+
+        self.current_position += 1
+        return result
+
+    def update_filter(self) -> List[FilterRow]:
+        last_full_requirements = self.get_last_full_requirements_index()
+        if last_full_requirements is None:
+            return []
+        for _ in range(last_full_requirements - self.current_position + 1):
+            self.step()
+        return self.results
+
+    def calibrate_models(self, calibration_data: np.ndarray) -> None:
+        self.signal_model.calibrate(calibration_data)
+        return
+
+    def to_dataframe(self) -> pd.DataFrame:
+        expanded_results = [self.expand_filter_row(result) for result in self.results]
+        df = pd.DataFrame(expanded_results)
+        cols_to_keep = [
+            col
+            for col in df.columns
+            if "predicted_values" in col or "input_values" in col
+        ]
+        cols_to_keep.append("index")
+        df = df[cols_to_keep]
+        pc_col_names = {
+            col: col.replace("predicted_values", "PC") for col in df.columns
+        }
+        return df.rename(columns=pc_col_names)

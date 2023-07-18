@@ -47,14 +47,14 @@ def test_predictstep_ewma1():
     kernel = get_kernel(1, forgetting_factor=0.25)
     kernel.last_prediction = np.array([1])
     kernel.initialized = True
-    result = kernel._predict_step(input_data=np.array([2]), horizon=1)
+    result = kernel.predict_step(input_data=np.array([2]), horizon=1)
     assert np.allclose(result, np.array([1.25]))
 
 
 def test_predict_step_ewma3():
     kernel = get_kernel(3, forgetting_factor=0.25)
     kernel.initialized = True
-    result = kernel._predict_step(input_data=np.array([2]), horizon=1)
+    result = kernel.predict_step(input_data=np.array([2]), horizon=1)
     expected = np.array([1.5])
     assert np.allclose(result, expected)
 
