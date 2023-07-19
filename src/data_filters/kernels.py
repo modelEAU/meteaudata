@@ -7,9 +7,11 @@ from numba import njit
 from scipy.optimize import minimize
 
 from data_filters import utilities
-from data_filters.exceptions import (InputShapeException,
-                                     InvalidHorizonException,
-                                     WrongDimensionsError)
+from data_filters.exceptions import (
+    InputShapeException,
+    InvalidHorizonException,
+    WrongDimensionsError,
+)
 from data_filters.protocols import Kernel, Parameters
 from data_filters.utilities import rmse
 
@@ -42,7 +44,8 @@ def compute_current_s_stats(
     previous_s3: float,
     forgetting_factor: float,
 ) -> npt.NDArray:
-
+    if forgetting_factor is None:
+        forgetting_factor = 0
     s = np.empty(shape=3)
     s[0] = auto_regresive(current_value, previous_s1, forgetting_factor)
     s[1] = auto_regresive(s[0], previous_s2, forgetting_factor)
@@ -80,7 +83,9 @@ class EwmaKernel3(Kernel):
         self.current_s_stats = np.full(shape=3, fill_value=0)
         self.input_shape: Tuple = (1,)
         self.max_prediction_horizon: int = 1  # feature of the prediciton algorithm
-        if not (0 <= self.forgetting_factor <= 1):
+        if self.forgetting_factor is not None and not (
+            0 <= self.forgetting_factor <= 1
+        ):
             raise ValueError(
                 "forgetting factor should be between 0 and 1, "
                 f"received {self.forgetting_factor}"
@@ -153,8 +158,12 @@ class EwmaKernel3(Kernel):
     def calibrate(
         self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
+        if self.forgetting_factor is not None:
+            return self.predict(input_data[1:], horizon=1)
         if initial_guesses:
             self.forgetting_factor = initial_guesses["forgetting_factor"]
+        else:
+            self.forgetting_factor = 0.5
         forgetting_factor = optimize_forgetting_factor(input_data, self)
         self.reset_state()
         self.forgetting_factor = forgetting_factor
@@ -169,7 +178,9 @@ class EwmaKernel1(Kernel):
         self.last_prediction = np.full(shape=1, fill_value=0)
         self.input_shape: Tuple = (1,)
         self.max_prediction_horizon: int = 1  # feature of the prediction algorithm
-        if not (0 <= self.forgetting_factor <= 1):
+        if self.forgetting_factor is not None and not (
+            0 <= self.forgetting_factor <= 1
+        ):
             raise ValueError(
                 "forgetting factor should be between 0 and 1, "
                 f"received {self.forgetting_factor}"
@@ -213,8 +224,12 @@ class EwmaKernel1(Kernel):
     def calibrate(
         self, input_data: npt.NDArray, initial_guesses: Optional[Parameters] = None
     ) -> npt.NDArray:
+        if self.forgetting_factor is not None:
+            return self.predict(input_data[1:], horizon=1)
         if initial_guesses:
             self.forgetting_factor = initial_guesses["forgetting_factor"]
+        else:
+            self.forgetting_factor = 0.5
         forgetting_factor = optimize_forgetting_factor(input_data, self)
         self.reset_state()
         self.forgetting_factor = forgetting_factor

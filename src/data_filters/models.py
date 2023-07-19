@@ -55,7 +55,7 @@ class EwmaUncertaintyModel(UncertaintyModel):
                 signal_deviation,
                 objective="minimum uncertainty",
             ),
-            minimum_from_settings,
+            minimum_from_settings or 0.0,
         )
 
     def calibrate(
@@ -66,19 +66,23 @@ class EwmaUncertaintyModel(UncertaintyModel):
         guess_initial_uncertainty = (
             initial_guesses["initial_uncertainty"]
             if initial_guesses
-            else self.initial_uncertainty
+            else self.initial_uncertainty or 0.0
         )
+        if self.initial_uncertainty is None:
+            initial_uncertainty = optimize_initial_uncertainty(
+                input_data, self.kernel, guess_initial_uncertainty
+            )
+            self.initial_uncertainty = initial_uncertainty
 
-        initial_uncertainty = optimize_initial_uncertainty(
-            input_data, self.kernel, guess_initial_uncertainty
-        )
-        self.initial_uncertainty = initial_uncertainty
+        if self.minimum_uncertainty is None:
+            minimum_uncertainty = self.calibrate_minimum_uncertainty(
+                input_data,
+                self.kernel,
+                self.initial_uncertainty,
+                self.minimum_uncertainty,
+            )
+            self.minimum_uncertainty = minimum_uncertainty
 
-        # calibrate minimum uncertainty
-        minimum_uncertainty = self.calibrate_minimum_uncertainty(
-            input_data, self.kernel, self.initial_uncertainty, self.minimum_uncertainty
-        )
-        self.minimum_uncertainty = minimum_uncertainty
         self.calibrated = True
         return self.predict(input_data)
 
