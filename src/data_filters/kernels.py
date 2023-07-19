@@ -46,6 +46,8 @@ def compute_current_s_stats(
     previous_s3: float,
     forgetting_factor: float,
 ) -> npt.NDArray:
+    if forgetting_factor is None:
+        forgetting_factor = 0
     s = np.empty(shape=3)
     s[0] = auto_regresive(current_value, previous_s1, forgetting_factor)
     s[1] = auto_regresive(s[0], previous_s2, forgetting_factor)
