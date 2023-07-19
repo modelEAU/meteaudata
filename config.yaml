@@ -19,10 +19,10 @@ uncertainty_model:
     name: ewma
     parameters:
       order: 1
-      forgetting_factor: 0.9
+      forgetting_factor: null
   parameters:
-    initial_uncertainty: 1
-    minimum_uncertainty: 1
+    initial_uncertainty: null
+    minimum_uncertainty: null
     uncertainty_gain: 1.5
 filter_algorithm:
   name: alferes

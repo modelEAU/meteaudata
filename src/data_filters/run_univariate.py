@@ -39,8 +39,7 @@ def get_ewma_kernel_from_config(
     parameters = configuration.parameters
     forgetting_factor = parameters["forgetting_factor"]
     order = parameters["order"]
-    if forgetting_factor is None:
-        forgetting_factor = 0.25
+
     if order == 1:
         return EwmaKernel1(forgetting_factor=forgetting_factor)
     elif order == 3:
