@@ -326,11 +326,11 @@ class AlferesSignCorrelationChecker(Filter):
     def to_dataframe(self) -> pd.DataFrame:
         expanded_results = [self.expand_filter_row(result) for result in self.results]
         df = pd.DataFrame(expanded_results)
-        df = df[["index", "accepted_values_1", "inputs_are_outliers_1"]]
+        df = df[["index", "accepted_values", "inputs_are_outliers"]]
         return df.rename(
             columns={
-                "accepted_values_1": "correlation_score",
-                "inputs_are_outliers_1": "failed_correlation_test",
+                "accepted_values": "correlation_score",
+                "inputs_are_outliers": "failed_correlation_test",
             }
         )
 
