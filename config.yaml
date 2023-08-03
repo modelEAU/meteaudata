@@ -57,8 +57,8 @@ correlation_test:
   #name: alferes_sign_correlation_score
   name: durbin_watson
   parameters:
-    min_score: 0.8
-    max_score: 3.2
+    min_score: 0.0 # min possible score: 0
+    max_score: 2.5  # max possible score: 4
     window_size: 10
 pca_model:
   name: pca
