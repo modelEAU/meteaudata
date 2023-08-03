@@ -46,7 +46,7 @@ slope_test:
 residuals_test:
   name: smoothing_residuals
   parameters:
-    min_residual: 0.0
+    min_residual: -3.0
     max_residual: 3.0
 range_test:
   name: simple_range
@@ -75,6 +75,6 @@ q_residuals_test:
   name: q_test
   parameters:
     alpha: 0.05
-    
+
 
 

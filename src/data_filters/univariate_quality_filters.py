@@ -3,7 +3,6 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-
 from sklearn.linear_model import LinearRegression
 
 from data_filters.config import Parameters
@@ -236,7 +235,7 @@ class SmoothingResidualsChecker(Filter):
         return result
 
     def is_residual_out_of_bounds(self, residual: float) -> bool:
-        return abs(residual) < self.min_residual or abs(residual) > self.max_residual
+        return residual < self.min_residual or residual > self.max_residual
 
     def to_dataframe(self) -> pd.DataFrame:
         expanded_results = [self.expand_filter_row(result) for result in self.results]
