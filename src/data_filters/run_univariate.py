@@ -11,10 +11,10 @@ from numpy import ndarray
 from data_filters.config import (
     AlgorithmConfig,
     Config,
+    FilterConfig,
     KernelConfig,
     ModelConfig,
     get_config_from_file,
-    FilterConfig,
 )
 from data_filters.filter_algorithms import AlferesAlgorithm
 from data_filters.filters import AlferesFilter
@@ -24,11 +24,11 @@ from data_filters.plots import UnivariatePlotter
 from data_filters.protocols import Filter, FilterAlgorithm, UncertaintyModel
 from data_filters.smoothers import HKernelSmoother
 from data_filters.univariate_quality_filters import (
-    LinearRegressionSlopeChecker,
     AlferesSignCorrelationChecker,
+    DurbinWatsonResidualCorrelationChecker,
+    LinearRegressionSlopeChecker,
     SimpleRangeChecker,
     SmoothingResidualsChecker,
-    DurbinWatsonResidualCorrelationChecker,
 )
 from data_filters.utilities import combine_filter_results
 
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         "-c",
         "--config",
         type=str,
-        default="../../config.yaml",
+        default="config.yaml",
         help="Path to the configuration file used.",
     )  # noqa
     parser.add_argument(
@@ -355,7 +355,7 @@ if __name__ == "__main__":
         "-o",
         "--output_dir",
         type=str,
-        default="./outputs",
+        default=".",
         help="Path to the output directory",
     )
 
