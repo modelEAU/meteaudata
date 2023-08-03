@@ -6,8 +6,8 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import plotly.io as pio
+from plotly.subplots import make_subplots
 
 from data_filters.utilities import apply_observations_to_outliers
 
@@ -336,6 +336,7 @@ class UnivariatePlotter:
                 ),
                 secondary_y=False,
             )
+
         if test_name == ["correlation_test"]:
             # Line for smoothed data
             fig.add_trace(
@@ -348,8 +349,8 @@ class UnivariatePlotter:
                 secondary_y=False,
             )
 
-        # if the test is the signs test or the slope test, we plot the absolute values
-        if test_name in ["correlation_test", "slope_test", "residuals_test"]:
+        # if the test is the signs test, we plot the absolute values
+        if test_name in ["correlation_test"]:
             df[col_lookup[test_name]["value"]] = np.abs(
                 df[col_lookup[test_name]["value"]]
             )

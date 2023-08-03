@@ -40,7 +40,7 @@ smoother:
 slope_test:
   name: linear_regression
   parameters:
-    min_slope: 0.01
+    min_slope: -1.0
     max_slope: 1.0
     window_size: 5
 residuals_test:

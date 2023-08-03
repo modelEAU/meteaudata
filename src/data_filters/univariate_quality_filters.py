@@ -41,10 +41,6 @@ class LinearRegressionSlopeChecker(Filter):
         return super().__post_init__()
 
     def check_control_parameters(self):
-        if self.control_parameters["min_slope"] < 0:
-            raise ValueError("Absolute slope size should be larger than 0")
-        if self.control_parameters["max_slope"] < 0:
-            raise ValueError("Absolute slope size should be larger than 0")
         if self.control_parameters["min_slope"] > self.control_parameters["max_slope"]:
             raise ValueError("Min slope should be smaller than max slope")
 
@@ -91,7 +87,7 @@ class LinearRegressionSlopeChecker(Filter):
         return model.coef_[0][0]
 
     def is_slope_out_of_bounds(self, slope: float) -> bool:
-        return abs(slope) < self.min_slope or abs(slope) > self.max_slope
+        return slope < self.min_slope or slope > self.max_slope
 
     def to_dataframe(self) -> pd.DataFrame:
         expanded_results = [self.expand_filter_row(result) for result in self.results]
