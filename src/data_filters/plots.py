@@ -163,12 +163,20 @@ class UnivariatePlotter:
         self.plot_data = self.df
         self.x = self.plot_data.index
         self.names = get_clean_column_names(self.language)
+    
+    def shift_prediction_indices(self, indices):
+        if isinstance(indices, pd.RangeIndex):
+            return indices + 1
+        elif isinstance(indices, pd.DatetimeIndex):
+            period = indices[1] - indices[0]
+            return indices + period
 
     def lower_limit(self) -> Optional[go.Scatter]:
         if "predicted_lower_limits" not in self.plot_data.columns:
             return None
+        x = self.shift_prediction_indices(self.x)
         return go.Scatter(
-            x=self.x + 1,
+            x=x,
             y=self.plot_data["predicted_lower_limits"],
             name=self.names["predicted_lower_limits"],
             line=dict(width=0),
@@ -179,8 +187,9 @@ class UnivariatePlotter:
     def upper_limit(self) -> Optional[go.Scatter]:
         if "predicted_upper_limits" not in self.plot_data.columns:
             return None
+        x = self.shift_prediction_indices(self.x)
         return go.Scatter(
-            x=self.x + 1,
+            x=x,
             y=self.plot_data["predicted_upper_limits"],
             name=self.names["predicted_upper_limits"],
             line=dict(width=0),
@@ -205,8 +214,9 @@ class UnivariatePlotter:
     def predicted_values(self) -> Optional[go.Scatter]:
         if "predicted_values" not in self.plot_data.columns:
             return None
+        x = self.shift_prediction_indices(self.x)
         return go.Scatter(
-            x=self.x + 1,
+            x=x,
             y=self.plot_data["predicted_values"],
             name=self.names["predicted_values"],
             line=dict(color="green", dash="dot"),
