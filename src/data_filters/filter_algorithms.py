@@ -34,12 +34,16 @@ class AlferesAlgorithm(FilterAlgorithm):
         current_observation: float,
         current_index: int,
         initial_uncertainty: float,
+        uncertainty_model: UncertaintyModel,
     ) -> FilterRow:
+        predicted_error_size = float(
+            uncertainty_model.predict(np.array([initial_uncertainty]))
+        )
         next_lower_limit = self.calculate_lower_limit(
-            current_observation, initial_uncertainty
+            current_observation, predicted_error_size
         )
         next_upper_limit = self.calculate_upper_limit(
-            current_observation, initial_uncertainty
+            current_observation, predicted_error_size
         )
         return FilterRow(
             index=current_index,
@@ -63,7 +67,10 @@ class AlferesAlgorithm(FilterAlgorithm):
         if not other_results:
             initial_deviation = uncertainty_model.initial_uncertainty
             return self.initial_row(
-                current_observation[0], current_index, initial_deviation
+                current_observation[0],
+                current_index,
+                initial_deviation,
+                uncertainty_model,
             )
         previous_results = other_results[0]
         predicted_current = previous_results.predicted_values

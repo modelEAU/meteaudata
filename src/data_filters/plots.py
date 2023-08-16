@@ -168,7 +168,7 @@ class UnivariatePlotter:
         if "predicted_lower_limits" not in self.plot_data.columns:
             return None
         return go.Scatter(
-            x=self.x,
+            x=self.x + 1,
             y=self.plot_data["predicted_lower_limits"],
             name=self.names["predicted_lower_limits"],
             line=dict(width=0),
@@ -180,7 +180,7 @@ class UnivariatePlotter:
         if "predicted_upper_limits" not in self.plot_data.columns:
             return None
         return go.Scatter(
-            x=self.x,
+            x=self.x + 1,
             y=self.plot_data["predicted_upper_limits"],
             name=self.names["predicted_upper_limits"],
             line=dict(width=0),
@@ -206,7 +206,7 @@ class UnivariatePlotter:
         if "predicted_values" not in self.plot_data.columns:
             return None
         return go.Scatter(
-            x=self.x,
+            x=self.x + 1,
             y=self.plot_data["predicted_values"],
             name=self.names["predicted_values"],
             line=dict(color="green", dash="dot"),
