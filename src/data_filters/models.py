@@ -9,6 +9,8 @@ from data_filters.config import Parameters
 from data_filters.exceptions import NotCalibratedError
 from data_filters.protocols import Kernel, Model, UncertaintyModel
 
+STANDARD_DEV_FACTOR = 1.25
+
 
 @dataclass
 class SignalModel(Model):
@@ -95,7 +97,7 @@ class EwmaUncertaintyModel(UncertaintyModel):
             )
         predicted = self.kernel.predict(input_data, horizon=1)
         result = np.maximum(self.minimum_uncertainty, predicted)
-        return 1.25 * self.uncertainty_gain * result
+        return STANDARD_DEV_FACTOR * self.uncertainty_gain * result
 
 
 def objective_initial_uncertainty(

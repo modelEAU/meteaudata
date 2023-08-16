@@ -6,7 +6,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from data_filters.config import Parameters
-
+from data_filters.kernels import SVD, SVDKernel
 from data_filters.protocols import (
     Filter,
     FilterAlgorithm,
@@ -16,7 +16,6 @@ from data_filters.protocols import (
     UncertaintyModel,
     Window,
 )
-from data_filters.kernels import SVDKernel, SVD
 
 
 @dataclass
