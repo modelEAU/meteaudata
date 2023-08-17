@@ -89,10 +89,14 @@ class AlferesAlgorithm(FilterAlgorithm):
         predicted_error_size = float(uncertainty_model.predict(np.array(current_error)))
 
         next_upper_limit = self.calculate_upper_limit(
-            accepted_value[0], predicted_error_size
+            # accepted_value[0], predicted_error_size
+            next_predicted_value,
+            predicted_error_size,
         )
         next_lower_limit = self.calculate_lower_limit(
-            accepted_value[0], predicted_error_size
+            # accepted_value[0], predicted_error_size
+            next_predicted_value,
+            predicted_error_size,
         )
 
         return FilterRow(
