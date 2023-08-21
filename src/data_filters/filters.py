@@ -253,10 +253,35 @@ class AlferesFilter(Filter):
         )
 
         self.results[insertion_index:] = out_of_control_results
+        self.revise_outlier_status(self.results[max(insertion_index - 1, 0) :])
         # return to sanity
 
         self.clear_outlier_streak()
         self.out_of_control_positions = None
+
+    def revise_outlier_status(self, results):
+        if not results:
+            return results
+        predicted_upper_bound = results[0].predicted_upper_limits[0]
+        predicted_lower_bound = results[0].predicted_lower_limits[0]
+        predicted_values = results[0].predicted_values[0]
+        for i, row in enumerate(results[1:]):
+            input_values = row.input_values[0]
+            # was_outlier = row.inputs_are_outliers[0]
+            if (
+                input_values > predicted_upper_bound
+                or input_values < predicted_lower_bound
+            ):
+                row.inputs_are_outliers[0] = True
+                row.accepted_values[0] = predicted_values
+            else:
+                row.inputs_are_outliers[0] = False
+
+            # if was_outlier and not row.inputs_are_outliers[0]:
+            # print("Fixed a wrong outlier caused by the recovery process.")
+            predicted_upper_bound = row.predicted_upper_limits[0]
+            predicted_lower_bound = row.predicted_lower_limits[0]
+            predicted_values = row.predicted_values[0]
 
 
 @dataclass
