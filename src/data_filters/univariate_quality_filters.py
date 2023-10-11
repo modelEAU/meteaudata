@@ -7,7 +7,6 @@ from sklearn.linear_model import LinearRegression
 
 from data_filters.config import Parameters
 from data_filters.protocols import Filter, FilterAlgorithm, FilterRow, Model, Window
-from data_filters.smoothers import compute_window_positions
 
 
 def compute_window_positions(window_size: int) -> np.ndarray:
@@ -292,7 +291,7 @@ class AlferesSignCorrelationChecker(Filter):
             residuals = values[:, 1] - values[:, 0]
             sign_changes_in_window = self.compute_sign_changes(residuals)
             correlation_score = self.compute_correlation_score(
-                sign_changes_in_window, self.results_window.size
+                sign_changes_in_window, self.inputs_window.size
             )
             failed_test = self.is_correlation_score_out_of_bounds(correlation_score)
             result = FilterRow(
@@ -313,10 +312,29 @@ class AlferesSignCorrelationChecker(Filter):
         return score < self.min_score or score > self.max_score
 
     def compute_sign_changes(self, residuals: np.ndarray) -> int:
-        return np.sum(np.diff(np.sign(residuals)) != 0)
+        signs_of_residuals = np.sign(residuals)
+        # if the first sign is zero, replace with next sign
+        if signs_of_residuals[0] == 0:
+            for i in range(1, len(residuals)):
+                current_residual_sign = signs_of_residuals[i]
+                if current_residual_sign != 0:
+                    signs_of_residuals[0] = current_residual_sign
+                    break
+                if i == len(residuals) - 1:
+                    signs_of_residuals[0] = 1
+        # if sign is zero, replace with previous sign
+        for i in range(1, len(residuals)):
+            current_residual_sign = signs_of_residuals[i]
+            preceding_residual_sign = signs_of_residuals[i - 1]
+            if current_residual_sign == 0:
+                signs_of_residuals[i] = preceding_residual_sign
+
+        sign_changes = np.diff(signs_of_residuals)
+        sign_change_is_not_zero = sign_changes != 0
+        return np.sum(sign_change_is_not_zero)
 
     def compute_correlation_score(self, sign_changes: int, window_size: int) -> float:
-        return abs(sign_changes - (window_size / 2)) / np.sqrt(window_size / 2)
+        return (sign_changes - (window_size / 2)) / np.sqrt(window_size / 2)
 
     def to_dataframe(self) -> pd.DataFrame:
         expanded_results = [self.expand_filter_row(result) for result in self.results]

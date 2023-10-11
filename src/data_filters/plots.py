@@ -163,7 +163,7 @@ class UnivariatePlotter:
         self.plot_data = self.df
         self.x = self.plot_data.index
         self.names = get_clean_column_names(self.language)
-    
+
     def shift_prediction_indices(self, indices):
         if isinstance(indices, pd.RangeIndex):
             return indices + 1
@@ -347,7 +347,7 @@ class UnivariatePlotter:
                 secondary_y=False,
             )
 
-        if test_name == ["correlation_test"]:
+        if test_name == "correlation_test":
             # Line for smoothed data
             fig.add_trace(
                 go.Scatter(
@@ -361,9 +361,8 @@ class UnivariatePlotter:
 
         # if the test is the signs test, we plot the absolute values
         if test_name in ["correlation_test"]:
-            df[col_lookup[test_name]["value"]] = np.abs(
-                df[col_lookup[test_name]["value"]]
-            )
+            df[col_lookup[test_name]["value"]] = df[col_lookup[test_name]["value"]]
+
         # Scatter plot for slope with color depending on 'failed_slope_test'
         fig.add_trace(
             go.Scatter(
