@@ -166,7 +166,8 @@ class EwmaKernel3(Kernel):
             self.forgetting_factor = initial_guesses["forgetting_factor"]
         else:
             self.forgetting_factor = 0.5
-        forgetting_factor = optimize_forgetting_factor(input_data, self)
+        # forgetting_factor = optimize_forgetting_factor(input_data, self)
+        forgetting_factor = grid_serach_forgetting_factor(input_data, self)
         self.reset_state()
         self.forgetting_factor = forgetting_factor
         return self.predict(input_data[1:], horizon=1)
@@ -232,7 +233,8 @@ class EwmaKernel1(Kernel):
             self.forgetting_factor = initial_guesses["forgetting_factor"]
         else:
             self.forgetting_factor = 0.5
-        forgetting_factor = optimize_forgetting_factor(input_data, self)
+        # forgetting_factor = optimize_forgetting_factor(input_data, self)
+        forgetting_factor = grid_serach_forgetting_factor(input_data, self)
         self.reset_state()
         self.forgetting_factor = forgetting_factor
         return self.predict(input_data[1:], horizon=1)
@@ -263,6 +265,48 @@ def optimize_forgetting_factor(
     )
     log_forgetting_factor = result.x[0]
     return np.exp(-(log_forgetting_factor**2))
+
+
+def objective(
+    forgetting_factor, input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
+) -> float:
+    kernel.reset_state()
+    kernel.forgetting_factor = forgetting_factor
+    predictions = kernel.predict(input_data[1:], horizon=1)
+    rmse_value = rmse(input_data[1:], predictions)
+    return rmse_value
+
+
+def grid_serach_forgetting_factor(
+    input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
+) -> float:
+    result = minimize(
+        objective,
+        x0=0.5,
+        args=(input_data, kernel),
+        bounds=[(0.01, 1.0)],
+    )
+    best_forgetting_factor = result.x[0]
+    return best_forgetting_factor
+
+
+def grid_search_optimize_forgetting_factor(
+    input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
+) -> float:
+    min_rmse = float("inf")
+    best_forgetting_factor = None
+
+    for forgetting_factor in np.arange(0.01, 1.01, 0.01):
+        kernel.reset_state()
+        kernel.forgetting_factor = forgetting_factor
+        predictions = kernel.predict(input_data[1:], horizon=1)
+        rmse_value = rmse(input_data[1:], predictions)
+
+        if rmse_value < min_rmse:
+            min_rmse = rmse_value
+            best_forgetting_factor = forgetting_factor
+
+    return best_forgetting_factor
 
 
 @dataclass
