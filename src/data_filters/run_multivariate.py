@@ -15,12 +15,14 @@ from data_filters.config import (
     ModelConfig,
     get_config_from_file,
 )
-
 from data_filters.filters import PCAFilter
-from data_filters.kernels import SVDKernel, SVD
+from data_filters.kernels import SVD, SVDKernel
 from data_filters.models import SignalModel
+from data_filters.multivariate_quality_filters import (
+    HotellingChecker,
+    QResidualsChecker,
+)
 from data_filters.plots import MultivariatePlotter
-
 from data_filters.protocols import Filter
 from data_filters.run_univariate import (
     clip_data,
@@ -28,13 +30,6 @@ from data_filters.run_univariate import (
     use_filter,
     use_filter_with_calibration,
 )
-
-
-from data_filters.multivariate_quality_filters import (
-    QResidualsChecker,
-    HotellingChecker,
-)
-
 from data_filters.utilities import combine_filter_results
 
 
@@ -155,9 +150,11 @@ def main(
     )
 
     results = reject_based_on_all_tests(results)
+    data = results.copy()
+    data.index = data_indices
     if produce_plot:
         names = "pca " + ", ".join(signal_names)
-        plotter = MultivariatePlotter(signal_names=signal_names, df=results)
+        plotter = MultivariatePlotter(signal_names=signal_names, df=data)
         fig = plotter.plot_2_main_components()
 
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
