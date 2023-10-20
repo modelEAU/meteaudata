@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Union
 import numpy as np
 import numpy.typing as npt
 from numba import njit
+import pandas as pd
 from scipy.optimize import minimize
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -166,10 +167,23 @@ class EwmaKernel3(Kernel):
             self.forgetting_factor = initial_guesses["forgetting_factor"]
         else:
             self.forgetting_factor = 0.5
-        forgetting_factor = optimize_forgetting_factor(input_data, self)
+        scaled_data = standardize_1d_array(input_data)
+        # forgetting_factor = optimize_forgetting_factor(input_data, self)
+        # grid_forgetting_factor = grid_search_optimize_forgetting_factor(scaled_data, self)
+        # optimal_forgetting_factor = powell_forgetting_factor_post_grid(scaled_data, self, grid_forgetting_factor)
+        #optimal_forgetting_factor = nelder_mead_forgetting_factor_post_grid(scaled_data, self, grid_forgetting_factor)
+        optimal_forgetting_factor = powell_forgetting_factor(scaled_data, self)
         self.reset_state()
-        self.forgetting_factor = forgetting_factor
+        self.forgetting_factor = optimal_forgetting_factor
         return self.predict(input_data[1:], horizon=1)
+
+
+def standardize_1d_array(input_data):
+    expanded = np.expand_dims(input_data, axis=0).T
+    scaler = StandardScaler()
+    scaled_data_2d = scaler.fit_transform(expanded)
+    scaled_data = scaled_data_2d.reshape(-1,)
+    return scaled_data
 
 
 @dataclass
@@ -232,37 +246,123 @@ class EwmaKernel1(Kernel):
             self.forgetting_factor = initial_guesses["forgetting_factor"]
         else:
             self.forgetting_factor = 0.5
-        forgetting_factor = optimize_forgetting_factor(input_data, self)
+        scaled_data = standardize_1d_array(input_data)
+        # forgetting_factor = optimize_forgetting_factor(input_data, self)
+        # grid_forgetting_factor = grid_search_optimize_forgetting_factor(scaled_data, self)
+        # optimal_forgetting_factor = powell_forgetting_factor_post_grid(scaled_data, self, grid_forgetting_factor)
+        #optimal_forgetting_factor = nelder_mead_forgetting_factor_post_grid(scaled_data, self, grid_forgetting_factor)
+        optimal_forgetting_factor = powell_forgetting_factor(scaled_data, self)
         self.reset_state()
-        self.forgetting_factor = forgetting_factor
+        self.forgetting_factor = optimal_forgetting_factor
         return self.predict(input_data[1:], horizon=1)
 
+# These two functions are for Nelder-Mead method
+# def objective_forgetting_factor(
+#     log_transformed: npt.NDArray,
+#     input_values: npt.NDArray,
+#     kernel: Union[EwmaKernel1, EwmaKernel3],
+# ) -> float:
+#     forgetting_factor = np.exp(-(log_transformed[0] ** 2))
+#     kernel.reset_state()
+#     kernel.forgetting_factor = forgetting_factor
+#     predictions = kernel.predict(input_values[:-1], horizon=1)
+#     return rmse(input_values[1:], predictions)
 
-def objective_forgetting_factor(
-    log_transformed: npt.NDArray,
-    input_values: npt.NDArray,
-    kernel: Union[EwmaKernel1, EwmaKernel3],
+# def optimize_forgetting_factor(
+#     input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
+# ) -> float:
+#     # The only parameter to optimize is the forgetting factor
+#     log_initial_guess = np.sqrt(-np.log(kernel.forgetting_factor))
+#     result = minimize(
+#         objective_forgetting_factor,
+#         x0=log_initial_guess,
+#         args=(input_data, kernel),
+#         method="Nelder-Mead",
+#     )
+#     log_forgetting_factor = result.x[0]
+#     return np.exp(-(log_forgetting_factor**2))
+
+
+
+def objective(
+    forgetting_factor, input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
 ) -> float:
-    forgetting_factor = np.exp(-(log_transformed[0] ** 2))
     kernel.reset_state()
     kernel.forgetting_factor = forgetting_factor
-    predictions = kernel.predict(input_values[:-1], horizon=1)
-    return rmse(input_values[1:], predictions)
+    predictions = kernel.predict(input_data[1:], horizon=1)
+    rmse_value = rmse(input_data[1:], predictions)
+    return rmse_value
 
 
-def optimize_forgetting_factor(
-    input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
+#Powell method for optimizing forgetting factors
+def powell_forgetting_factor(input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
 ) -> float:
-    # The only parameter to optimize is the forgetting factor
-    log_initial_guess = np.sqrt(-np.log(kernel.forgetting_factor))
+    
     result = minimize(
-        objective_forgetting_factor,
-        x0=log_initial_guess,
+        objective,
+        x0=0.5,
+        args=(input_data, kernel),
+        method="Powell",
+        bounds=[(0, 1)],
+    )
+    best_forgetting_factor = result.x[0]
+    print(f"Powell found: {best_forgetting_factor} with value {result.fun}")
+    return best_forgetting_factor 
+
+
+#The result are grid search is used here to define bounds for the Powell method
+def powell_forgetting_factor_post_grid(
+    input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3], grid_optimum: float
+) -> float:
+    
+    result = minimize(
+        objective,
+        x0=0.5,
+        args=(input_data, kernel),
+        method="Powell",
+        bounds=[(max(0, grid_optimum - 0.01), min(grid_optimum + 0.01, 1.0))],
+    )
+    best_forgetting_factor = result.x[0]
+    print(f"Powell+grid found: {best_forgetting_factor} with value {result.fun}")
+    return best_forgetting_factor
+
+
+#The result are grid search is used here to define bounds for the Nelder-Mead method
+def nelder_mead_forgetting_factor_post_grid(
+    input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3], grid_optimum: float
+) -> float:
+    
+    result = minimize(
+        objective,
+        x0=0.5,
         args=(input_data, kernel),
         method="Nelder-Mead",
+        bounds=[(max(0, grid_optimum - 0.01), min(grid_optimum + 0.01, 1.0))],
     )
-    log_forgetting_factor = result.x[0]
-    return np.exp(-(log_forgetting_factor**2))
+    best_forgetting_factor = result.x[0]
+    #print(f"NM+grid found: {best_forgetting_factor} with value {result.fun}")
+
+    return best_forgetting_factor
+
+
+def grid_search_optimize_forgetting_factor(
+    input_data: npt.NDArray, kernel: Union[EwmaKernel1, EwmaKernel3]
+) -> float:
+    min_rmse = float("inf")
+    best_forgetting_factor = None
+    
+    results = {}
+    for forgetting_factor in np.arange(0.01, 1.00, 0.01):
+        kernel.reset_state()
+        kernel.forgetting_factor = forgetting_factor
+        predictions = kernel.predict(input_data[1:], horizon=1)
+        rmse_value = rmse(input_data[1:], predictions)
+        results[forgetting_factor] = rmse_value
+    results = pd.Series(results)
+    min_rmse = results.min()
+    best_forgetting_factor = results.idxmin()
+    print(f"Grid found: {best_forgetting_factor} with error {min_rmse}")
+    return best_forgetting_factor
 
 
 @dataclass
