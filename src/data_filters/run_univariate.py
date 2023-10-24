@@ -234,7 +234,8 @@ def reject_based_on_all_tests(df: pd.DataFrame) -> pd.DataFrame:
     failure_cols = [col for col in df.columns if "failed" in col]
 
     # select only the columns where a subset of the values are not True
-    df["is_rejected"] = df[failure_cols].any(axis=1)
+    row_true_counts = df[failure_cols].sum(axis=1)
+    df["is_rejected"] = row_true_counts >= 2
     return df
 
 

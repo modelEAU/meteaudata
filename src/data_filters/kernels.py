@@ -306,7 +306,7 @@ def powell_forgetting_factor(input_data: npt.NDArray, kernel: Union[EwmaKernel1,
         bounds=[(0, 1)],
     )
     best_forgetting_factor = result.x[0]
-    print(f"Powell found: {best_forgetting_factor} with value {result.fun}")
+    #print(f"Powell found: {best_forgetting_factor} with value {result.fun}")
     return best_forgetting_factor 
 
 
@@ -323,7 +323,7 @@ def powell_forgetting_factor_post_grid(
         bounds=[(max(0, grid_optimum - 0.01), min(grid_optimum + 0.01, 1.0))],
     )
     best_forgetting_factor = result.x[0]
-    print(f"Powell+grid found: {best_forgetting_factor} with value {result.fun}")
+    #print(f"Powell+grid found: {best_forgetting_factor} with value {result.fun}")
     return best_forgetting_factor
 
 
@@ -361,7 +361,7 @@ def grid_search_optimize_forgetting_factor(
     results = pd.Series(results)
     min_rmse = results.min()
     best_forgetting_factor = results.idxmin()
-    print(f"Grid found: {best_forgetting_factor} with error {min_rmse}")
+    #print(f"Grid found: {best_forgetting_factor} with error {min_rmse}")
     return best_forgetting_factor
 
 
