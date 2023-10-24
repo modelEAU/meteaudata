@@ -335,29 +335,29 @@ class UnivariatePlotter:
 
         df = self.df
         # if the test is the range test, don't plot the accepted values here
-        if test_name in ["correlation_test", "slope_test"]:
-            # Line for smoothed data
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df["smoothed"],
-                    mode="lines",
-                    name=CLEAN_NAMES["smoothed"][self.language],
-                ),
-                secondary_y=False,
-            )
+        # if test_name in ["correlation_test", "slope_test"]:
+        #     # Line for smoothed data
+        #     fig.add_trace(
+        #         go.Scatter(
+        #             x=df.index,
+        #             y=df["smoothed"],
+        #             mode="lines",
+        #             name=CLEAN_NAMES["smoothed"][self.language],
+        #         ),
+        #         secondary_y=False,
+        #     )
 
-        if test_name == "correlation_test":
-            # Line for smoothed data
-            fig.add_trace(
-                go.Scatter(
-                    x=df.index,
-                    y=df["accepted_values"],
-                    mode="lines",
-                    name=CLEAN_NAMES["accepted_values"][self.language],
-                ),
-                secondary_y=False,
-            )
+        # if test_name == ["correlation_test"]:
+        #     # Line for smoothed data
+        #     fig.add_trace(
+        #         go.Scatter(
+        #             x=df.index,
+        #             y=df["accepted_values"],
+        #             mode="lines",
+        #             name=CLEAN_NAMES["accepted_values"][self.language],
+        #         ),
+        #         secondary_y=False,
+        #     )
 
         # if the test is the signs test, we plot the absolute values
         if test_name in ["correlation_test"]:
@@ -377,7 +377,8 @@ class UnivariatePlotter:
                     size=7,
                 ),
             ),
-            secondary_y=test_name in ["slope_test", "correlation_test"],
+            secondary_y=False
+            # secondary_y=test_name in ["slope_test", "correlation_test"],
         )
 
         # Add constant lines for min_slope and max_slope
@@ -391,7 +392,8 @@ class UnivariatePlotter:
                     color="red",
                 ),
             ),
-            secondary_y=test_name in ["slope_test", "correlation_test"],
+            secondary_y=False
+            # secondary_y=test_name in ["slope_test", "correlation_test"],
         )
         fig.add_trace(
             go.Scatter(
@@ -404,7 +406,8 @@ class UnivariatePlotter:
                     # make it dashed
                 ),
             ),
-            secondary_y=test_name in ["slope_test", "correlation_test"],
+            secondary_y=False
+            # secondary_y=test_name in ["slope_test", "correlation_test"],
         )
         # Set titles
         fig.update_layout(
@@ -416,7 +419,7 @@ class UnivariatePlotter:
         if test_name in ["slope_test", "correlation_test"]:
             fig.update_yaxes(
                 title_text=CLEAN_NAMES[col_lookup[test_name]["value"]][self.language],
-                secondary_y=True,
+                secondary_y=False,
             )
 
         return fig
