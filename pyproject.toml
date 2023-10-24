@@ -2,7 +2,7 @@
 name = "data_filters"
 version = "0.2.7"
 description = "data filtration library for the modelEAU research group"
-authors = ["Jean-David Therrien <jeandavidt@gmail.com>"]
+authors = ["Jean-David Therrien <jeandavidt@gmail.com>", "Sanaz Mohebali <sanaz.mohebali.1@ulaval.ca>"]
 license = "All rights reserved modelEAU"
 
 [tool.poetry.dependencies]
