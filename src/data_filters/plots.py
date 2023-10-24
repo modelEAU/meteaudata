@@ -335,9 +335,8 @@ class UnivariatePlotter:
 
         df = self.df  # if the test is the signs test, we plot the absolute values
         if test_name in ["correlation_test"]:
-            df[col_lookup[test_name]["value"]] = np.abs(
-                df[col_lookup[test_name]["value"]]
-            )
+            df[col_lookup[test_name]["value"]] = df[col_lookup[test_name]["value"]]
+
         # Scatter plot for slope with color depending on 'failed_slope_test'
         fig.add_trace(
             go.Scatter(

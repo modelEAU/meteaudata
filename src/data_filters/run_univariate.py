@@ -282,10 +282,11 @@ def main(
         corr_checker,
     )
 
-    data = pd.DataFrame(results, index=data_indices)
+    data = results.copy()
+    data.index = data_indices
 
     if produce_plot:
-        plotter = UnivariatePlotter(signal_name=signal_name, df=results)
+        plotter = UnivariatePlotter(signal_name=signal_name, df=data)
         fig = plotter.plot_outlier_results(title=f"Smoother results: {signal_name}")
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         fig.write_html(output_directory / f"{signal_name}_{timestamp}.html")
@@ -317,7 +318,10 @@ def main(
         results = reject_based_on_all_tests(results)
         results["accepted"] = results.loc[~results["is_rejected"], "smoothed"]
         results["rejected"] = results.loc[results["is_rejected"], "smoothed"]
-        plotter = UnivariatePlotter(signal_name=signal_name, df=results)
+
+        data = results.copy()
+        data.index = data_indices
+        plotter = UnivariatePlotter(signal_name=signal_name, df=data)
         fig = plotter.plot_original_and_final_data()
         fig.show()
         fig.write_html(

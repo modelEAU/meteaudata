@@ -11,7 +11,7 @@ signal_model:
     name: ewma
     parameters:
       order: 3
-      forgetting_factor: null
+      forgetting_factor: 0.05
   parameters: null
 uncertainty_model:
   name: ewma_uncertainty_model
@@ -19,7 +19,7 @@ uncertainty_model:
     name: ewma
     parameters:
       order: 1
-      forgetting_factor: null
+      forgetting_factor: 0.05
   parameters:
     initial_uncertainty: null
     minimum_uncertainty: null
@@ -54,8 +54,8 @@ range_test:
     min_value: 0
     max_value: 16
 correlation_test:
-  #name: alferes_sign_correlation_score
-  name: durbin_watson
+  name: alferes_sign_correlation_score
+  #name: durbin_watson
   parameters:
     min_score: 0.0 # min possible score: 0
     max_score: 2.5  # max possible score: 4
