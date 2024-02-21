@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from pathlib import Path
 from typing import Optional, Union
 
@@ -65,6 +66,66 @@ class Config(BaseModel):
     pca_model: ModelConfig
     hotelling_test: FilterConfig
     q_residuals_test: FilterConfig
+
+class ProcessingTypes(Enum):
+    SORTING = "sorting"
+    REMOVE_DUPLICATES = "remove_duplicates"
+    SMOOTHING = "smoothing"
+    FILTERING = "filtering"
+    RESAMPLING = "resampling"
+    GAP_FILLING = "gap_filling"
+    DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
+    FAULT_DETECTION = "fault_detection"
+    FAULT_IDENTIFICATION = "fault_identification"
+    FAULT_DIAGNOSIS = "fault_diagnosis"
+
+class SmoothingMethods(Enum):
+    H_KERNEL = "h_kernel"
+    MOVING_AVERAGE = "moving_average"
+
+
+class DimensionalityReductionTypes(Enum):
+    PCA = "pca"
+
+class FaultDetectionTests(Enum):
+    HOTELLING = "hotelling"
+    Q_RESIDUALS = "q_residuals"
+    T2 = "t2"
+
+class DatasetMetadata(BaseModel):
+    dataset_creation_datetime: str
+    dataset_name: str
+    dataset_description: str
+    dataset_owner: str
+    column_descriptions: list[str]
+    purpose: str
+    project: str
+
+class DataProvenance(BaseModel):
+    data_source: str
+    project: str
+    location: str
+    equipment: str
+    parameter: str
+    unit: str
+    purpose: str
+    metadata_id: int
+
+
+
+class ProcessingStep(BaseModel):
+    processing_type: ProcessingTypes
+    method: Optional[str]
+    processing_datetime: datetime.datetime
+    parameters: Optional[Parameters]
+    calibration_on_cols: Optional[list[str]]
+    calibration_period: Optional[Interval]
+
+
+class TimeSeriesMetadata(BaseModel):
+    name: str
+    data_provenance: DataProvenance
+    processing_steps: list[ProcessingStep]
 
 
 def get_config_from_file(path: str) -> Config:
