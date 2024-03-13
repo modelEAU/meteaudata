@@ -3,12 +3,12 @@ from typing import Optional, Tuple
 
 import pandas as pd
 import plotly.io as pio
-from data_filters.filter_algorithms import AlferesAlgorithm
-from data_filters.filters import AlferesFilter
-from data_filters.kernels import EwmaKernel1, EwmaKernel3
-from data_filters.models import EwmaUncertaintyModel, SignalModel
+from data_filters.alferes_outlier.filter_algorithms import AlferesAlgorithm
+from data_filters.alferes_outlier.filters import AlferesFilter
+from data_filters.alferes_outlier.kernels import EwmaKernel1, EwmaKernel3
+from data_filters.alferes_outlier.models import EwmaUncertaintyModel, SignalModel
+from data_filters.filters.smoothers import new_kernel_smoother
 from data_filters.plots import UnivariatePlotter
-from data_filters.smoothers import new_kernel_smoother
 from data_filters.utilities import combine_filter_results
 
 FILE = "signal.csv"

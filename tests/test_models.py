@@ -4,8 +4,14 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 from data_filters.config import Parameters
-from data_filters.kernels import EwmaKernel1, EwmaKernel3
-from data_filters.models import EwmaUncertaintyModel, SignalModel
+from data_filters.processing_steps.alferes_outlier.kernels import (
+    EwmaKernel1,
+    EwmaKernel3,
+)
+from data_filters.processing_steps.alferes_outlier.models import (
+    EwmaUncertaintyModel,
+    SignalModel,
+)
 from data_filters.protocols import Model
 
 

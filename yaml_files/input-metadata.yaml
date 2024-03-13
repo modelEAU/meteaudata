@@ -1,0 +1,31 @@
+dataset_creation_datetime: 2024-02-21 01:10:00-05:00
+metadata_last_update_datetime: 2024-02-21 01:10:00-05:00
+dataset_name: JD's sample datEAUbase data
+dataset_description: A sample dataset.
+dataset_owner: Jean-David Therrien
+columns:
+  - name: pilEAUte*Primary settling tank effluent*Ammo_004*pH*pH
+    data_provenance:
+      data_source: datEAUbase2020
+      project: pilEAUte
+      location: Primary settling tank effluent
+      equipment: Ammo_004
+      parameter: pH
+      unit: unitless
+      purpose: monitoring
+      metadata_id: 2
+    processing_steps: null
+  - name: pilEAUte*Pilote sludge recycle*AIT-260*TSS*kg/m3
+    data_provenance:
+      data_source: datEAUbase2020
+      project: pilEAUte
+      location: Pilote sludge recycle
+      equipment: AIT-260
+      parameter: TSS
+      unit: kg/m3
+      purpose: control
+      metadata_id: null
+    processing_steps: null
+purpose: Play with the metadata schema and filtering library.
+project: JD's PhD thesis
+

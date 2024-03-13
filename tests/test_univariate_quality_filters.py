@@ -1,7 +1,8 @@
 import numpy as np
-
 from data_filters.config import FilterConfig, Parameters
-from data_filters.univariate_quality_filters import AlferesSignCorrelationChecker
+from data_filters.filters.univariate_quality_filters import (
+    AlferesSignCorrelationChecker,
+)
 
 
 def test_build_sign_corr_checker():

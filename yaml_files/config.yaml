@@ -1,0 +1,80 @@
+config_name: sample_config
+calibration_period:
+  start: 2022-05-02
+  end: 2022-05-20
+filtration_period:
+  start: null
+  end: null
+signal_model:
+  name: signal_model
+  kernel:
+    name: ewma
+    parameters:
+      order: 3
+      forgetting_factor: 0.05
+  parameters: null
+uncertainty_model:
+  name: ewma_uncertainty_model
+  kernel:
+    name: ewma
+    parameters:
+      order: 1
+      forgetting_factor: 0.05
+  parameters:
+    initial_uncertainty: null
+    minimum_uncertainty: null
+    uncertainty_gain: 1.5
+filter_algorithm:
+  name: alferes
+  parameters: null
+filter_runner:
+  name: alferes
+  parameters:
+    n_outlier_threshold: 3
+    n_steps_back: 5
+    n_warmup_steps: 2
+smoother:
+  name: h_kernel
+  parameters:
+    size: 2
+slope_test:
+  name: linear_regression
+  parameters:
+    min_slope: -1.0
+    max_slope: 1.0
+    window_size: 5
+residuals_test:
+  name: smoothing_residuals
+  parameters:
+    min_residual: -3.0
+    max_residual: 3.0
+range_test:
+  name: simple_range
+  parameters:
+    min_value: 0
+    max_value: 16
+correlation_test:
+  name: alferes_sign_correlation_score
+  #name: durbin_watson
+  parameters:
+    min_score: 0.0 # min possible score: 0
+    max_score: 2.5  # max possible score: 4
+    window_size: 10
+pca_model:
+  name: pca
+  kernel:
+    name: svd
+    parameters:
+      n_components: 2
+      min_explained_variance: 0.5
+hotelling_test:
+  name: t2_test
+  parameters:
+    alpha: 0.05
+q_residuals_test:
+  name: q_test
+  parameters:
+    alpha: 0.05
+
+
+

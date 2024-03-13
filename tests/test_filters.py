@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
 import pytest
-from test_models import get_model
-
-from data_filters.filter_algorithms import AlferesAlgorithm
-from data_filters.filters import AlferesFilter
+from data_filters.alferes_outlier.filter_algorithms import AlferesAlgorithm
+from data_filters.alferes_outlier.filters import AlferesFilter
+from data_filters.filters.smoothers import HKernelSmoother
 from data_filters.plots import UnivariatePlotter
 from data_filters.protocols import FilterRow
-from data_filters.smoothers import HKernelSmoother
+from test_models import get_model
 
 
 def get_data(series_name, path="tests/sample_data/test_data.csv") -> pd.Series:
