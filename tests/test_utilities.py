@@ -1,5 +1,4 @@
 import pandas as pd
-
 from data_filters.utilities import combine_filter_results
 
 

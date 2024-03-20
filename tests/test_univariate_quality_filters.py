@@ -1,6 +1,6 @@
 import numpy as np
 from data_filters.config import FilterConfig, Parameters
-from data_filters.filters.univariate_quality_filters import (
+from data_filters.processing_steps.univariate_quality_filters import (
     AlferesSignCorrelationChecker,
 )
 

@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
-from data_filters.config import Parameters
 from data_filters.processing_steps.alferes_outlier.kernels import (
     EwmaKernel1,
     EwmaKernel3,
     compute_current_s_stats,
 )
 from data_filters.utilities import rmse
+from metEAUdata.types import Parameters
 
 
 def good_input_data1():
