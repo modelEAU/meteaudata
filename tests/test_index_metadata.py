@@ -119,12 +119,12 @@ def test_reconstruct_datetime_index_tz():
         (
             "Float64Index",
             lambda: pd.Index([0.1, 0.2, 0.3], dtype="float64"),
-            {"type": "Float64Index", "dtype": "float64", "name": "float_index"},
+            {"type": "Index", "dtype": "float64", "name": "float_index"},
         ),
         (
             "Int64Index",
             lambda: pd.Index([1, 2, 3], dtype="int64"),
-            {"type": "Int64Index", "dtype": "int64", "name": "int_index"},
+            {"type": "Index", "dtype": "int64", "name": "int_index"},
         ),
         (
             "RangeIndex",

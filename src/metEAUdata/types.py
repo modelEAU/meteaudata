@@ -3,7 +3,6 @@ import os
 import shutil
 import tempfile
 import zipfile
-from copy import deepcopy
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Protocol, Union
@@ -11,7 +10,7 @@ from typing import Any, Optional, Protocol, Union
 import numpy as np
 import pandas as pd
 import yaml
-from pydantic import BaseModel, Extra, Field
+from pydantic import BaseModel, Field
 
 
 class NamedTempDirectory:
@@ -142,7 +141,7 @@ class IndexMetadata(BaseModel):
 
 class Parameters(BaseModel):
     class Config:
-        extra = Extra.allow
+        extra = "allow"
 
     def as_dict(self):
         return self.dict()
