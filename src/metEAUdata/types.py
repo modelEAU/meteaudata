@@ -144,6 +144,9 @@ class Parameters(BaseModel):
     class Config:
         extra = Extra.allow
 
+    def as_dict(self):
+        return self.dict()
+
 
 class ProcessingType(Enum):
     SORTING = "sorting"

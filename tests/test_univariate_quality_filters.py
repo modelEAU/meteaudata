@@ -14,7 +14,7 @@ def test_build_sign_corr_checker():
             window_size=10,
         ),
     )
-    return AlferesSignCorrelationChecker(control_parameters=config.parameters)
+    return AlferesSignCorrelationChecker(control_parameters=config.parameters.as_dict())
 
 
 def test_compute_sign_changes():

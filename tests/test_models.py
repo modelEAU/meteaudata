@@ -39,9 +39,9 @@ def get_model(
     kernel = get_kernel(order, forgetting_factor)
     parameters = get_parameters(name)
     if name == "uncertainty":
-        return EwmaUncertaintyModel(kernel=kernel, **parameters)
+        return EwmaUncertaintyModel(kernel=kernel, **parameters.as_dict())
     if name == "signal":
-        return SignalModel(kernel=kernel, **parameters)
+        return SignalModel(kernel=kernel, **parameters.as_dict())
 
 
 def get_test_data() -> npt.NDArray:
@@ -62,7 +62,7 @@ def get_test_data() -> npt.NDArray:
 def test_calibrate_model(name, order, forgetting_factor):
     model = get_model(name, order, forgetting_factor)
     data = get_test_data()
-    initial_guesses = get_parameters(name)
+    initial_guesses = get_parameters(name).as_dict()
     initial_guesses["forgetting_factor"] = forgetting_factor
     try:
         model.calibrate(data, initial_guesses)
