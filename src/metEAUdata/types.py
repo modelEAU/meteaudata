@@ -223,6 +223,8 @@ class TimeSeries(BaseModel):
             return False
         if self.index_metadata != other.index_metadata:
             return False
+        if self.values_dtype != other.values_dtype:
+            return False
         if len(self.processing_steps) != len(other.processing_steps):
             return False
         for i in range(len(self.processing_steps)):
