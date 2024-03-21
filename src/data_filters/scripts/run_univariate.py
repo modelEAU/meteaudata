@@ -4,10 +4,6 @@ from pathlib import Path
 from typing import Union
 
 import pandas as pd
-from data_filters.alferes_outlier.filter_algorithms import AlferesAlgorithm
-from data_filters.alferes_outlier.filters import AlferesFilter
-from data_filters.alferes_outlier.kernels import EwmaKernel1, EwmaKernel3
-from data_filters.alferes_outlier.models import EwmaUncertaintyModel, SignalModel
 from data_filters.config import (
     AlgorithmConfig,
     Config,
@@ -16,15 +12,27 @@ from data_filters.config import (
     ModelConfig,
     get_config_from_file,
 )
-from data_filters.filters.smoothers import HKernelSmoother
-from data_filters.filters.univariate_quality_filters import (
+from data_filters.plots import UnivariatePlotter
+from data_filters.processing_steps.alferes_outlier.filter_algorithms import (
+    AlferesAlgorithm,
+)
+from data_filters.processing_steps.alferes_outlier.filters import AlferesFilter
+from data_filters.processing_steps.alferes_outlier.kernels import (
+    EwmaKernel1,
+    EwmaKernel3,
+)
+from data_filters.processing_steps.alferes_outlier.models import (
+    EwmaUncertaintyModel,
+    SignalModel,
+)
+from data_filters.processing_steps.smoothers import HKernelSmoother
+from data_filters.processing_steps.univariate_quality_filters import (
     AlferesSignCorrelationChecker,
     DurbinWatsonResidualCorrelationChecker,
     LinearRegressionSlopeChecker,
     SimpleRangeChecker,
     SmoothingResidualsChecker,
 )
-from data_filters.plots import UnivariatePlotter
 from data_filters.protocols import Filter, FilterAlgorithm, UncertaintyModel
 from data_filters.utilities import combine_filter_results
 

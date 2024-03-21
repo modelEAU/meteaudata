@@ -11,14 +11,14 @@ from data_filters.config import (
     ModelConfig,
     get_config_from_file,
 )
-from data_filters.filters.multivariate_quality_filters import (
-    HotellingChecker,
-    QResidualsChecker,
-)
 from data_filters.plots import MultivariatePlotter
 from data_filters.processing_steps.alferes_outlier.filters import PCAFilter
 from data_filters.processing_steps.alferes_outlier.kernels import SVD, SVDKernel
 from data_filters.processing_steps.alferes_outlier.models import SignalModel
+from data_filters.processing_steps.multivariate_quality_filters import (
+    HotellingChecker,
+    QResidualsChecker,
+)
 from data_filters.protocols import Filter
 from data_filters.scripts.run_univariate import (
     clip_data,

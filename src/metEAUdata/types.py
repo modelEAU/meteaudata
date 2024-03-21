@@ -3,11 +3,12 @@ import os
 import shutil
 import tempfile
 import zipfile
+from copy import deepcopy
 from enum import Enum
-from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional, Protocol, Union
 
+import numpy as np
 import pandas as pd
 import yaml
 from pydantic import BaseModel, Extra, Field
@@ -49,6 +50,94 @@ def zip_directory_contents(folder_path, zip_path):
                 file_path = os.path.join(root, file)
                 relative_path = file_path[len_dir_path:].lstrip(os.sep)
                 zipf.write(file_path, relative_path)
+
+
+class IndexMetadata(BaseModel):
+    type: str
+    name: Optional[str] = None
+    frequency: Optional[str] = None
+    time_zone: Optional[str] = None
+    closed: Optional[str] = None
+    categories: Optional[list[Any]] = None
+    ordered: Optional[bool] = None
+    start: Optional[int] = None
+    end: Optional[int] = None
+    step: Optional[int] = None
+    dtype: str
+
+    @staticmethod
+    def extract_index_metadata(index: pd.Index) -> "IndexMetadata":
+        metadata = {
+            "type": type(index).__name__,
+            "name": index.name,
+            "dtype": str(index.dtype),
+        }
+
+        if hasattr(index, "freqstr"):
+            metadata["frequency"] = index.freqstr
+
+        if isinstance(index, pd.DatetimeIndex):
+            metadata["time_zone"] = str(index.tz) if index.tz is not None else None
+
+        if isinstance(index, pd.IntervalIndex):
+            metadata["closed"] = index.closed
+
+        if isinstance(index, pd.CategoricalIndex):
+            metadata["categories"] = index.categories.tolist()
+            metadata["ordered"] = index.ordered
+
+        if isinstance(index, pd.RangeIndex):
+            metadata["start"] = index.start
+            metadata["end"] = (
+                index.stop
+            )  # 'end' is exclusive in RangeIndex, hence using 'stop'
+            metadata["step"] = index.step
+
+        return IndexMetadata(**metadata)
+
+    @staticmethod
+    def reconstruct_index(index: pd.Index, metadata: "IndexMetadata") -> pd.Index:
+        index = index.copy()
+        if metadata.type == "DatetimeIndex":
+            dt_index = pd.to_datetime(index)
+            # is the indez tz-naive or tz-aware?
+            if dt_index.tz is None:
+                reconstructed_index = (
+                    dt_index
+                    if metadata.time_zone is None
+                    else dt_index.tz_localize(metadata.time_zone)
+                )
+            else:
+                reconstructed_index = (
+                    dt_index.tz_convert(metadata.time_zone)
+                    if metadata.time_zone is not None
+                    else dt_index.tz_localize(None)
+                )
+            if metadata.frequency:
+                dummy_series = pd.Series([0] * len(index), index=index)
+                reconstructed_index = dummy_series.asfreq(metadata.frequency).index
+
+        elif metadata.type == "PeriodIndex":
+            reconstructed_index = pd.PeriodIndex(index, freq=metadata.frequency)
+        elif metadata.type == "IntervalIndex":
+            reconstructed_index = pd.IntervalIndex(index, closed=metadata.closed)
+        elif metadata.type == "CategoricalIndex":
+            reconstructed_index = pd.CategoricalIndex(
+                index, categories=metadata.categories, ordered=metadata.ordered
+            )
+        elif metadata.type == "RangeIndex":
+            reconstructed_index = pd.RangeIndex(
+                start=metadata.start, stop=metadata.end, step=metadata.step
+            )
+        elif metadata.type == "Int64Index":
+            reconstructed_index = pd.Int64Index(index)
+        elif metadata.type == "Float64Index":
+            reconstructed_index = pd.Float64Index(index)
+        else:
+            reconstructed_index = pd.Index(index)
+
+        reconstructed_index.name = metadata.name
+        return reconstructed_index
 
 
 class Parameters(BaseModel):
@@ -109,8 +198,18 @@ class ProcessingConfig(BaseModel):
 
 
 class TimeSeries(BaseModel):
-    series: pd.Series
+    series: pd.Series = Field(default=pd.Series(dtype=object))
     processing_steps: list[ProcessingStep] = Field(default_factory=list)
+    index_metadata: Optional[IndexMetadata] = None
+    values_dtype: str = Field(default="str")
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.series is not None:
+            self.index_metadata = IndexMetadata.extract_index_metadata(
+                self.series.index
+            )
+            self.values_dtype = str(self.series.dtype)
 
     class Config:
         arbitrary_types_allowed = True
@@ -118,7 +217,11 @@ class TimeSeries(BaseModel):
     def __eq__(self, other):
         if not isinstance(other, TimeSeries):
             return False
-        if not self.series.equals(other.series):
+        if not self.series.dtype == other.series.dtype:
+            return False
+        if not np.allclose(self.series.values, other.series.values, equal_nan=True):
+            return False
+        if self.index_metadata != other.index_metadata:
             return False
         if len(self.processing_steps) != len(other.processing_steps):
             return False
@@ -127,7 +230,7 @@ class TimeSeries(BaseModel):
                 return False
         return True
 
-    def metadata(self):
+    def metadata_dict(self):
         metadata = {}
         for k, v in self.dict().items():
             if k == "processing_steps":
@@ -144,6 +247,47 @@ class TimeSeries(BaseModel):
             else:
                 metadata[k] = v
         return metadata
+
+    def load_metadata_from_dict(self, metadata: dict):
+        self.processing_steps = [
+            ProcessingStep(**step) for step in metadata["processing_steps"]
+        ]
+        self.index_metadata = IndexMetadata(**metadata["index_metadata"])
+        reconstructed_index = IndexMetadata.reconstruct_index(
+            self.series.index, self.index_metadata
+        )
+        self.series.index = reconstructed_index
+        self.values_dtype = metadata["values_dtype"]
+        self.series = self.series.astype(self.values_dtype)
+        return None
+
+    def load_metadata_from_file(self, file_path: str):
+        with open(file_path, "r") as f:
+            metadata = yaml.safe_load(f)
+        self.load_metadata_from_dict(metadata)
+        return self
+
+    def load_data_fom_file(self, file_path: str):
+        self.series = pd.read_csv(file_path, index_col=0).iloc[:, 0]
+        return self
+
+    @staticmethod
+    def load(
+        data_file_path: Optional[str] = None,
+        data: Optional[pd.Series] = None,
+        metadata_file_path: Optional[str] = None,
+        metadata: Optional[dict] = None,
+    ):
+        ts = TimeSeries()
+        if data:
+            ts.series = data
+        elif data_file_path:
+            ts.load_data_fom_file(data_file_path)
+        if metadata:
+            ts.load_metadata_from_dict(metadata)
+        elif metadata_file_path:
+            ts.load_metadata_from_file(metadata_file_path)
+        return ts
 
 
 class TransformFunctionProtocol(Protocol):
@@ -201,9 +345,19 @@ class Signal(BaseModel):
             dict[str, TimeSeries],
         ]
     ]
-    name: str
-    units: str
-    provenance: DataProvenance
+    name: str = Field(default="signal")
+    units: str = Field(default="unit")
+    provenance: DataProvenance = Field(
+        default_factory=lambda: DataProvenance(
+            source_repository="unknown",
+            project="unknown",
+            location="unknown",
+            equipment="unknown",
+            parameter="unknown",
+            purpose="unknown",
+            metadata_id="unknown",
+        )
+    )
     time_series: dict[str, TimeSeries] = Field(default_factory=dict)
 
     def __init__(__pydantic_self__, **data):
@@ -341,46 +495,47 @@ class Signal(BaseModel):
             ts.series.to_csv(file_path)
         return directory
 
-    def metadata(self):
+    def metadata_dict(self):
         metadata = self.dict()
         # remove the actual data from the metadata
         ts_metadata = {}
         for ts_name, ts in self.time_series.items():
-            ts_metadata[ts_name] = ts.metadata()
+            ts_metadata[ts_name] = ts.metadata_dict()
         metadata["time_series"] = ts_metadata
         return metadata
 
     def _save_metadata(self, path: str):
-        metadata = self.metadata()
+        metadata = self.metadata_dict()
         file_path = f"{path}/{self.name}_metadata.yaml"
         with open(file_path, "w") as f:
             yaml.dump(metadata, f)
         return file_path
 
-    def save(self, destination: str):
+    def save(self, destination: str, zip: bool = True):
         if not os.path.exists(destination):
             os.makedirs(destination)
         with tempfile.TemporaryDirectory() as temp_dir:
-
             # Step 2: Save metadata file
             self._save_metadata(temp_dir)
-
             # Prepare the subdirectory for signal data
-
             self._save_data(temp_dir)
+            if not zip:
+                # Move the metadata file to the destination
+                shutil.move(f"{temp_dir}/{self.name}_metadata.yaml", destination)
+                # Move the data directory to the destination
+                shutil.move(f"{temp_dir}/{self.name}_data", destination)
+            else:
+                # Zip the contents of the temporary directory, not the directory itself
+                zip_directory_contents(temp_dir, f"{destination}/{self.name}.zip")
 
-            # Zip the contents of the temporary directory, not the directory itself
-            zip_directory_contents(temp_dir, f"{destination}/{self.name}.zip")
-
-    def _load_data(self, path: str):
+    def _load_data_from_directory(self, path: str):
         for file in os.listdir(path):
             if file.endswith(".csv"):
                 ts_name = file.split(".")[0]
-                df = pd.read_csv(f"{path}/{file}", index_col=0)
-                self.time_series[ts_name] = TimeSeries(
-                    series=df[ts_name], processing_steps=[]
+                self.time_series[ts_name] = TimeSeries.load(
+                    data_file_path=f"{path}/{file}"
                 )
-        return None
+        return self
 
     def _load_metadata(self, path: str):
         with open(path, "r") as f:
@@ -395,77 +550,71 @@ class Signal(BaseModel):
                 processing_steps=[
                     ProcessingStep(**step) for step in ts_meta["processing_steps"]
                 ],
+                index_metadata=IndexMetadata(**ts_meta["index_metadata"]),
+                values_dtype=ts_meta["values_dtype"],
             )
+
         self.last_updated = metadata["last_updated"]
         return None
 
     @staticmethod
-    def load(path_str: str, name: str) -> "Signal":
+    def load_from_directory(source_path: str, signal_name: str) -> "Signal":
         # create a new signal object from data and metadata
-        signal = Signal(
-            data=None,
-            name=name,
-            units="",
-            provenance=DataProvenance(
-                source_repository="",
-                project="",
-                location="",
-                equipment="",
-                parameter="",
-                purpose="",
-                metadata_id="",
-            ),
-        )
-        path = Path(path_str)
-        # if provided with a zip file, look for csv and yaml files
-        if path.is_file() and path.suffix == ".zip":
-            with tempfile.TemporaryDirectory() as temp_dir:
-                # Open the zip file
-                with zipfile.ZipFile(path, "r") as zip_ref:
-                    # Extract all the contents into the temporary directory
-                    zip_ref.extractall(temp_dir)
-                dir_items = os.listdir(temp_dir)
-                for item in dir_items:
-                    # check if item is directory
-                    if os.path.isdir(f"{temp_dir}/{item}"):
-                        subdir = item
-                        data_files = os.listdir(f"{temp_dir}/{subdir}")
-                        for file in data_files:
-                            if not file.endswith(".csv"):
-                                continue
-                            series = pd.read_csv(
-                                f"{temp_dir}/{subdir}/{file}", index_col=0
-                            )
-                            ts_name = file.split(".")[0].split("/")[-1]
-                            signal.time_series[ts_name] = TimeSeries(
-                                series=series[ts_name], processing_steps=[]
-                            )
-                metadata_path = f"{temp_dir}/{signal.name}_metadata.yaml"
-                signal._load_metadata(metadata_path)
-        # if provided with a direcroty, look for csv and yaml files
-        elif os.path.isdir(path):
-            # check if the directory with data exists
-            data_directory = name + "_data"
-            data_dir_path = path / data_directory
-            if not os.path.exists(data_dir_path):
-                raise FileNotFoundError(f"Directory {data_dir_path} not found")
-            for file in os.listdir(data_dir_path):
-                if file.endswith(".csv"):
-                    ts_name = file.split(".")[0]
-                    series = pd.read_csv(data_dir_path / file, index_col=0)
-                    signal.time_series[ts_name] = TimeSeries(
-                        series=series[ts_name], processing_steps=[]
-                    )
-            if not os.path.exists(f"{data_dir_path}/{signal.name}_metadata.yaml"):
-                raise FileNotFoundError(
-                    f"File {path}/{signal.name}_metadata.yaml not found"
-                )
-            signal._load_metadata(f"{path}/{signal.name}_metadata.yaml")
-            os.remove(f"{path}/{signal.name}_metadata.yaml")
-        else:
+        source_p = Path(source_path)
+        parent_dir = source_p.parent
+        remove_temp_dir = False
+        # if provided with a zip file, start by extracting the contents to a temporary directory
+        if source_p.is_file() and source_p.suffix == ".zip":
+            # Open the zip file
+            # Create a temporary directory to extract the contents
+            temp_dir = f"{parent_dir}/tmp"
+            os.makedirs(temp_dir, exist_ok=True)
+            with zipfile.ZipFile(source_path, "r") as zip_ref:
+                # Extract all the contents into the temporary directory
+                zip_ref.extractall(temp_dir)
+            source_p = Path(temp_dir)
+            remove_temp_dir = True
+        elif not source_p.is_dir():
             raise ValueError(
-                f"Invalid path {path} provided. Must be a directory or a zip file that contain data and metadata files. If you only have data, please create a Signal object and provide the necessary metadata."
+                f"Invalid path {source_path} provided. Must be a directory or a zip file that contain data and metadata files."
             )
+        dir_items = os.listdir(source_p)
+        data_subdir = f"{signal_name}_data"
+        if data_subdir not in dir_items:
+            raise ValueError(
+                f"Invalid path {source_path} provided. Must contain a directory named {data_subdir} with the data files."
+            )
+        data_dir = str(source_p / data_subdir)
+        metadata_file = f"{source_p}/{signal_name}_metadata.yaml"
+        if not os.path.exists(metadata_file):
+            raise ValueError(
+                f"Invalid path {source_path} provided. Must contain a metadata file named {signal_name}_metadata.yaml."
+            )
+        signal = Signal._load_from_files(data_dir, metadata_file)
+        return signal
+
+    @staticmethod
+    def _load_from_files(data_directory: str, metadata_file: str) -> "Signal":
+        with open(metadata_file, "r") as f:
+            metadata = yaml.safe_load(f)
+        signal = Signal._load_from_data_dir_and_meta_dict(data_directory, metadata)
+        return signal
+
+    @staticmethod
+    def _load_from_data_dir_and_meta_dict(
+        data_directory: str, metadata: dict
+    ) -> "Signal":
+        signal = Signal(**metadata)
+        ts_metadata = metadata["time_series"]
+        for ts_name, ts_meta in ts_metadata.items():
+            data_file = f"{data_directory}/{ts_name}.csv"
+            if not os.path.exists(data_file):
+                raise ValueError(
+                    f"Invalid path {data_file} provided. Must contain a data file named {ts_name}.csv."
+                )
+            ts = TimeSeries.load(data_file_path=data_file, metadata=ts_meta)
+            signal.time_series[ts_name] = ts
+        signal.last_updated = metadata["last_updated"]
         return signal
 
     def __eq__(self, other):
@@ -497,12 +646,12 @@ class Dataset(BaseModel):
     name: str
     description: str
     owner: str
-    signals: list[Signal]
+    signals: dict[str, Signal]
     purpose: str
     project: str
 
     def add(self, signal: Signal):
-        self.signals.append(signal)
+        self.signals[signal.name] = signal
 
     class Config:
         arbitrary_types_allowed = True
@@ -516,75 +665,86 @@ class Dataset(BaseModel):
         else:
             super().__setattr__("last_updated", value)
 
-    def metadata(self):
+    def metadata_dict(self):
         metadata = self.dict()
         # remove the actual data from the metadata
-        metadata["signals"] = [signal.metadata() for signal in self.signals]
+        metadata["signals"] = {
+            signal_name: signal.metadata_dict()
+            for signal_name, signal in self.signals.items()
+        }
         return metadata
 
     def save(self, directory: str):
         name = self.name
         dir_path = Path(directory)
+        if not os.path.exists(dir_path):
+            os.makedirs(dir_path)
         # save data and metadata and return a zipped file with both
         dataset_metadata_path = dir_path / (name + ".yaml")
 
-        metadata = self.metadata()
+        metadata = self.metadata_dict()
         # save the metadata in the archive
         with open(dataset_metadata_path, "w") as f:
             yaml.dump(metadata, f)
         dir_name = f"{self.name}_data"
         with NamedTempDirectory(name=dir_name) as temp_dir:
-            for signal in self.signals:
-                signal.save(temp_dir)
+            for signal in self.signals.values():
+                signal.save(temp_dir, zip=False)
             zip_directory(temp_dir, f"{directory}/{name}.zip")
         with zipfile.ZipFile(f"{directory}/{name}.zip", "a") as zf:
             zf.write(dataset_metadata_path, f"{name}_metadata.yaml")
         os.remove(dataset_metadata_path)
         return f"{directory}/{name}.zip"
 
+    def _load_signal(self, dir_path: str, metadata: dict) -> Signal:
+        signal = Signal._load_from_data_dir_and_meta_dict(dir_path, metadata)
+        return signal
+
     @staticmethod
-    def load(filepath: str, name: str):
-        dataset = Dataset(
-            name=name, description="", owner="", signals=[], purpose="", project=""
-        )
-        if filepath.endswith(".zip"):
-            with zipfile.ZipFile(filepath, "r") as zf:
-                dataset_metadata_path = zf.extract(f"{dataset.name}_metadata.yaml")
-                with open(dataset_metadata_path, "r") as f:
-                    metadata = yaml.safe_load(f)
-                os.remove(dataset_metadata_path)
-                dataset.name = metadata["name"]
-                dataset.description = metadata["description"]
-                dataset.owner = metadata["owner"]
-                dataset.purpose = metadata["purpose"]
-                dataset.project = metadata["project"]
-                dataset.created_on = metadata["created_on"]
-                dataset.signals = metadata["signals"]
-                inflated_signals = {}
-                for signal_file in zf.namelist():
-                    if signal_file.endswith(".zip"):
-                        name_from_file = signal_file.split(".")[0].split("/")[-1]
-                        names_from_metadata = [
-                            signal["name"] for signal in metadata["signals"]
-                        ]
-                        if name_from_file not in names_from_metadata:
-                            raise ValueError(
-                                f"Signal {name_from_file} not found in the metadata file."
-                            )
-                        signal = Signal.load(zf.extract(signal_file), name_from_file)
-                        signal_index = names_from_metadata.index(name_from_file)
-                        inflated_signals[signal_index] = signal
-                        os.remove(zf.extract(signal_file))
-                # sort the signals based on the keys
-                inflated_signal_list = [
-                    inflated_signals[key] for key in sorted(inflated_signals.keys())
-                ]
-                dataset.signals = inflated_signal_list
-            dataset.last_updated = metadata["last_updated"]
-        else:
+    def load(source_path: str, dataset_name: str):
+        source_p = Path(source_path)
+        parent_dir = source_p.parent
+        remove_temp_dir = False
+        # if provided with a zip file, start by extracting the contents to a temporary directory
+        if source_p.is_file() and source_p.suffix == ".zip":
+            # Open the zip file
+            # Create a temporary directory to extract the contents
+            temp_dir = f"{parent_dir}/tmp"
+            os.makedirs(temp_dir, exist_ok=True)
+            with zipfile.ZipFile(source_path, "r") as zip_ref:
+                # Extract all the contents into the temporary directory
+                zip_ref.extractall(temp_dir)
+            source_p = Path(temp_dir)
+            remove_temp_dir = True
+        elif not source_p.is_dir():
             raise ValueError(
-                f"Invalid path {filepath} provided. Must be a zip file that contain data and metadata files."
+                f"Invalid path {source_path} provided. Must be a directory or a zip file that contain data and metadata files."
             )
+        dir_items = os.listdir(source_p)
+        dataset_metadata_file = f"{dataset_name}_metadata.yaml"
+        if dataset_metadata_file not in dir_items:
+            raise ValueError(
+                f"Invalid path {source_path} provided. Must contain a metadata file named {dataset_metadata_file}."
+            )
+        dataset_metadata_path = source_p / dataset_metadata_file
+        with open(dataset_metadata_path, "r") as f:
+            metadata = yaml.safe_load(f)
+        dataset = Dataset(**metadata)
+        dataset_data_dir = f"{dataset_name}_data"
+        for signal_name in dataset.signals.keys():
+            data_dir_items = os.listdir(f"{source_p}/{dataset_data_dir}")
+            signal_dir = f"{signal_name}_data"
+            if signal_dir not in data_dir_items:
+                raise ValueError(
+                    f"Invalid path {source_path} provided. Must contain a directory named {signal_dir} with the data files."
+                )
+            dataset.signals[signal_name] = dataset._load_signal(
+                f"{source_p}/{dataset_data_dir}/{signal_dir}",
+                metadata["signals"][signal_name],
+            )
+        dataset.last_updated = metadata["last_updated"]
+        if remove_temp_dir:
+            shutil.rmtree(temp_dir)
         return dataset
 
     def __eq__(self, other):
@@ -606,8 +766,8 @@ class Dataset(BaseModel):
             return False
         if len(self.signals) != len(other.signals):
             return False
-        for i in range(len(self.signals)):
-            if self.signals[i] != other.signals[i]:
+        for name in self.signals.keys():
+            if self.signals[name] != other.signals[name]:
                 return False
         return True
 

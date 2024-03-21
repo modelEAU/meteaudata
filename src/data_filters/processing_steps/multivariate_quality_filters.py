@@ -3,12 +3,13 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from data_filters.alferes_outlier.kernels import SVD
-from data_filters.config import Parameters
-from data_filters.filters.smoothers import compute_window_positions
-from data_filters.protocols import Filter, FilterAlgorithm, FilterRow, Model, Window
 from scipy.stats import f
 from scipy.stats import norm as normal
+
+from data_filters.config import Parameters
+from data_filters.processing_steps.alferes_outlier.kernels import SVD
+from data_filters.processing_steps.smoothers import compute_window_positions
+from data_filters.protocols import Filter, FilterAlgorithm, FilterRow, Model, Window
 
 
 @dataclass

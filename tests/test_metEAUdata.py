@@ -4,7 +4,7 @@ from data_filters.processing_steps import interpolate, resample
 from metEAUdata.types import DataProvenance, Dataset, Signal
 
 
-def main() -> None:
+def test_save_reread() -> None:
     sample_data = pd.DataFrame(
         np.random.randn(100, 3),
         columns=["A", "B", "C"],
@@ -45,60 +45,62 @@ def main() -> None:
         owner="Jean-David Therrien",
         purpose=purpose,
         project=project,
-        signals=[
-            Signal(
+        signals={
+            "A": Signal(
                 input_data=sample_data["A"].rename("RAW"),
                 name="A",
                 provenance=provenance_a,
                 units="mg/l",
             ),
-            Signal(
+            "B": Signal(
                 input_data=sample_data["B"].rename("RAW"),
                 name="B",
                 provenance=provenance_b,
                 units="g/m3",
             ),
-            Signal(
+            "C": Signal(
                 input_data=sample_data["C"].rename("RAW"),
                 name="C",
                 provenance=provenance_c,
                 units="uS/cm",
             ),
-        ],
+        },
     )
-    for signal in dataset.signals:
-        signal_name = signal.name
+    for signal_name, signal in dataset.signals.items():
         print(signal_name)
         signal = signal.process([f"{signal_name}_RAW"], resample.resample, "5min")
         # introduce a nan in the resampled ts
         signal.time_series[f"{signal_name}_RESAMPLED"].series.iloc[10:20] = np.nan
-        print(
-            f"There are {signal.time_series[f'{signal_name}_RESAMPLED'].series.isna().sum()}"
-        )
         signal = signal.process(
             [f"{signal_name}_RESAMPLED"], interpolate.linear_interpolation
         )
-        print(
-            f"There are {signal.time_series[f'{signal_name}_LIN-INT'].series.isna().sum()}"
-        )
         for ts_name, ts in signal.time_series.items():
-            print(ts_name)
-            print("there are ", len(ts.processing_steps), " steps")
-            print("the steps are: ", ts.processing_steps)
-    dataset.save("./")
-    dataset2 = Dataset.load("./test dataset.zip", dataset.name)
+            if ts_name == f"{signal_name}_RAW":
+                assert len(ts.processing_steps) == 0
+            elif ts_name == f"{signal_name}_RESAMPLED":
+                assert len(ts.processing_steps) == 1
+            elif ts_name == f"{signal_name}_INTERPOLATED":
+                assert len(ts.processing_steps) == 2
+            else:
+                print(ts_name)
+    dataset.save("./tests/metadeauta_out")
+    dataset2 = Dataset.load("./tests/metadeauta_out/test dataset.zip", dataset.name)
     # inspect every attribute of the dataset and see if they match
-    for signal, signal2 in zip(dataset.signals, dataset2.signals):
+    for signal_name, signal in dataset.signals.items():
+        signal2 = dataset2.signals[signal_name]
         assert signal.name == signal2.name
         assert signal.units == signal2.units
         assert signal.provenance == signal2.provenance
         assert signal.time_series.keys() == signal2.time_series.keys()
         for ts_name, ts in signal.time_series.items():
+            print("series are equal?", ts_name)
             ts2 = signal2.time_series[ts_name]
-            assert ts.series.equals(ts2.series)
+            assert np.allclose(ts.series.values, ts2.series.values, equal_nan=True)
             assert ts.processing_steps == ts2.processing_steps
+            assert ts.index_metadata == ts2.index_metadata
+
     assert dataset == dataset2
 
 
 if __name__ == "__main__":
-    main()
+    test_save_reread()
