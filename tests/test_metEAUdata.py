@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from data_filters.processing_steps import interpolate, resample
+from metEAUdata.processing_steps import interpolate, resample
 from metEAUdata.types import DataProvenance, Dataset, Signal
 
 
