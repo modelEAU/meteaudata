@@ -140,11 +140,10 @@ class IndexMetadata(BaseModel):
 
 
 class Parameters(BaseModel):
-    class Config:
-        extra = "allow"
+    model_config: dict = {"extra": "allow"}
 
     def as_dict(self):
-        return self.dict()
+        return self.model_dump()
 
 
 class ProcessingType(Enum):
@@ -205,6 +204,8 @@ class TimeSeries(BaseModel):
     index_metadata: Optional[IndexMetadata] = None
     values_dtype: str = Field(default="str")
 
+    model_config: dict = {"arbitrary_types_allowed": True}
+
     def __init__(self, **data):
         super().__init__(**data)
         if self.series is not None:
@@ -212,9 +213,6 @@ class TimeSeries(BaseModel):
                 self.series.index
             )
             self.values_dtype = str(self.series.dtype)
-
-    class Config:
-        arbitrary_types_allowed = True
 
     def __eq__(self, other):
         if not isinstance(other, TimeSeries):
@@ -236,7 +234,7 @@ class TimeSeries(BaseModel):
 
     def metadata_dict(self):
         metadata = {}
-        for k, v in self.dict().items():
+        for k, v in self.model_dump().items():
             if k == "processing_steps":
                 steps = []
                 for step in v:
@@ -335,9 +333,7 @@ class Signal(BaseModel):
         __setattr__(self, name, value): Custom implementation to update 'last_updated' timestamp when attributes are set.
     """
 
-    class Config:
-        arbitrary_types_allowed = True
-
+    model_config: dict = {"arbitrary_types_allowed": True}
     created_on: datetime.datetime = Field(default=datetime.datetime.now())
     last_updated: datetime.datetime = Field(default=datetime.datetime.now())
     input_data: Optional[
@@ -348,7 +344,7 @@ class Signal(BaseModel):
             list[TimeSeries],
             dict[str, TimeSeries],
         ]
-    ]
+    ] = Field(default=None)
     name: str = Field(default="signal")
     units: str = Field(default="unit")
     provenance: DataProvenance = Field(
@@ -500,7 +496,7 @@ class Signal(BaseModel):
         return directory
 
     def metadata_dict(self):
-        metadata = self.dict()
+        metadata = self.model_dump()
         # remove the actual data from the metadata
         ts_metadata = {}
         for ts_name, ts in self.time_series.items():
@@ -657,8 +653,7 @@ class Dataset(BaseModel):
     def add(self, signal: Signal):
         self.signals[signal.name] = signal
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config: dict = {"arbitrary_types_allowed": True}
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
@@ -670,7 +665,7 @@ class Dataset(BaseModel):
             super().__setattr__("last_updated", value)
 
     def metadata_dict(self):
-        metadata = self.dict()
+        metadata = self.model_dump()
         # remove the actual data from the metadata
         metadata["signals"] = {
             signal_name: signal.metadata_dict()
@@ -806,12 +801,12 @@ if __name__ == "__main__":
         name=dataset_name,
         description="A test dataset",
         owner="jean-david therrien",
-        signals=[signal],
+        signals={"temperature": signal},
         purpose="testing",
         project="metEAUdata",
     )
     signal.save("./test_data")
-    signal2 = Signal.load("./test_data/temperature.zip", "temperature")
+    signal2 = Signal.load_from_directory("./test_data/temperature.zip", "temperature")
     assert signal == signal2
     dataset.save("test_data")
     dataset2 = Dataset.load("./test_data/test_dataset.zip", dataset_name)
