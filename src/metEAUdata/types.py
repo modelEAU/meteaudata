@@ -10,7 +10,7 @@ from typing import Any, Optional, Protocol, Union
 import numpy as np
 import pandas as pd
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class NamedTempDirectory:
@@ -49,6 +49,24 @@ def zip_directory_contents(folder_path, zip_path):
                 file_path = os.path.join(root, file)
                 relative_path = file_path[len_dir_path:].lstrip(os.sep)
                 zipf.write(file_path, relative_path)
+
+
+def serialize_series(series: pd.Series) -> dict:
+    """Serializes a pandas Series to a dictionary.
+
+    Args:
+        series: The pandas Series to serialize.
+
+    Returns:
+        A dictionary containing the serialized representation of the Series.
+    """
+
+    return {
+        "name": series.name,
+        "index": series.index.to_list(),
+        "data": series.to_dict(),
+        "dtype": str(series.dtype),
+    }
 
 
 class IndexMetadata(BaseModel):
@@ -204,15 +222,33 @@ class TimeSeries(BaseModel):
     index_metadata: Optional[IndexMetadata] = None
     values_dtype: str = Field(default="str")
 
-    model_config: dict = {"arbitrary_types_allowed": True}
+    model_config: dict = {
+        "arbitrary_types_allowed": True,
+        "json_encoders": {pd.Series: serialize_series},
+    }
 
     def __init__(self, **data):
         super().__init__(**data)
-        if self.series is not None:
+        from_serialized = isinstance(data["series"], dict)
+        self.__post_init_post_parse__(from_serialized)
+
+    def __post_init_post_parse__(self, from_serialized):
+        if self.series is not None and not from_serialized:
             self.index_metadata = IndexMetadata.extract_index_metadata(
                 self.series.index
             )
             self.values_dtype = str(self.series.dtype)
+        elif from_serialized:
+            if self.index_metadata is not None:
+                IndexMetadata.reconstruct_index(self.series.index, self.index_metadata)
+            if self.values_dtype is not None:
+                self.series = self.series.astype(self.values_dtype)
+
+    @field_validator("series", mode="before")
+    def dict_to_series(cls, v):
+        if isinstance(v, dict):
+            return pd.Series(**v)
+        return v
 
     def __eq__(self, other):
         if not isinstance(other, TimeSeries):
@@ -362,9 +398,10 @@ class Signal(BaseModel):
 
     def __init__(__pydantic_self__, **data):
         super().__init__(**data)  # Initialize Pydantic model with given data
-        data_input = data.get("input_data", None)
 
-        if data_input is None:
+        data_input = data.get("input_data", None)
+        current_data = data.get("time_series")
+        if data_input is None and not current_data:
             default_state = "RAW"
             default_name = f"default_{default_state}"
             data_input = pd.Series(name=default_name, dtype=object)
@@ -404,10 +441,18 @@ class Signal(BaseModel):
                 new_name = __pydantic_self__.new_ts_name(old_name)
                 ts.series.name = new_name
                 __pydantic_self__.time_series[new_name] = ts
+        elif current_data:
+            pass
         else:
             raise ValueError(
                 f"Received data of type {type(data_input)}. Valid data types are pd.Series, pd.DataFrame, TimeSeries, list of TimeSeries, or dict of TimeSeries."
             )
+        if "last_updated" in data.keys():
+            lu = data["last_updated"]
+            if isinstance(lu, str):
+                format_string = "%Y-%m-%dT%H:%M:%S.%f"
+                lu = datetime.datetime.strptime(lu, format_string)
+            __pydantic_self__.last_updated = lu
         del __pydantic_self__.input_data
 
     def new_ts_name(self, old_name: str) -> str:

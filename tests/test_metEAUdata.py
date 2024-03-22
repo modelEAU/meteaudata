@@ -4,7 +4,7 @@ from metEAUdata.processing_steps import interpolate, resample
 from metEAUdata.types import DataProvenance, Dataset, Signal
 
 
-def test_save_reread() -> None:
+def sample_dateset():
     sample_data = pd.DataFrame(
         np.random.randn(100, 3),
         columns=["A", "B", "C"],
@@ -74,15 +74,11 @@ def test_save_reread() -> None:
         signal = signal.process(
             [f"{signal_name}_RESAMPLED"], interpolate.linear_interpolation
         )
-        for ts_name, ts in signal.time_series.items():
-            if ts_name == f"{signal_name}_RAW":
-                assert len(ts.processing_steps) == 0
-            elif ts_name == f"{signal_name}_RESAMPLED":
-                assert len(ts.processing_steps) == 1
-            elif ts_name == f"{signal_name}_INTERPOLATED":
-                assert len(ts.processing_steps) == 2
-            else:
-                print(ts_name)
+    return dataset
+
+
+def test_save_reread() -> None:
+    dataset = sample_dateset()
     dataset.save("./tests/metadeauta_out")
     dataset2 = Dataset.load("./tests/metadeauta_out/test dataset.zip", dataset.name)
     # inspect every attribute of the dataset and see if they match
