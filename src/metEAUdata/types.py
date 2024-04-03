@@ -172,6 +172,7 @@ class ProcessingType(Enum):
     RESAMPLING = "resampling"
     GAP_FILLING = "gap_filling"
     PREDICTION = "prediction"
+    TRANSFORMATION = "transformation"
     DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
     FAULT_DETECTION = "fault_detection"
     FAULT_IDENTIFICATION = "fault_identification"
