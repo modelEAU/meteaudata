@@ -1,7 +1,7 @@
 import datetime
 
 import pandas as pd
-from metEAUdata.types import (
+from meteaudata.types import (
     FunctionInfo,
     Parameters,
     ProcessingStep,
