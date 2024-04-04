@@ -166,11 +166,11 @@ def test_reconstruct_index(index_type, create_index, metadata_attrs):
     original_index.name = metadata_attrs["name"]
     values = range(len(original_index))
     series = pd.Series(values, index=original_index)
-
+    parse_dates = True if index_type == "DatetimeIndex" else False
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = temp_dir + "/temp.csv"
         series.to_csv(temp_file)
-        recovered_series = pd.read_csv(temp_file, parse_dates=True, index_col=0)
+        recovered_series = pd.read_csv(temp_file, parse_dates=parse_dates, index_col=0)
 
     expected_metadata = IndexMetadata(**metadata_attrs)
     extracted_metadata_original_index = IndexMetadata.extract_index_metadata(

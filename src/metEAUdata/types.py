@@ -10,7 +10,7 @@ from typing import Any, Optional, Protocol, Union
 import numpy as np
 import pandas as pd
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class NamedTempDirectory:
@@ -173,6 +173,7 @@ class ProcessingType(Enum):
     GAP_FILLING = "gap_filling"
     PREDICTION = "prediction"
     TRANSFORMATION = "transformation"
+
     DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
     FAULT_DETECTION = "fault_detection"
     FAULT_IDENTIFICATION = "fault_identification"
@@ -225,12 +226,13 @@ class TimeSeries(BaseModel):
 
     model_config: dict = {
         "arbitrary_types_allowed": True,
-        "json_encoders": {pd.Series: serialize_series},
     }
 
     def __init__(self, **data):
         super().__init__(**data)
-        from_serialized = isinstance(data["series"], dict)
+        from_serialized = (
+            "series" in data and isinstance(data["series"], dict)
+        ) or "series" not in data
         self.__post_init_post_parse__(from_serialized)
 
     def __post_init_post_parse__(self, from_serialized):
@@ -240,6 +242,8 @@ class TimeSeries(BaseModel):
             )
             self.values_dtype = str(self.series.dtype)
         elif from_serialized:
+            if self.series.empty:
+                return
             if self.index_metadata is not None:
                 IndexMetadata.reconstruct_index(self.series.index, self.index_metadata)
             if self.values_dtype is not None:
@@ -250,6 +254,10 @@ class TimeSeries(BaseModel):
         if isinstance(v, dict):
             return pd.Series(**v)
         return v
+
+    @field_serializer("series")
+    def series_to_dict(series: pd.Series):
+        return serialize_series(series)
 
     def __eq__(self, other):
         if not isinstance(other, TimeSeries):
