@@ -1,6 +1,6 @@
-from metEAUdata.processing_steps.interpolate import linear_interpolation
-from metEAUdata.processing_steps.resample import resample
-from metEAUdata.types import (
+from meteaudata.processing_steps.interpolate import linear_interpolation
+from meteaudata.processing_steps.resample import resample
+from meteaudata.types import (
     CalibrationInfo,
     DataProvenance,
     Dataset,
