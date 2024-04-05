@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from metEAUdata.processing_steps import interpolate, resample
-from metEAUdata.types import DataProvenance, Dataset, Signal
+from meteaudata.processing_steps import interpolate, resample
+from meteaudata.types import DataProvenance, Dataset, Signal
 
 
 def sample_dateset():

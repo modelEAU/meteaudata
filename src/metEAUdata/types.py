@@ -836,7 +836,7 @@ if __name__ == "__main__":
     )
     provenance = DataProvenance(
         source_repository="pilEAUte",
-        project="metEAUdata",
+        project="meteaudata",
         location="lab",
         equipment="sensor",
         parameter="temperature",
@@ -857,7 +857,7 @@ if __name__ == "__main__":
         owner="jean-david therrien",
         signals={"temperature": signal},
         purpose="testing",
-        project="metEAUdata",
+        project="meteaudata",
     )
     signal.save("./test_data")
     signal2 = Signal.load_from_directory("./test_data/temperature.zip", "temperature")

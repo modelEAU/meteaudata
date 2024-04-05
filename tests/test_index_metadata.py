@@ -2,7 +2,7 @@ import tempfile
 
 import pandas as pd
 import pytest
-from metEAUdata.types import (
+from meteaudata.types import (
     IndexMetadata,
 )
 

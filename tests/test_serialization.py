@@ -1,5 +1,5 @@
-from metEAUdata.types import Dataset, Signal, TimeSeries
-from test_metEAUdata import sample_dateset
+from meteaudata.types import Dataset, Signal, TimeSeries
+from test_meteaudata import sample_dateset
 
 
 def test_time_series_serde():
