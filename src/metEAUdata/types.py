@@ -1,3 +1,4 @@
+import copy
 import datetime
 import os
 import shutil
@@ -182,12 +183,12 @@ class ProcessingType(Enum):
 
 
 class DataProvenance(BaseModel):
-    source_repository: str
-    project: str
-    location: str
-    equipment: str
-    parameter: str
-    purpose: str
+    source_repository: Optional[str] = None
+    project: Optional[str] = None
+    location: Optional[str] = None
+    equipment: Optional[str] = None
+    parameter: Optional[str] = None
+    purpose: Optional[str] = None
     metadata_id: Optional[str]
 
 
@@ -337,13 +338,13 @@ class TimeSeries(BaseModel):
         return ts
 
 
-class TransformFunctionProtocol(Protocol):
+class SignalTransformFunctionProtocol(Protocol):
     def __call__(
         self, input_series: list[pd.Series], *args, **kwargs
     ) -> list[tuple[pd.Series, list[ProcessingStep]]]: ...
 
     """
-    The TransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
+    The SignalTransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
     - input_series: a list of pandas Series objects representing the input time series data to be transformed.
     - *args: additional positional arguments that can be passed to the transformation function.
     - **kwargs: additional keyword arguments that can be passed to the transformation function.
@@ -492,7 +493,7 @@ class Signal(BaseModel):
     def process(
         self,
         input_time_series_names: list[str],
-        transform_function: TransformFunctionProtocol,
+        transform_function: SignalTransformFunctionProtocol,
         *args,
         **kwargs,
     ) -> "Signal":
@@ -694,18 +695,42 @@ class Signal(BaseModel):
         return True
 
 
+class DatasetTransformFunctionProtocol(Protocol):
+    def __call__(
+        self,
+        input_signals: list[Signal],
+        input_series_names: list[str],
+        *args,
+        **kwargs,
+    ) -> list[Signal]: ...
+
+    """
+    The DatasetTransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
+    - input_series: a list of pandas Series objects representing the input time series data to be transformed.
+    - *args: additional positional arguments that can be passed to the transformation function.
+    - **kwargs: additional keyword arguments that can be passed to the transformation function.
+
+    The protocol also specifies that the callable object should return a list of Signals. The Signals should contain the transformed time series data and the processing steps applied during the transformation, as well as any other relevant metadata.
+
+    This protocol allows for flexibility in defining transformation functions that can operate on time series data and capture the processing steps involved in the transformation.
+    Notice that the new signal's Project property will be overwritten by the Dataset's project property.
+    New signals' purposes and units are directed by the transform function that create them.
+    """
+
+
 class Dataset(BaseModel):
     created_on: datetime.datetime = Field(default=datetime.datetime.now())
     last_updated: datetime.datetime = Field(default=datetime.datetime.now())
     name: str
-    description: str
-    owner: str
+    description: Optional[str] = None
+    owner: Optional[str] = None
     signals: dict[str, Signal]
-    purpose: str
-    project: str
+    purpose: Optional[str] = None
+    project: Optional[str] = None
 
-    def add(self, signal: Signal):
+    def add(self, signal: Signal) -> "Dataset":
         self.signals[signal.name] = signal
+        return self
 
     model_config: dict = {"arbitrary_types_allowed": True}
 
@@ -727,7 +752,7 @@ class Dataset(BaseModel):
         }
         return metadata
 
-    def save(self, directory: str):
+    def save(self, directory: str) -> "Dataset":
         name = self.name
         dir_path = Path(directory)
         if not os.path.exists(dir_path):
@@ -747,7 +772,7 @@ class Dataset(BaseModel):
         with zipfile.ZipFile(f"{directory}/{name}.zip", "a") as zf:
             zf.write(dataset_metadata_path, f"{name}_metadata.yaml")
         os.remove(dataset_metadata_path)
-        return f"{directory}/{name}.zip"
+        return self
 
     def _load_signal(self, dir_path: str, metadata: dict) -> Signal:
         signal = Signal._load_from_data_dir_and_meta_dict(dir_path, metadata)
@@ -799,6 +824,74 @@ class Dataset(BaseModel):
         if remove_temp_dir:
             shutil.rmtree(temp_dir)
         return dataset
+
+    def process(
+        self,
+        input_time_series_names: list[str],
+        transform_function: DatasetTransformFunctionProtocol,
+        *args,
+        **kwargs,
+    ) -> "Dataset":
+        """
+        Processes the dataset data using a transformation function.
+
+        Args:
+            input_signal_names (list[str]): List of names of the input time series to be processed.
+            transform_function (TransformFunctionProtocol): The transformation function to be applied.
+            *args: Additional positional arguments to be passed to the transformation function.
+            **kwargs: Additional keyword arguments to be passed to the transformation function.
+
+        Returns:
+            Dataset: The updated Dataset object after processing. The transformation will produce new Signals with the processed time series data.
+        """
+        names = []
+        for signal in self.signals.values():
+            names.extend(signal.all_time_series)
+
+        if any(input_column not in names for input_column in input_time_series_names):
+            raise ValueError(
+                f"One or more input columns not found in the Dataset object. Available series are {names}"
+            )
+        split_names = []
+        for name in input_time_series_names:
+            signal_name, ts_name = name.split("_")
+            split_names.append((signal_name, ts_name))
+        input_signals = [
+            copy.deepcopy(self.signals[signal_name]) for signal_name, _ in split_names
+        ]
+        output_signals = transform_function(
+            input_signals, input_time_series_names, *args, **kwargs
+        )
+        # Should the new signals start off with the list of processing steps from its parent time series?
+        # I think so, but I need to check if it makes sense in all cases
+        # I think there shold be a different protocol for processing datasets
+        # The output of the function should be a list of signals, not a list of time series
+        # The processing function should handle the creation of the new signals, as it is the one that knows what the output signals actually represent.
+        # However, the dataset can add to the signal the pedigree of the input time series ()
+        for out_signal in output_signals:
+            out_signal_name = out_signal.name
+            self.signals[out_signal_name] = out_signal
+            out_split_names = [x.split("_") for x in out_signal.all_time_series]
+            for out_signal_name, out_ts_name in out_split_names:
+                out_all_steps = []
+                out_full_ts_name = f"{out_signal_name}_{out_ts_name}"
+                out_ts = out_signal.time_series[out_full_ts_name]
+                new_steps = out_ts.processing_steps
+                for input_name in input_time_series_names:
+                    in_signal_name, in_ts_name = input_name.split("_")
+                    in_full_ts_name = f"{in_signal_name}_{in_ts_name}"
+                    input_steps = (
+                        self.signals[in_signal_name]
+                        .time_series[in_full_ts_name]
+                        .processing_steps
+                    )
+                    out_all_steps.extend(input_steps.copy())
+                out_all_steps.extend(new_steps)
+                out_new_ts = TimeSeries(
+                    series=out_ts.series, processing_steps=out_all_steps
+                )
+                self.signals[out_signal_name].time_series[out_full_ts_name] = out_new_ts
+        return self
 
     def __eq__(self, other):
         if not isinstance(other, Dataset):
