@@ -86,7 +86,7 @@ def sample_dataset():
 
 
 def test_save_reread() -> None:
-    dataset = sample_dateset()
+    dataset = sample_dataset()
     dataset.save("./tests/metadeauta_out")
     dataset2 = Dataset.load("./tests/metadeauta_out/test dataset.zip", dataset.name)
     # inspect every attribute of the dataset and see if they match
@@ -99,7 +99,7 @@ def test_save_reread() -> None:
         for ts_name, ts in signal.time_series.items():
             print("series are equal?", ts_name)
             ts2 = signal2.time_series[ts_name]
-            assert np.allclose(ts.series.values, ts2.series.values, equal_nan=True)
+            assert np.allclose(ts.series.values, ts2.series.values, equal_nan=True)  # type: ignore
             assert ts.processing_steps == ts2.processing_steps
             assert ts.index_metadata == ts2.index_metadata
 

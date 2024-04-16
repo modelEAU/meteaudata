@@ -92,7 +92,7 @@ class IndexMetadata(BaseModel):
         }
 
         if hasattr(index, "freqstr"):
-            metadata["frequency"] = index.freqstr
+            metadata["frequency"] = index.freqstr  # type: ignore
 
         if isinstance(index, pd.DatetimeIndex):
             metadata["time_zone"] = str(index.tz) if index.tz is not None else None
@@ -102,7 +102,7 @@ class IndexMetadata(BaseModel):
 
         if isinstance(index, pd.CategoricalIndex):
             metadata["categories"] = index.categories.tolist()
-            metadata["ordered"] = index.ordered
+            metadata["ordered"] = index.ordered  # type: ignore
 
         if isinstance(index, pd.RangeIndex):
             metadata["start"] = index.start
@@ -138,19 +138,25 @@ class IndexMetadata(BaseModel):
         elif metadata.type == "PeriodIndex":
             reconstructed_index = pd.PeriodIndex(index, freq=metadata.frequency)
         elif metadata.type == "IntervalIndex":
-            reconstructed_index = pd.IntervalIndex(index, closed=metadata.closed)
+            reconstructed_index = pd.IntervalIndex(index, closed=metadata.closed)  # type: ignore
         elif metadata.type == "CategoricalIndex":
             reconstructed_index = pd.CategoricalIndex(
                 index, categories=metadata.categories, ordered=metadata.ordered
             )
         elif metadata.type == "RangeIndex":
+            if metadata.start is None or metadata.end is None:
+                raise ValueError(
+                    "Cannot reconstruct RangeIndex without start and end values."
+                )
             reconstructed_index = pd.RangeIndex(
-                start=metadata.start, stop=metadata.end, step=metadata.step
+                start=metadata.start,
+                stop=metadata.end,
+                step=metadata.step,  # type: ignore
             )
         elif metadata.type == "Int64Index":
-            reconstructed_index = pd.Int64Index(index)
+            reconstructed_index = pd.Int64Index(index)  # type: ignore
         elif metadata.type == "Float64Index":
-            reconstructed_index = pd.Float64Index(index)
+            reconstructed_index = pd.Float64Index(index)  # type: ignore
         else:
             reconstructed_index = pd.Index(index)
 
@@ -248,7 +254,7 @@ class TimeSeries(BaseModel):
             if self.index_metadata is not None:
                 IndexMetadata.reconstruct_index(self.series.index, self.index_metadata)
             if self.values_dtype is not None:
-                self.series = self.series.astype(self.values_dtype)
+                self.series = self.series.astype(self.values_dtype)  # type: ignore
 
     @field_validator("series", mode="before")
     def dict_to_series(cls, v):
@@ -257,15 +263,15 @@ class TimeSeries(BaseModel):
         return v
 
     @field_serializer("series")
-    def series_to_dict(series: pd.Series):
+    def series_to_dict(series: pd.Series):  # type: ignore
         return serialize_series(series)
 
     def __eq__(self, other):
         if not isinstance(other, TimeSeries):
             return False
-        if not self.series.dtype == other.series.dtype:
+        if not str(self.series.dtype) == str(other.series.dtype):
             return False
-        if not np.allclose(self.series.values, other.series.values, equal_nan=True):
+        if not np.allclose(self.series.values, other.series.values, equal_nan=True):  # type: ignore
             return False
         if self.index_metadata != other.index_metadata:
             return False
@@ -339,10 +345,6 @@ class TimeSeries(BaseModel):
 
 
 class SignalTransformFunctionProtocol(Protocol):
-    def __call__(
-        self, input_series: list[pd.Series], *args, **kwargs
-    ) -> list[tuple[pd.Series, list[ProcessingStep]]]: ...
-
     """
     The SignalTransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
     - input_series: a list of pandas Series objects representing the input time series data to be transformed.
@@ -355,6 +357,10 @@ class SignalTransformFunctionProtocol(Protocol):
 
     This protocol allows for flexibility in defining transformation functions that can operate on time series data and capture the processing steps involved in the transformation.
     """
+
+    def __call__(
+        self, input_series: list[pd.Series], *args, **kwargs
+    ) -> list[tuple[pd.Series, list[ProcessingStep]]]: ...  # noqa: E704
 
 
 class Signal(BaseModel):
@@ -406,7 +412,7 @@ class Signal(BaseModel):
     )
     time_series: dict[str, TimeSeries] = Field(default_factory=dict)
 
-    def __init__(__pydantic_self__, **data):
+    def __init__(self, **data):
         super().__init__(**data)  # Initialize Pydantic model with given data
 
         data_input = data.get("input_data", None)
@@ -415,42 +421,42 @@ class Signal(BaseModel):
             default_state = "RAW"
             default_name = f"default_{default_state}"
             data_input = pd.Series(name=default_name, dtype=object)
-            __pydantic_self__.time_series = {
+            self.time_series = {
                 default_name: TimeSeries(series=data_input, processing_steps=[])
             }
         if isinstance(data_input, pd.Series):
-            new_name = __pydantic_self__.new_ts_name(str(data_input.name))
+            new_name = self.new_ts_name(str(data_input.name))
             data_input.name = new_name
-            __pydantic_self__.time_series = {
+            self.time_series = {
                 new_name: TimeSeries(series=data_input, processing_steps=[])
             }
         elif isinstance(data_input, pd.DataFrame):
             for col in data_input.columns:
                 ser = data_input[col]
-                new_name = __pydantic_self__.new_ts_name(str(ser.name))
+                new_name = self.new_ts_name(str(ser.name))
                 ser.name = new_name
-                __pydantic_self__.time_series[new_name] = TimeSeries(
+                self.time_series[new_name] = TimeSeries(
                     series=data_input[col], processing_steps=[]
                 )
         elif isinstance(data_input, TimeSeries):
             old_name = data_input.series.name
-            new_name = __pydantic_self__.new_ts_name(str(old_name))
+            new_name = self.new_ts_name(str(old_name))
             data_input.series.name = new_name
-            __pydantic_self__.time_series = {new_name: data_input}
+            self.time_series = {new_name: data_input}
         elif isinstance(data_input, list) and all(
             isinstance(item, TimeSeries) for item in data_input
         ):
             for ts in data_input:
-                new_name = __pydantic_self__.new_ts_name(ts.series.name)
+                new_name = self.new_ts_name(ts.series.name)
                 ts.series.name = new_name
-                __pydantic_self__.time_series[new_name] = ts
+                self.time_series[new_name] = ts
         elif isinstance(data_input, dict) and all(
             isinstance(item, TimeSeries) for item in data_input.values()
         ):
             for old_name, ts in data_input.items():
-                new_name = __pydantic_self__.new_ts_name(old_name)
+                new_name = self.new_ts_name(old_name)
                 ts.series.name = new_name
-                __pydantic_self__.time_series[new_name] = ts
+                self.time_series[new_name] = ts
         elif current_data:
             pass
         else:
@@ -462,8 +468,8 @@ class Signal(BaseModel):
             if isinstance(lu, str):
                 format_string = "%Y-%m-%dT%H:%M:%S.%f"
                 lu = datetime.datetime.strptime(lu, format_string)
-            __pydantic_self__.last_updated = lu
-        del __pydantic_self__.input_data
+            self.last_updated = lu
+        del self.input_data
 
     def new_ts_name(self, old_name: str) -> str:
         separator = "_"
@@ -646,6 +652,8 @@ class Signal(BaseModel):
                 f"Invalid path {source_path} provided. Must contain a metadata file named {signal_name}_metadata.yaml."
             )
         signal = Signal._load_from_files(data_dir, metadata_file)
+        if remove_temp_dir:
+            shutil.rmtree(temp_dir)
         return signal
 
     @staticmethod
@@ -702,7 +710,7 @@ class DatasetTransformFunctionProtocol(Protocol):
         input_series_names: list[str],
         *args,
         **kwargs,
-    ) -> list[Signal]: ...
+    ) -> list[Signal]: ...  # noqa: E704
 
     """
     The DatasetTransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
