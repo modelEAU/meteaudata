@@ -36,7 +36,6 @@ def average_signals(
         description="The artithmetic mean of input time series.",
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
-        calibration_info=None,
         suffix="RAW",
     )
     units_set = set([signal.units for signal in input_signals])

@@ -6,7 +6,6 @@ from meteaudata.processing_steps.univariate.interpolate import (  # noqa: F401
 )
 from meteaudata.processing_steps.univariate.resample import resample  # noqa: F401
 from meteaudata.types import (  # noqa: F401
-    CalibrationInfo,
     DataProvenance,
     Dataset,
     FunctionInfo,

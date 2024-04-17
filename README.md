@@ -203,7 +203,6 @@ Attributes:
 - `function_info`: An instance of FunctionInfo providing details such as the name of the function, version, author, and reference URL.
 - `run_datetime`: The date and time when the transformation was applied.
 - `requires_calibration`: A boolean indicating whether the transformation requires calibration data.
-- `calibration_info`: Optional. An instance of CalibrationInfo if calibration is involved, providing further details about the calibration.
 - `parameters`: Optional. An instance of Parameters storing any parameters used in the transformation.
 - `suffix`: A string appended to the name of the output series to denote this specific transformation step. By convention, suffixes are made of 3 or 4-letter words or abbreviations that briefly designate the applied transformation. The suffix should NEVER contain an underscore ("_"), as underscores are used to distinguish important parts of the time series name. Instead, if the suffix contains several words, link them using a dash "-".
 

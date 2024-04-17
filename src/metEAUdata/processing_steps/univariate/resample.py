@@ -32,7 +32,6 @@ def resample(
         description="A simple processing function that resamples a series to a given frequency",
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
-        calibration_info=None,
         suffix="RESAMPLED",
     )
     outputs = []

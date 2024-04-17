@@ -180,7 +180,6 @@ class ProcessingType(Enum):
     GAP_FILLING = "gap_filling"
     PREDICTION = "prediction"
     TRANSFORMATION = "transformation"
-
     DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
     FAULT_DETECTION = "fault_detection"
     FAULT_IDENTIFICATION = "fault_identification"
@@ -205,11 +204,6 @@ class FunctionInfo(BaseModel):
     reference: str
 
 
-class CalibrationInfo(BaseModel):
-    input_cols: list[str]
-    index_range: tuple[Any, Any]
-
-
 class ProcessingStep(BaseModel):
     type: ProcessingType
     description: str
@@ -217,7 +211,7 @@ class ProcessingStep(BaseModel):
     requires_calibration: bool
     function_info: FunctionInfo
     parameters: Optional[Parameters]
-    calibration_info: Optional[CalibrationInfo]
+    step_distance: int = Field(default=0)
     suffix: str
 
 
@@ -230,7 +224,6 @@ class TimeSeries(BaseModel):
     processing_steps: list[ProcessingStep] = Field(default_factory=list)
     index_metadata: Optional[IndexMetadata] = None
     values_dtype: str = Field(default="str")
-
     model_config: dict = {
         "arbitrary_types_allowed": True,
     }
