@@ -10,8 +10,14 @@ from typing import Any, Optional, Protocol, Union
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+import plotly.io as pio
 import yaml
+from plotly.subplots import make_subplots
 from pydantic import BaseModel, Field, field_serializer, field_validator
+
+# set the default plotly template
+pio.templates.default = "plotly_white"
 
 
 class NamedTempDirectory:
@@ -335,6 +341,89 @@ class TimeSeries(BaseModel):
         elif metadata_file_path:
             ts.load_metadata_from_file(metadata_file_path)
         return ts
+
+    def plot(
+        self,
+        legend_name: Optional[str] = None,
+        title: Optional[str] = None,
+        y_axis: Optional[str] = None,
+        x_axis: Optional[str] = None,
+    ) -> go.Figure:
+        processing_type_to_marker = {
+            ProcessingType.SORTING: "circle",
+            ProcessingType.REMOVE_DUPLICATES: "circle",
+            ProcessingType.SMOOTHING: "circle",
+            ProcessingType.FILTERING: "circle",
+            ProcessingType.RESAMPLING: "circle",
+            ProcessingType.GAP_FILLING: "triangle-up",
+            ProcessingType.PREDICTION: "square",
+            ProcessingType.TRANSFORMATION: "triangle-left",
+            ProcessingType.DIMENSIONALITY_REDUCTION: "triangle-right",
+            ProcessingType.FAULT_DETECTION: "x",
+            ProcessingType.FAULT_IDENTIFICATION: "cross",
+            ProcessingType.FAULT_DIAGNOSIS: "star",
+            ProcessingType.OTHER: "diamond",
+        }
+        processing_type_to_mode = {
+            ProcessingType.SORTING: "lines+markers",
+            ProcessingType.REMOVE_DUPLICATES: "lines+markers",
+            ProcessingType.SMOOTHING: "lines",
+            ProcessingType.FILTERING: "lines+markers",
+            ProcessingType.RESAMPLING: "lines+markers",
+            ProcessingType.GAP_FILLING: "lines+markers",
+            ProcessingType.PREDICTION: "lines+markers",
+            ProcessingType.TRANSFORMATION: "lines+markers",
+            ProcessingType.DIMENSIONALITY_REDUCTION: "lines+markers",
+            ProcessingType.FAULT_DETECTION: "lines+markers",
+            ProcessingType.FAULT_IDENTIFICATION: "lines+markers",
+            ProcessingType.FAULT_DIAGNOSIS: "lines+markers",
+            ProcessingType.OTHER: "markers",
+        }
+        split_series_name = self.series.name.split("_")
+        if len(split_series_name) > 1:
+            signal_name = split_series_name[0]
+            series_name = "_".join(split_series_name[1:])
+        else:
+            signal_name = "<No signal>"
+            series_name = self.series.name
+        if not legend_name:
+            legend_name = str(series_name)
+        if not title:
+            title = f"Time series plot of {signal_name}"
+        if not y_axis:
+            y_axis = f"{signal_name} values"
+        if not x_axis:
+            x_axis = "Time"
+        last_step = self.processing_steps[-1] if self.processing_steps else None
+        last_type = last_step.type if last_step else ProcessingType.OTHER
+        marker = processing_type_to_marker[last_type]
+        mode = processing_type_to_mode[last_type]
+        index_shift = 0
+        for step in self.processing_steps:
+            if step.type == ProcessingType.PREDICTION:
+                index_shift += step.step_distance
+        frequency = self.index_metadata.frequency
+        if frequency:
+            x = self.series.index + pd.to_timedelta(frequency) * index_shift
+        else:
+            distance = self.series.index[1] - self.series.index[0]
+            x = self.series.index + distance * index_shift
+        fig = go.Figure(
+            go.Scatter(
+                x=x,
+                y=self.series.values,
+                name=legend_name,
+                mode=mode,
+                marker_symbol=marker,
+            )
+        )
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_axis,
+            yaxis_title=y_axis,
+            showlegend=True,
+        )
+        return fig
 
 
 class SignalTransformFunctionProtocol(Protocol):
@@ -673,6 +762,23 @@ class Signal(BaseModel):
         signal.last_updated = metadata["last_updated"]
         return signal
 
+    def plot(self, ts_names: list[str], title: Optional[str] = None) -> go.Figure:
+        if not title:
+            title = f"Time series plot of {self.name}"
+        fig = go.Figure()
+        for ts_name in ts_names:
+            # recover the scatter trace from the plot of the time series
+            ts = self.time_series[ts_name]
+            ts_fig = ts.plot(legend_name=ts_name)
+            ts_trace = ts_fig.data[0]
+            fig.add_trace(ts_trace)
+        fig.update_layout(
+            title=title,
+            xaxis_title="Time",
+            yaxis_title=f"{self.name} values ({self.units})",
+        )
+        return fig
+
     def __eq__(self, other):
         if not isinstance(other, Signal):
             return False
@@ -893,6 +999,50 @@ class Dataset(BaseModel):
                 )
                 self.signals[out_signal_name].time_series[out_full_ts_name] = out_new_ts
         return self
+
+    def plot(
+        self,
+        signal_names: list[str],
+        ts_names: list[str],
+        title: Optional[str] = None,
+        y_axis: Optional[str] = None,
+        x_axis: Optional[str] = None,
+    ) -> go.Figure:
+        if not title:
+            title = f"Time series plots of dataset {self.name}"
+        if not y_axis:
+            y_axis = "Values"
+        if not x_axis:
+            x_axis = "Time"
+        fig = make_subplots(
+            rows=len(signal_names), cols=1, shared_xaxes=True, vertical_spacing=0.02
+        )
+        for i, signal_name in enumerate(signal_names):
+            signal = self.signals[signal_name]
+            # get the ts_names items that are in the signal
+            signal_ts_names = [
+                ts_name for ts_name in ts_names if ts_name in signal.all_time_series
+            ]
+            for ts_name in signal_ts_names:
+                ts = signal.time_series[ts_name]
+                ts_fig = ts.plot(legend_name=ts_name)
+                ts_trace = ts_fig.data[0]
+                fig.add_trace(ts_trace, row=i + 1, col=1)
+        fig.update_layout(
+            title=title,
+            xaxis_title=x_axis,
+            yaxis_title=y_axis,
+            showlegend=True,
+        )
+        # by default the x_axis title appears under the first subplot only. We want it under all subplots
+        for i in range(len(signal_names)):
+            fig.update_xaxes(title_text=x_axis, row=i + 1, col=1)
+            fig.update_yaxes(
+                title_text=f"{signal_names[i]} {y_axis} ({self.signals[signal_names[i]].units})",
+                row=i + 1,
+                col=1,
+            )
+        return fig
 
     def __eq__(self, other):
         if not isinstance(other, Dataset):

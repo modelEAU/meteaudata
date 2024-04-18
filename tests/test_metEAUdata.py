@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from meteaudata.processing_steps.multivariate import average
-from meteaudata.processing_steps.univariate import interpolate, resample
+from meteaudata.processing_steps.univariate import interpolate, prediction, resample
 from meteaudata.types import DataProvenance, Dataset, Signal
 
 
@@ -104,6 +104,36 @@ def test_save_reread() -> None:
             assert ts.index_metadata == ts2.index_metadata
 
     assert dataset == dataset2
+
+
+def test_plots():
+    dataset = sample_dataset()
+    # add a prediction step to the dataset
+    dataset.signals["A"] = dataset.signals["A"].process(
+        ["A_LIN-INT"], prediction.predict_previous_point
+    )
+    fig = dataset.signals["A"].time_series["A_PREV-PRED"].plot()
+    assert fig is not None
+    fig = dataset.signals["A"].plot(
+        ts_names=["A_RAW", "A_RESAMPLED", "A_LIN-INT", "A_PREV-PRED"],
+        title="Sample graph",
+    )
+    assert fig is not None
+    fig = dataset.plot(
+        signal_names=["A", "B", "C"],
+        ts_names=[
+            "A_RAW",
+            "A_RESAMPLED",
+            "B_LIN-INT",
+            "B_PREV-PRED",
+            "C_RAW",
+            "C_RESAMPLED",
+            "C_LIN-INT",
+            "C_PREV-PRED",
+        ],
+        title="Sample graph",
+    )
+    assert fig is not None
 
 
 def test_multivariate_average():
