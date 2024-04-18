@@ -219,6 +219,7 @@ class ProcessingStep(BaseModel):
     parameters: Optional[Parameters]
     step_distance: int = Field(default=0)
     suffix: str
+    input_series_names: list[str] = Field(default_factory=list)
 
 
 class ProcessingConfig(BaseModel):

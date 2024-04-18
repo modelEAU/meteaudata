@@ -30,6 +30,7 @@ def predict_previous_point(
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
         step_distance=1,
+        input_series_names=[str(col.name) for col in input_series],
         suffix="PREV-PRED",
     )
     outputs = []

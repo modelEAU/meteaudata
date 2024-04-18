@@ -11,5 +11,8 @@
 
 ## 0.3.0
 
-- `TimeSeries`, `Signal` and `Dataset` objects now have a `plot` method to generate basic visualizations. This adds `plotly` as a dependency. Other backends (namely, `metplotlib`) may be developed in the future.
+- `TimeSeries`, `Signal` and `Dataset` objects now have a `plot` method to generate basic visualizations. This adds `plotly` as a dependency. Other backends (namely, `matplotlib`) may be developed in the future.
 
+## 0.3.1
+
+- Added `input_series_names` to `ProcessingStep` so that step sequences and dependencies can be traced.

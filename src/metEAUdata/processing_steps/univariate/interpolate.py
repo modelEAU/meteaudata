@@ -31,6 +31,7 @@ def linear_interpolation(
         description="A simple processing function that linearly interpolates a series",
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
+        input_series_names=[str(col.name) for col in input_series],
         suffix="LIN-INT",
     )
     outputs = []
