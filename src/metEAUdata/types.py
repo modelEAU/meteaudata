@@ -901,17 +901,22 @@ class Dataset(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        input_data = data.get("signals")
-        if input_data:
-            new_dict = {}
-            for signal_name, signal in input_data.items():
-                if "#" not in signal_name:
-                    new_signal_name = self.update_numbered_name(signal_name)
-                    signal.rename(new_signal_name)
-                    new_dict[new_signal_name] = signal
-                else:
-                    new_dict[signal_name] = signal
-            self.signals = new_dict
+        last_updated = self.last_updated
+        renamed_dict = {}
+        for signal_key, signal in self.signals.items():
+            renamed_dict[signal.name] = signal
+        self.signals = renamed_dict
+        new_dict = {}
+        for signal_name, signal in self.signals.items():
+            if "#" not in signal_name:
+                new_signal_name = self.update_numbered_name(signal_name)
+                signal.rename(new_signal_name)
+                new_dict[new_signal_name] = signal
+            else:
+                new_dict[signal_name] = signal
+        self.signals = new_dict
+
+        self.last_updated = last_updated
         return
 
     def max_name_number(self) -> dict[str, int]:
