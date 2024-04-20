@@ -1089,12 +1089,6 @@ class Dataset(BaseModel):
         output_signals = transform_function(
             input_signals, input_time_series_names, *args, **kwargs
         )
-        # Should the new signals start off with the list of processing steps from its parent time series?
-        # I think so, but I need to check if it makes sense in all cases
-        # I think there shold be a different protocol for processing datasets
-        # The output of the function should be a list of signals, not a list of time series
-        # The processing function should handle the creation of the new signals, as it is the one that knows what the output signals actually represent.
-        # However, the dataset can add to the signal the pedigree of the input time series ()
         for out_signal in output_signals:
             out_signal_name = out_signal.name
             new_signal_name = self.update_numbered_name(out_signal_name)
@@ -1119,7 +1113,7 @@ class Dataset(BaseModel):
                 out_new_ts = TimeSeries(
                     series=out_ts.series, processing_steps=out_all_steps
                 )
-                self.signals[out_signal_name].time_series[out_full_ts_name] = out_new_ts
+                self.signals[new_signal_name].time_series[out_full_ts_name] = out_new_ts
         return self
 
     def plot(
