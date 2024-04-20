@@ -615,13 +615,13 @@ class Signal(BaseModel):
             name, num = name.split("#")
             num = int(num)
             if name in name_max_number.keys():
-                new_num = name_max_number[name] + 1
+                new_num = int(name_max_number[name]) + 1
                 return f"{signal_name}_{name}#{new_num}"
             else:
                 return f"{signal_name}_{name}#1"
         else:
             if name in name_max_number.keys():
-                new_num = name_max_number[name] + 1
+                new_num = int(name_max_number[name]) + 1
                 return f"{signal_name}_{name}#{new_num}"
             else:
                 return f"{signal_name}_{name}#1"
