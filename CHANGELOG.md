@@ -24,3 +24,7 @@
 ## 0.4.1
 
 - Signals will be assigned a number if they are unnumbered at creation.
+
+## 0.4.2
+
+- Bug in dataset numbering

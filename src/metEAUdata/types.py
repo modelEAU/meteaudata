@@ -911,10 +911,10 @@ class Dataset(BaseModel):
             self.signals = new_dict
         return
 
-    def max_name_number(self, names: list[str]) -> dict[str, int]:
-        names = list(self.signals.keys())
-        names_no_numbers = [name.split("#")[0] for name in names]
-        numbers = [name.split("#")[1] for name in names if "#" in name]
+    def max_name_number(self) -> dict[str, int]:
+        full_names = self.all_signals
+        names_no_numbers = [name.split("#")[0] for name in full_names]
+        numbers = [int(name.split("#")[1]) for name in full_names if "#" in name]
         name_numbers = {}
         for name, number in zip(names_no_numbers, numbers):
             if name in name_numbers.keys():
@@ -924,7 +924,7 @@ class Dataset(BaseModel):
         return name_numbers
 
     def update_numbered_name(self, name: str) -> str:
-        name_max_number = self.max_name_number(self.all_signals)
+        name_max_number = self.max_name_number()
         if "#" in name:
             name, num = name.split("#")
             num = int(num)
