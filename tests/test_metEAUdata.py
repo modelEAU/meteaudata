@@ -48,39 +48,38 @@ def sample_dataset():
         purpose=purpose,
         project=project,
         signals={
-            "A": Signal(
+            "A#1": Signal(
                 input_data=sample_data["A"].rename("RAW"),
-                name="A",
+                name="A#1",
                 provenance=provenance_a,
                 units="mg/l",
             ),
-            "B": Signal(
+            "B#1": Signal(
                 input_data=sample_data["B"].rename("RAW"),
-                name="B",
+                name="B#1",
                 provenance=provenance_b,
                 units="g/m3",
             ),
-            "C": Signal(
+            "C#1": Signal(
                 input_data=sample_data["C"].rename("RAW"),
-                name="C",
+                name="C#1",
                 provenance=provenance_c,
                 units="uS/cm",
             ),
-            "D": Signal(
+            "D#1": Signal(
                 input_data=sample_data["A"].rename("RAW"),
-                name="D",
+                name="D#1",
                 provenance=provenance_a,
                 units="mg/l",
             ),
         },
     )
     for signal_name, signal in dataset.signals.items():
-        print(signal_name)
-        signal = signal.process([f"{signal_name}_RAW"], resample.resample, "5min")
+        signal = signal.process([f"{signal_name}_RAW#1"], resample.resample, "5min")
         # introduce a nan in the resampled ts
-        signal.time_series[f"{signal_name}_RESAMPLED"].series.iloc[10:20] = np.nan
+        signal.time_series[f"{signal_name}_RESAMPLED#1"].series.iloc[10:20] = np.nan
         signal = signal.process(
-            [f"{signal_name}_RESAMPLED"], interpolate.linear_interpolation
+            [f"{signal_name}_RESAMPLED#1"], interpolate.linear_interpolation
         )
     return dataset
 
@@ -109,27 +108,27 @@ def test_save_reread() -> None:
 def test_plots():
     dataset = sample_dataset()
     # add a prediction step to the dataset
-    dataset.signals["A"] = dataset.signals["A"].process(
-        ["A_LIN-INT"], prediction.predict_previous_point
+    dataset.signals["A#1"] = dataset.signals["A#1"].process(
+        ["A#1_LIN-INT#1"], prediction.predict_previous_point
     )
-    fig = dataset.signals["A"].time_series["A_PREV-PRED"].plot()
+    fig = dataset.signals["A#1"].time_series["A#1_PREV-PRED#1"].plot()
     assert fig is not None
-    fig = dataset.signals["A"].plot(
-        ts_names=["A_RAW", "A_RESAMPLED", "A_LIN-INT", "A_PREV-PRED"],
+    fig = dataset.signals["A#1"].plot(
+        ts_names=["A#1_RAW#1", "A#1_RESAMPLED#1", "A#1_LIN-INT#1", "A#1_PREV-PRED#1"],
         title="Sample graph",
     )
     assert fig is not None
     fig = dataset.plot(
-        signal_names=["A", "B", "C"],
+        signal_names=["A#1", "B#1", "C#1"],
         ts_names=[
-            "A_RAW",
-            "A_RESAMPLED",
-            "B_LIN-INT",
-            "B_PREV-PRED",
-            "C_RAW",
-            "C_RESAMPLED",
-            "C_LIN-INT",
-            "C_PREV-PRED",
+            "A#1_RAW#1",
+            "A#1_RESAMPLED#1",
+            "B#1_LIN-INT#1",
+            "B#1_PREV-PRED#1",
+            "C#1_RAW#1",
+            "C#1_RESAMPLED#1",
+            "C#1_LIN-INT#1",
+            "C#1_PREV-PRED#1",
         ],
         title="Sample graph",
     )
@@ -142,30 +141,28 @@ def test_multivariate_average():
     # assert that this raises a ValueError
     with pytest.raises(ValueError):
         dataset.process(
-            ["A_RESAMPLED", "B_RESAMPLED", "C_RESAMPLED"], average.average_signals
+            ["A#1_RESAMPLED#1", "B#1_RESAMPLED#1", "C#1_RESAMPLED#1"],
+            average.average_signals,
         )
-    dataset.signals["B"].units = "mg/l"
-    dataset.signals["C"].units = "mg/l"
+    dataset.signals["B#1"].units = "mg/l"
+    dataset.signals["C#1"].units = "mg/l"
 
     dataset = dataset.process(
-        ["A_RESAMPLED", "B_RESAMPLED", "C_RESAMPLED"], average.average_signals
+        ["A#1_RESAMPLED#1", "B#1_RESAMPLED#1", "C#1_RESAMPLED#1"],
+        average.average_signals,
     )
-    assert "A+B+C-AVERAGE" in dataset.signals
-    assert dataset.signals["A+B+C-AVERAGE"].units == "mg/l"
-    assert (
-        dataset.signals["A+B+C-AVERAGE"].provenance == dataset.signals["A"].provenance
-    )
-    assert len(dataset.signals["A+B+C-AVERAGE"].time_series) == 1
-    assert "A+B+C-AVERAGE_RAW" in dataset.signals["A+B+C-AVERAGE"].time_series
+    assert "AVERAGE#1" in dataset.signals
+    assert dataset.signals["AVERAGE#1"].units == "mg/l"
+    assert dataset.signals["AVERAGE#1"].provenance == dataset.signals["A#1"].provenance
+    assert len(dataset.signals["AVERAGE#1"].time_series) == 1
+    assert "AVERAGE#1_RAW#1" in dataset.signals["AVERAGE#1"].time_series
     assert (
         len(
-            dataset.signals["A+B+C-AVERAGE"]
-            .time_series["A+B+C-AVERAGE_RAW"]
-            .processing_steps
+            dataset.signals["AVERAGE#1"].time_series["AVERAGE#1_RAW#1"].processing_steps
         )
-        == len(dataset.signals["A"].time_series["A_RESAMPLED"].processing_steps)
-        + len(dataset.signals["B"].time_series["B_RESAMPLED"].processing_steps)
-        + +len(dataset.signals["C"].time_series["C_RESAMPLED"].processing_steps)
+        == len(dataset.signals["A#1"].time_series["A#1_RESAMPLED#1"].processing_steps)
+        + len(dataset.signals["B#1"].time_series["B#1_RESAMPLED#1"].processing_steps)
+        + +len(dataset.signals["C#1"].time_series["C#1_RESAMPLED#1"].processing_steps)
         + 1
     )
 

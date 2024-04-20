@@ -61,9 +61,7 @@ def average_signals(
     concatenated = pd.concat(input_series, axis=1)
     averaged = concatenated.mean(axis=1)
 
-    signal_names = [signal.name for signal in input_signals]
-    signals_prefix = "+".join(signal_names)
-    signal_name = f"{signals_prefix}-AVERAGE"
+    signal_name = "AVERAGE"
     averaged_name = f"{signal_name}_{processing_step.suffix}"
     averaged.name = averaged_name
     avg_ts = TimeSeries(

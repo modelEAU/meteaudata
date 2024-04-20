@@ -16,3 +16,7 @@
 ## 0.3.1
 
 - Added `input_series_names` to `ProcessingStep` so that step sequences and dependencies can be traced.
+
+## 0.4.0
+
+- Modified the naming convention of time series inside signals and of the signals themselves. Now, new time series are assigned a numbered name. The number is separated from the rest of the name with a `#` symbol. This allows multiple runs of a processing function to not overwrite the preceding versions. Signals are now also numbered, meaning that dataset processing will also not overwrite existing signals.

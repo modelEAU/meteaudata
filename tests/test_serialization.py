@@ -4,7 +4,7 @@ from test_meteaudata import sample_dataset
 
 def test_time_series_serde():
     dataset = sample_dataset()
-    ts = dataset.signals["A"].time_series["A_RESAMPLED"]
+    ts = dataset.signals["A#1"].time_series["A#1_RESAMPLED#1"]
     serialized = ts.model_dump_json()
     deserialised = TimeSeries.model_validate_json(serialized)
     assert ts == deserialised
@@ -12,7 +12,7 @@ def test_time_series_serde():
 
 def test_signal_serde():
     dataset = sample_dataset()
-    signal = dataset.signals["A"]
+    signal = dataset.signals["A#1"]
     serialized = signal.model_dump_json()
     deserialised = Signal.model_validate_json(serialized)
     assert signal == deserialised

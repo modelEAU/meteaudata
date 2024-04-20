@@ -560,11 +560,18 @@ class Signal(BaseModel):
             rest = old_name
         else:
             _, rest = old_name.split(separator, 1)
-        return separator.join([self.name, rest])
+        number_indicator = "#"
+        if number_indicator in rest:
+            rest, number_str = rest.split(number_indicator)
+            number = int(number_str)
+        else:
+            number = 1
+        return number_indicator.join([separator.join([self.name, rest]), str(number)])
 
     def add(self, ts: TimeSeries) -> None:
         old_name = ts.series.name
         new_name = self.new_ts_name(str(old_name))
+        new_name = self.update_numbered_name(new_name)
         ts.series.name = new_name
         self.time_series[new_name] = ts
 
@@ -578,6 +585,38 @@ class Signal(BaseModel):
             name != "last_updated"
         ):  # Avoid updating when the modified field is 'last_updated' itself
             super().__setattr__("last_updated", datetime.datetime.now())
+
+    def max_name_number(self, names: list[str]) -> dict[str, int]:
+        full_names = list(self.time_series.keys())
+        # remove signal by splitting on "_" and keeping only the second part
+        names = [name.split("_")[1] for name in full_names]
+        names_no_numbers = [name.split("#")[0] for name in names]
+        numbers = [name.split("#")[1] for name in names if "#" in name]
+        name_numbers = {}
+        for name, number in zip(names_no_numbers, numbers):
+            if name in name_numbers.keys():
+                name_numbers[name] = max(name_numbers[name], number)
+            else:
+                name_numbers[name] = number
+        return name_numbers
+
+    def update_numbered_name(self, name: str) -> str:
+        name_max_number = self.max_name_number(self.all_time_series)
+        signal_name, name = name.split("_")  # remove the signal name
+        if "#" in name:
+            name, num = name.split("#")
+            num = int(num)
+            if name in name_max_number.keys():
+                new_num = name_max_number[name] + 1
+                return f"{signal_name}_{name}#{new_num}"
+            else:
+                return f"{signal_name}_{name}#1"
+        else:
+            if name in name_max_number.keys():
+                new_num = name_max_number[name] + 1
+                return f"{signal_name}_{name}#{new_num}"
+            else:
+                return f"{signal_name}_{name}#1"
 
     def process(
         self,
@@ -598,11 +637,12 @@ class Signal(BaseModel):
         Returns:
             Signal: The updated Signal object after processing.
         """
-
-        names = list(self.time_series.keys())
-        if any(input_column not in names for input_column in input_time_series_names):
+        if any(
+            input_column not in self.all_time_series
+            for input_column in input_time_series_names
+        ):
             raise ValueError(
-                f"One or more input columns not found in the Signal object. Available series are {names}"
+                f"One or more input columns not found in the Signal object. Available series are {self.all_time_series}"
             )
         input_series = [
             self.time_series[name].series.copy() for name in input_time_series_names
@@ -615,7 +655,9 @@ class Signal(BaseModel):
                 all_steps.extend(input_steps.copy())
             all_steps.extend(new_steps)
             new_ts = TimeSeries(series=out_series, processing_steps=all_steps)
-            self.time_series[str(new_ts.series.name)] = new_ts
+            new_ts_name = str(new_ts.series.name)
+            new_ts.series.name = self.update_numbered_name(new_ts_name)
+            self.time_series[new_ts.series.name] = new_ts
         return self
 
     def __repr__(self):
@@ -628,6 +670,19 @@ class Signal(BaseModel):
         return pd.DataFrame(
             {ts_name: ts.series for ts_name, ts in self.time_series.items()}
         )
+
+    def rename(self, new_signal_name: str):
+        if new_signal_name == self.name:
+            return
+        new_dico = {}
+        for ts_name in self.time_series.keys():
+            _, ts_only_name = ts_name.split("_")
+            ts = self.time_series[ts_name]
+            new_ts_name = f"{new_signal_name}_{ts_only_name}"
+            ts.series.name = new_ts_name
+            new_dico[new_ts_name] = ts
+        self.time_series = new_dico
+        self.name = new_signal_name
 
     def _save_data(self, path: str):
         # combine all time series into a single dataframe
@@ -836,11 +891,47 @@ class Dataset(BaseModel):
     purpose: Optional[str] = None
     project: Optional[str] = None
 
+    def max_name_number(self, names: list[str]) -> dict[str, int]:
+        names = list(self.signals.keys())
+        names_no_numbers = [name.split("#")[0] for name in names]
+        numbers = [name.split("#")[1] for name in names if "#" in name]
+        name_numbers = {}
+        for name, number in zip(names_no_numbers, numbers):
+            if name in name_numbers.keys():
+                name_numbers[name] = max(name_numbers[name], number)
+            else:
+                name_numbers[name] = number
+        return name_numbers
+
+    def update_numbered_name(self, name: str) -> str:
+        name_max_number = self.max_name_number(self.all_signals)
+        if "#" in name:
+            name, num = name.split("#")
+            num = int(num)
+            if name in name_max_number.keys():
+                new_num = name_max_number[name] + 1
+                return f"{name}#{new_num}"
+            else:
+                return f"{name}#1"
+        else:
+            if name in name_max_number.keys():
+                new_num = name_max_number[name] + 1
+                return f"{name}#{new_num}"
+            else:
+                return f"{name}#1"
+
     def add(self, signal: Signal) -> "Dataset":
-        self.signals[signal.name] = signal
+        signal_name = signal.name
+        new_name = self.update_numbered_name(signal_name)
+        signal.rename(new_name)
+        self.signals[new_name] = signal
         return self
 
     model_config: dict = {"arbitrary_types_allowed": True}
+
+    @property
+    def all_signals(self):
+        return list(self.signals.keys())
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
@@ -978,7 +1069,9 @@ class Dataset(BaseModel):
         # However, the dataset can add to the signal the pedigree of the input time series ()
         for out_signal in output_signals:
             out_signal_name = out_signal.name
-            self.signals[out_signal_name] = out_signal
+            new_signal_name = self.update_numbered_name(out_signal_name)
+            out_signal.rename(new_signal_name)
+            self.signals[new_signal_name] = out_signal
             out_split_names = [x.split("_") for x in out_signal.all_time_series]
             for out_signal_name, out_ts_name in out_split_names:
                 out_all_steps = []
