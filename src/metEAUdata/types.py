@@ -345,7 +345,6 @@ class TimeSeries(BaseModel):
 
     def plot(
         self,
-        legend_name: Optional[str] = None,
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
@@ -826,9 +825,19 @@ class Signal(BaseModel):
         signal.last_updated = metadata["last_updated"]
         return signal
 
-    def plot(self, ts_names: list[str], title: Optional[str] = None) -> go.Figure:
+    def plot(
+        self,
+        ts_names: list[str],
+        title: Optional[str] = None,
+        y_axis: Optional[str] = None,
+        x_axis: Optional[str] = None,
+    ) -> go.Figure:
         if not title:
             title = f"Time series plot of {self.name}"
+        if not y_axis:
+            y_axis = f"{self.name} ({self.units})"
+        if not x_axis:
+            x_axis = "Time"
         fig = go.Figure()
         for ts_name in ts_names:
             # recover the scatter trace from the plot of the time series
@@ -836,10 +845,11 @@ class Signal(BaseModel):
             ts_fig = ts.plot(legend_name=ts_name)
             ts_trace = ts_fig.data[0]
             fig.add_trace(ts_trace)
+
         fig.update_layout(
             title=title,
-            xaxis_title="Time",
-            yaxis_title=f"{self.name} values ({self.units})",
+            xaxis_title=x_axis,
+            yaxis_title=y_axis,
         )
         return fig
 
