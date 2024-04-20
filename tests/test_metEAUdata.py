@@ -219,6 +219,72 @@ def test_dataset_unnumbered_signals():
     assert "A#1_RAW#1" in dataset.signals["A#1"].time_series
 
 
+def test_dateset_numbered_signals():
+    sample_data = pd.DataFrame(
+        np.random.randn(100, 3),
+        columns=["A", "B", "C"],
+        index=pd.date_range(start="2020-01-01", freq="6min", periods=100),
+    )
+    project = "PhD Thesis - metadata chapter"
+    purpose = "Testing the metadata capture"
+    provenance_a = DataProvenance(
+        source_repository="random generation",
+        project=project,
+        location="CPU",
+        equipment="numpy",
+        parameter="COD",
+        purpose=purpose,
+        metadata_id="1",
+    )
+    provenance_b = DataProvenance(
+        source_repository="random generation",
+        project=project,
+        location="CPU",
+        equipment="numpy",
+        parameter="NH4",
+        purpose=purpose,
+        metadata_id="2",
+    )
+    provenance_c = DataProvenance(
+        source_repository="random generation",
+        project=project,
+        location="CPU",
+        equipment="numpy",
+        parameter="TSS",
+        purpose=purpose,
+        metadata_id="3",
+    )
+    dataset = Dataset(
+        name="test dataset",
+        description="a small dataset to test the metadata capture",
+        owner="Jean-David Therrien",
+        purpose=purpose,
+        project=project,
+        signals={
+            "A#1": Signal(
+                input_data=sample_data["A"].rename("RAW#1"),
+                name="A#1",
+                provenance=provenance_a,
+                units="mg/l",
+            ),
+            "B#1": Signal(
+                input_data=sample_data["B"].rename("RAW#1"),
+                name="B#1",
+                provenance=provenance_b,
+                units="g/m3",
+            ),
+            "C#1": Signal(
+                input_data=sample_data["C"].rename("RAW#1"),
+                name="C#1",
+                provenance=provenance_c,
+                units="uS/cm",
+            ),
+        },
+    )
+    assert "A#1" in dataset.signals.keys()
+    assert "A#1_RAW#1" in dataset.signals["A#1"].time_series
+
+
 def test_multivariate_average():
     dataset = sample_dataset()
 

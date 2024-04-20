@@ -905,9 +905,12 @@ class Dataset(BaseModel):
         if input_data:
             new_dict = {}
             for signal_name, signal in input_data.items():
-                new_signal_name = self.update_numbered_name(signal_name)
-                signal.rename(new_signal_name)
-                new_dict[new_signal_name] = signal
+                if "#" not in signal_name:
+                    new_signal_name = self.update_numbered_name(signal_name)
+                    signal.rename(new_signal_name)
+                    new_dict[new_signal_name] = signal
+                else:
+                    new_dict[signal_name] = signal
             self.signals = new_dict
         return
 
