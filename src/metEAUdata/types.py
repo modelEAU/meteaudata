@@ -348,6 +348,7 @@ class TimeSeries(BaseModel):
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
+        legend_name: Optional[str] = None,
     ) -> go.Figure:
         processing_type_to_marker = {
             ProcessingType.SORTING: "circle",
