@@ -23,4 +23,4 @@
 
 ## 0.4.1
 
-- Signals will be assigned a number if they are unnembered at creation.
+- Signals will be assigned a number if they are unnumbered at creation.
