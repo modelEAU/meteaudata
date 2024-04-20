@@ -20,3 +20,7 @@
 ## 0.4.0
 
 - Modified the naming convention of time series inside signals and of the signals themselves. Now, new time series are assigned a numbered name. The number is separated from the rest of the name with a `#` symbol. This allows multiple runs of a processing function to not overwrite the preceding versions. Signals are now also numbered, meaning that dataset processing will also not overwrite existing signals.
+
+## 0.4.1
+
+- Signals will be assigned a number if they are unnembered at creation.

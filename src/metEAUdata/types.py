@@ -497,7 +497,9 @@ class Signal(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)  # Initialize Pydantic model with given data
-
+        name = data.get("name")
+        if name:
+            self.update_numbered_signal_name()
         data_input = data.get("input_data", None)
         current_data = data.get("time_series")
         if data_input is None and not current_data:
@@ -571,7 +573,7 @@ class Signal(BaseModel):
     def add(self, ts: TimeSeries) -> None:
         old_name = ts.series.name
         new_name = self.new_ts_name(str(old_name))
-        new_name = self.update_numbered_name(new_name)
+        new_name = self.update_numbered_ts_name(new_name)
         ts.series.name = new_name
         self.time_series[new_name] = ts
 
@@ -586,7 +588,13 @@ class Signal(BaseModel):
         ):  # Avoid updating when the modified field is 'last_updated' itself
             super().__setattr__("last_updated", datetime.datetime.now())
 
-    def max_name_number(self, names: list[str]) -> dict[str, int]:
+    def update_numbered_signal_name(self):
+        if "#" in self.name:
+            return
+        else:
+            self.name = f"{self.name}#1"
+
+    def max_ts_name_number(self, names: list[str]) -> dict[str, int]:
         full_names = list(self.time_series.keys())
         # remove signal by splitting on "_" and keeping only the second part
         names = [name.split("_")[1] for name in full_names]
@@ -600,8 +608,8 @@ class Signal(BaseModel):
                 name_numbers[name] = number
         return name_numbers
 
-    def update_numbered_name(self, name: str) -> str:
-        name_max_number = self.max_name_number(self.all_time_series)
+    def update_numbered_ts_name(self, name: str) -> str:
+        name_max_number = self.max_ts_name_number(self.all_time_series)
         signal_name, name = name.split("_")  # remove the signal name
         if "#" in name:
             name, num = name.split("#")
@@ -656,7 +664,7 @@ class Signal(BaseModel):
             all_steps.extend(new_steps)
             new_ts = TimeSeries(series=out_series, processing_steps=all_steps)
             new_ts_name = str(new_ts.series.name)
-            new_ts.series.name = self.update_numbered_name(new_ts_name)
+            new_ts.series.name = self.update_numbered_ts_name(new_ts_name)
             self.time_series[new_ts.series.name] = new_ts
         return self
 
@@ -890,6 +898,18 @@ class Dataset(BaseModel):
     signals: dict[str, Signal]
     purpose: Optional[str] = None
     project: Optional[str] = None
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        input_data = data.get("signals")
+        if input_data:
+            new_dict = {}
+            for signal_name, signal in input_data.items():
+                new_signal_name = self.update_numbered_name(signal_name)
+                signal.rename(new_signal_name)
+                new_dict[new_signal_name] = signal
+            self.signals = new_dict
+        return
 
     def max_name_number(self, names: list[str]) -> dict[str, int]:
         names = list(self.signals.keys())

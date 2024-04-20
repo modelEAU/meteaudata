@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from meteaudata.processing_steps.multivariate import average
 from meteaudata.processing_steps.univariate import interpolate, prediction, resample
-from meteaudata.types import DataProvenance, Dataset, Signal
+from meteaudata.types import DataProvenance, Dataset, Signal, TimeSeries
 
 
 def sample_dataset():
@@ -84,6 +84,84 @@ def sample_dataset():
     return dataset
 
 
+def sample_dataset_no_nums():
+    sample_data = pd.DataFrame(
+        np.random.randn(100, 3),
+        columns=["A", "B", "C"],
+        index=pd.date_range(start="2020-01-01", freq="6min", periods=100),
+    )
+    project = "PhD Thesis - metadata chapter"
+    purpose = "Testing the metadata capture"
+    provenance_a = DataProvenance(
+        source_repository="random generation",
+        project=project,
+        location="CPU",
+        equipment="numpy",
+        parameter="COD",
+        purpose=purpose,
+        metadata_id="1",
+    )
+    provenance_b = DataProvenance(
+        source_repository="random generation",
+        project=project,
+        location="CPU",
+        equipment="numpy",
+        parameter="NH4",
+        purpose=purpose,
+        metadata_id="2",
+    )
+    provenance_c = DataProvenance(
+        source_repository="random generation",
+        project=project,
+        location="CPU",
+        equipment="numpy",
+        parameter="TSS",
+        purpose=purpose,
+        metadata_id="3",
+    )
+    dataset = Dataset(
+        name="test dataset",
+        description="a small dataset to test the metadata capture",
+        owner="Jean-David Therrien",
+        purpose=purpose,
+        project=project,
+        signals={
+            "A": Signal(
+                input_data=sample_data["A"].rename("RAW"),
+                name="A",
+                provenance=provenance_a,
+                units="mg/l",
+            ),
+            "B": Signal(
+                input_data=sample_data["B"].rename("RAW"),
+                name="B",
+                provenance=provenance_b,
+                units="g/m3",
+            ),
+            "C": Signal(
+                input_data=sample_data["C"].rename("RAW"),
+                name="C",
+                provenance=provenance_c,
+                units="uS/cm",
+            ),
+            "D": Signal(
+                input_data=TimeSeries(series=sample_data["A"].rename("RAW")),
+                name="D",
+                provenance=provenance_a,
+                units="mg/l",
+            ),
+        },
+    )
+    for signal_name, signal in dataset.signals.items():
+        signal = signal.process([f"{signal_name}_RAW#1"], resample.resample, "5min")
+        # introduce a nan in the resampled ts
+        signal.time_series[f"{signal_name}_RESAMPLED#1"].series.iloc[10:20] = np.nan
+        signal = signal.process(
+            [f"{signal_name}_RESAMPLED#1"], interpolate.linear_interpolation
+        )
+    return dataset
+
+
 def test_save_reread() -> None:
     dataset = sample_dataset()
     dataset.save("./tests/metadeauta_out")
@@ -133,6 +211,12 @@ def test_plots():
         title="Sample graph",
     )
     assert fig is not None
+
+
+def test_dataset_unnumbered_signals():
+    dataset = sample_dataset_no_nums()
+    assert "A#1" in dataset.signals.keys()
+    assert "A#1_RAW#1" in dataset.signals["A#1"].time_series
 
 
 def test_multivariate_average():
