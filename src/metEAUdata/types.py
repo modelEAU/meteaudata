@@ -426,6 +426,15 @@ class TimeSeries(BaseModel):
         )
         return fig
 
+    def remove_duplicated_steps(self):
+        steps = self.processing_steps
+        new_steps = []
+        for step in steps:
+            if step not in new_steps:
+                new_steps.append(step)
+        self.processing_steps = new_steps
+        return self
+
 
 class SignalTransformFunctionProtocol(Protocol):
     """
@@ -667,6 +676,7 @@ class Signal(BaseModel):
                 cleaned_steps.append(cleaned_step)
             all_steps.extend(cleaned_steps)
             new_ts = TimeSeries(series=out_series, processing_steps=all_steps)
+            new_ts = new_ts.remove_duplicated_steps()
             new_ts_name = str(new_ts.series.name)
             new_ts.series.name = self.update_numbered_ts_name(new_ts_name)
             self.time_series[new_ts.series.name] = new_ts
@@ -1145,6 +1155,7 @@ class Dataset(BaseModel):
                 out_new_ts = TimeSeries(
                     series=out_ts.series, processing_steps=out_all_steps
                 )
+                out_new_ts = out_new_ts.remove_duplicated_steps()
                 self.signals[new_signal_name].time_series[out_full_ts_name] = out_new_ts
         return self
 
