@@ -213,6 +213,20 @@ def test_plots():
     assert fig is not None
 
 
+def test_processing():
+    dataset = sample_dataset()
+    signal = dataset.signals["A#1"]
+    # add a prediction step to the dataset
+    signal = signal.process(["A#1_LIN-INT#1"], prediction.predict_previous_point)
+    for ts_name in signal.all_time_series:
+        ts = signal.time_series[ts_name]
+        steps = ts.processing_steps
+        for step in steps:
+            input_series_names = step.input_series_names
+            for input_series_name in input_series_names:
+                assert input_series_name in signal.all_time_series
+
+
 def test_dataset_unnumbered_signals():
     dataset = sample_dataset_no_nums()
     assert "A#1" in dataset.signals.keys()

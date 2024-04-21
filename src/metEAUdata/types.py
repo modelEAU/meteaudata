@@ -661,12 +661,33 @@ class Signal(BaseModel):
             for input_name in input_time_series_names:
                 input_steps = self.time_series[input_name].processing_steps
                 all_steps.extend(input_steps.copy())
-            all_steps.extend(new_steps)
+            cleaned_steps = []
+            for step in new_steps:
+                cleaned_step = self.update_processing_step_input_series_names(step)
+                cleaned_steps.append(cleaned_step)
+            all_steps.extend(cleaned_steps)
             new_ts = TimeSeries(series=out_series, processing_steps=all_steps)
             new_ts_name = str(new_ts.series.name)
             new_ts.series.name = self.update_numbered_ts_name(new_ts_name)
             self.time_series[new_ts.series.name] = new_ts
         return self
+
+    def update_processing_step_input_series_names(self, step: ProcessingStep):
+        existing_ts_names = self.all_time_series
+        max_ts_name_number = self.max_ts_name_number(existing_ts_names)
+        for input_name in step.input_series_names:
+            if "#" in input_name:
+                signal_name, ts_name = input_name.split("_")
+                name, num = ts_name.split("#")
+                num = int(num)
+                if name in max_ts_name_number.keys():
+                    max_num = int(max_ts_name_number[name])
+                    new_name = f"{signal_name}_{name}#{max_num}"
+                else:
+                    new_name = f"{signal_name}_{name}#1"
+                step.input_series_names.remove(input_name)
+                step.input_series_names.append(new_name)
+        return step
 
     def __repr__(self):
         return f"Signal(name={self.name}, units={self.units}, provenance={self.provenance}, last_updated={self.last_updated}, created_on={self.created_on}, time_series={[ts for ts in self.time_series.keys()]})"

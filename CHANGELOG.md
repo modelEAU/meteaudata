@@ -30,3 +30,7 @@
 - Bug in dataset numbering
 - Added tests
 - Slight adjustments to plots
+
+## 0.4.4
+
+- Now updating the time series names in the processing steps
