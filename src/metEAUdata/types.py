@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field, field_serializer, field_validator
 # set the default plotly template
 pio.templates.default = "plotly_white"
 
+PLOT_COLORS = go.Layout(template="plotly_white").template.layout.colorway
+
 
 class NamedTempDirectory:
     def __init__(self, name: str):
@@ -882,6 +884,132 @@ class Signal(BaseModel):
             title=title,
             xaxis_title=x_axis,
             yaxis_title=y_axis,
+        )
+        return fig
+
+    def build_dependency_graph(self, ts_name: str) -> list[dict[str, Any]]:
+        """
+        Build a data structure that represents all the processig steps and their dependencies for a given time series.
+        """
+        dependencies = []
+        if ts_name not in self.all_time_series:
+            raise ValueError(f"Time series {ts_name} not found in signal.")
+        ts = self.time_series[ts_name]
+        for step in ts.processing_steps:
+            step_dict = {}
+            step_dict["name"] = step.function_info.name
+            step_dict["type"] = step.type.value
+            step_dict["time"] = step.run_datetime
+            step_dict["inputs"] = step.input_series_names
+            dependencies.append(step_dict)
+        if not dependencies:
+            return dependencies
+        # sort the steps by time
+        dependencies = sorted(dependencies, key=lambda x: x["time"])
+        return dependencies
+
+    def plot_dependency_graph(self, ts_name: str) -> go.Figure:
+        dependencies = self.build_dependency_graph(ts_name)
+        # create a plotly figure
+        fig = go.Figure()
+        # create a timeline with a vertical line for each step
+        # build a dict with a color for each type of processing step
+        types_in_graph = set([step["type"] for step in dependencies])
+        colors = {}
+        for i, step_type in enumerate(types_in_graph):
+            colors[step_type] = PLOT_COLORS[i % len(PLOT_COLORS)]
+        base_date = self.created_on
+        inputs_in_deps = sorted(
+            list(
+                set(  # get all the inputs in the dependencies
+                    [
+                        input_name
+                        for step in dependencies
+                        for input_name in step["inputs"]
+                    ]
+                )
+            )
+        )
+        n_inputs = len(inputs_in_deps)
+        for i, step in enumerate(dependencies):
+            x = [step["time"], step["time"]]
+            y = [0, 1]
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=y,
+                    mode="lines",
+                    name=step["name"].title(),
+                    line=dict(color=colors[step["type"]]),
+                )
+            )
+            # add a label for the step necxt to the line
+            fig.add_annotation(
+                x=step["time"],
+                y=1,
+                text=step["name"].title(),
+                showarrow=False,
+                yshift=10,
+            )
+        # add a line for the creation of the signal
+        fig.add_trace(
+            go.Scatter(
+                x=[base_date, base_date],
+                y=[0, 1],
+                mode="lines",
+                name="Signal creation",
+                line=dict(color="black"),
+            )
+        )
+        fig.add_annotation(
+            x=base_date,
+            y=1,
+            text="Signal creation".title(),
+            showarrow=False,
+            yshift=10,
+        )
+        # for each step, create pointed arrows from the last line (either the signal creation or the previous step) to the current step
+        for i, step in enumerate(dependencies):
+            for input_name in sorted(step["inputs"]):
+                # determine the x position of the arrow for the input
+                x = base_date
+                if i > 0:
+                    x0 = dependencies[i - 1]["time"]
+                else:
+                    x0 = base_date
+                x1 = step["time"]
+                input_index = inputs_in_deps.index(input_name)
+                y = 1 - (input_index + 1) / (n_inputs + 1)
+                fig.add_annotation(
+                    xref="x",
+                    yref="y",
+                    axref="x",
+                    ayref="y",
+                    x=x1,
+                    y=y,
+                    ax=x0,
+                    ay=y,
+                    showarrow=True,
+                    arrowhead=2,
+                    arrowsize=1,
+                    arrowwidth=2,
+                    arrowcolor="black",
+                )
+                # add a label for the input right above the arrow
+                fig.add_annotation(
+                    x=x0 + (x1 - x0) / 2,
+                    y=y,
+                    text=input_name,
+                    showarrow=False,
+                    yshift=10,
+                )
+        fig.update_layout(
+            title=f"Dependency graph for time series {ts_name}",
+            xaxis_title="Time",
+            yaxis_title="Steps",
+            showlegend=False,
+            # dont't show the y tick labels
+            yaxis=dict(showticklabels=False),
         )
         return fig
 

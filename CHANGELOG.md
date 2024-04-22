@@ -34,3 +34,7 @@
 ## 0.4.4
 
 - Now updating the time series names in the processing steps
+
+## 0.5.0
+
+- Added a plottling method to `Signal.plot_dependency_graph` to visually represent the process that went into creating a time series from that signal.

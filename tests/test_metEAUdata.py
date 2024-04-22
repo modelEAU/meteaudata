@@ -211,6 +211,10 @@ def test_plots():
         title="Sample graph",
     )
     assert fig is not None
+    fig = dataset.signals["A#1"].plot_dependency_graph("A#1_PREV-PRED#1")
+    assert fig is not None
+    fig = dataset.signals["A#1"].plot_dependency_graph("A#1_RAW#1")
+    assert fig is not None
 
 
 def test_processing():
