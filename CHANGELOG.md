@@ -38,3 +38,8 @@
 ## 0.5.0
 
 - Added a plottling method to `Signal.plot_dependency_graph` to visually represent the process that went into creating a time series from that signal.
+
+## 0.5.1
+
+- Added a field to `FunctionInfo` that replicated the entire processing function's code
+

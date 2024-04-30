@@ -1,5 +1,6 @@
 import copy
 import datetime
+import inspect
 import os
 import shutil
 import tempfile
@@ -210,6 +211,31 @@ class FunctionInfo(BaseModel):
     version: str
     author: str
     reference: str
+    source_code: Optional[str] = None  # new field to store function source code
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.capture_function_source()
+
+    def capture_function_source(self):
+        # Capture the current stack and find the function where the instance was created
+        stack = inspect.stack()
+        # The 1st element in the stack is this capture_function_source method
+        # The 2nd element is the __init__ of this class (if called directly from a function)
+        # The 3rd element should therefore be the function from which this instance was created
+        try:
+            # Get the frame for the caller of __init__
+            caller_frame = stack[2]
+            # Extract the function object from the frame
+            function = caller_frame.frame.f_globals[caller_frame.function]
+            # Store the source code of the function
+            self.source_code = inspect.getsource(function)
+        except IndexError:
+            self.source_code = "Could not determine the function source."
+        except KeyError:
+            self.source_code = "Function not found in globals."
+        except Exception as e:
+            self.source_code = f"An error occurred: {e}"
 
 
 class ProcessingStep(BaseModel):

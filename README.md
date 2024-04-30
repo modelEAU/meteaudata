@@ -4,11 +4,9 @@
 
 ## Features
 
-- Robust time series manipulation and transformation capabilities.
 - Detailed metadata management for time series data.
 - Built-in support for serialization and deserialization of data and metadata.
 - Customizable processing steps for various data transformations such as interpolation, resampling, and averaging.
-- Utilities for zipping directories and handling temporary files.
 
 ## Installation
 
@@ -159,11 +157,11 @@ dataset = Dataset.load(
 )
 ```
 
-## Create your own transformation functions!
+## Create your own transformation functions
 
 If you already have a data processing pipeline, it can be easily adapted to work with metEAUdata. All that is needed is to create a wrapper function that adheres the either the SignalTransformationProtocol or the DatasetTransformationProtocol.
 
-### Signal Tranformations.
+### Signal Tranformations
 
 As long as your transformation is univariate (works on data from a single signal at a time), it can be adapted to match the SignalTranformationProtocol in the following way:
 
@@ -186,8 +184,8 @@ Create a function that:
 1. Accepts the following arguments:
     1. A list of Signal objects that the function will use as inputs.
     1. A list of time series names, where each name corresponds to the specific time series within the input signals that your function will process.
-    1. Any additional arguments necessary for your transformation function.
-    1. Any keyword arguments necessary for your transformation function.
+    1. Any additional arguments that are necessary for your transformation function.
+    1. Any keyword arguments that are necessary for your transformation function.
 1. Returns a list of outputs. Each item in the list is a Signal object:
     1. Each Signal object contains one or more transformed time series resulting from the applied transformation.
     1. Each time series within the Signal should be associated with a list of ProcessingStep objects. These objects document each transformation step applied to the time series to transform it from its original state in the input signals.
@@ -345,7 +343,7 @@ Documentation and Metadata:
 
 Transformation Logic:
 
-Before the transformation, there may be checks (not fully implemented in the sample) to ensure that all input series have compatible data types and units, and that each specified time series name exists within its corresponding signal.
+Before the transformation, there may be checks (not fully implemented in the sample) to ensure that all input series have compatible data types and units and that each specified time series name exists within its corresponding signal.
 The transformation itself involves concatenating the selected series horizontally (axis=1) and computing their sum across the rows (axis=1), resulting in a new series where each point is the sum of the corresponding points in the input series.
 
 Creation of New Signal:
