@@ -215,7 +215,8 @@ class FunctionInfo(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.capture_function_source()
+        if "source_code" not in data:
+            self.capture_function_source()
 
     def capture_function_source(self):
         # Capture the current stack and find the function where the instance was created
