@@ -43,3 +43,6 @@
 
 - Added a field to `FunctionInfo` that replicated the entire processing function's code
 
+## 0.5.2
+
+- Fixed a bug where plots would not render if the frequency of the data was 1 second, 1 minute, 1 hour, .... Reason is that the "1" would be omitted in the series' `frequency`, which would throw off the plot function when trying to calculate the x coordinates of the plot.

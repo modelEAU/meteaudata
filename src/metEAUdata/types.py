@@ -434,6 +434,10 @@ class TimeSeries(BaseModel):
                 index_shift += step.step_distance
         frequency = self.index_metadata.frequency
         if frequency:
+            first_character = frequency[0]
+            # check if the first character is a number
+            if not first_character.isdigit():
+                frequency = "1" + frequency
             x = self.series.index + pd.to_timedelta(frequency) * index_shift
         else:
             distance = self.series.index[1] - self.series.index[0]
