@@ -41,118 +41,11 @@ Below are a few examples of how to use `meteaudata`:
 
 ### Creating and Manipulating a Signal
 
-```python
-import numpy as np
-import pandas as pd
-from meteaudata.processing_steps.univariate.interpolate import linear_interpolation
-from meteaudata.processing_steps.univariate.resample import resample
-from meteaudata.types import DataProvenance, Signal
-
-sample_data = np.random.randn(100)
-index = pd.date_range(start="2020-01-01", freq="6min", periods=100)
-
-data = pd.Series(sample_data, name="RAW", index=index)
-provenance = DataProvenance(
-    source_repository="metEAUdata README snippet",
-    project="metEAUdata",
-    location="Primary clarifier effluent",
-    equipment="S::CAN Spectro::lyser no:xyzxyz",
-    parameter="Soluble Chemical Oxygen Demand",
-    purpose="Demonstrating how metEAUdata works",
-    metadata_id="xyz",
-)
-signal = Signal(input_data=data, name="CODs", provenance=provenance, units="mg/l")
-
-# Add a processing step
-signal.process(["CODs_RAW"], resample, "5min")
-
-print(len(signal.time_series["CODs_RESAMPLED"].processing_steps))
-# outputs 1
-
-# Add another step to CODs_RESAMPLED
-signal.process(["CODs_RESAMPLED"], linear_interpolation)
-print(len(signal.time_series["CODs_LIN-INT"].processing_steps))
-# outputs 2
-
-# Save the resulting signal to a directory (data + metadata)
-signal.save("path/to/directory")
-
-# Load a signal from a file
-signal = Signal.load_from_directory("path/to/directory/CODs.zip", "CODs")
-
-```
+<!-- INSERT CODE: ./snippets/create_signal.py -->
 
 ### Creating and Manipulating a Dataset
 
-```python
-import numpy as np
-import pandas as pd
-from meteaudata.processing_steps.multivariate.average import average_signals
-from meteaudata.types import DataProvenance, Dataset, Signal
-
-sample_data = np.random.randn(100, 3)
-index = pd.date_range(start="2020-01-01", freq="6min", periods=100)
-
-data = pd.DataFrame(sample_data, columns=["CODs", "NH4-N", "TSS"], index=index)
-provenance_cods = DataProvenance(
-    source_repository="metEAUdata README snippet",
-    project="metEAUdata",
-    location="Primary clarifier effluent",
-    equipment="S::CAN Spectro::lyser no:xxxx",
-    parameter="Soluble Chemical Oxygen Demand",
-    purpose="Demonstrating how metEAUdata signals work",
-    metadata_id="xyz",
-)
-signal_cods = Signal(
-    input_data=data["CODs"].rename("RAW"),
-    name="CODs",
-    provenance=provenance_cods,
-    units="mg/l",
-)
-provenance_nh4n = DataProvenance(
-    source_repository="metEAUdata README snippet",
-    project="metEAUdata",
-    location="Primary clarifier effluent",
-    equipment="S::CAN Ammo::lyser no:yyyy",
-    parameter="Ammonium Nitrogen",
-    purpose="Demonstrating how metEAUdata signals work",
-    metadata_id="xyz",
-)
-signal_nh4n = Signal(
-    input_data=data["NH4-N"].rename("RAW"),
-    name="NH4-N",
-    provenance=provenance_nh4n,
-    units="mg/l",
-)
-# Create the Dataset
-dataset = Dataset(
-    name="test dataset",
-    description="a small dataset with randomly generated data",
-    owner="Jean-David Therrien",
-    purpose="Demonstrating how metEAUdata datasets work",
-    project="metEAUdata",
-    signals={"CODs": signal_cods, "NH4-N": signal_nh4n},
-)
-
-# create a new signal by applying a transformation to items in the dataset
-dataset.process(["CODs_RAW", "NH4-N_RAW"], average_signals)
-
-print(dataset.signals["CODs+NH4-N-AVERAGE"])
-# outputs Signal(name="CODs+NH4-N-AVERAGE", ...)
-# The new signal has its own raw time series
-print(dataset.signals["CODs+NH4-N-AVERAGE"].time_series["CODs+NH4-N-AVERAGE_RAW"])
-# outputs TimeSeries(..., processing_steps=[<list of all the processing steps that went into creating CODs, NH4-N, and the averaged signal>])
-
-# Save the resulting signal to a directory (data + metadata)
-dataset.save("test directory")
-
-# Load a signal from a file
-dataset = Dataset.load(
-    "test directory/test dataset.zip",  # path to the dataset directory or zip file
-    "test dataset",  # name of the dataset
-)
-
-```
+<!-- INSERT CODE: ./snippets/create_dataset.py -->
 
 
 ## Create your own transformation functions
@@ -225,53 +118,7 @@ Simply include a `FunctionInfo` object as part of each `ProcessingStep` to docum
 
 A custom Signal transformation would therefore look like the following
 
-```python
-import datetime
-
-import pandas as pd
-from meteaudata.types import FunctionInfo, Parameters, ProcessingStep, ProcessingType
-
-# this is a dummy value, replace it with the actual value if needed
-some_argument = "dummy_argument"
-some_value = "dummy_value"
-
-
-def my_func(
-    input_series: list[pd.Series], some_argument, some_keyword_argument=some_value
-) -> list[tuple[pd.Series, list[ProcessingStep]]]:
-    # Define the function information
-    func_info = FunctionInfo(
-        name="Double Values",
-        version="1.0",
-        author="Your Name",
-        reference="www.yourwebsite.com",
-    )
-
-    # Define the processing step
-    processing_step = ProcessingStep(
-        type=ProcessingType.TRANSFORMATION,
-        description="Doubles each value in the series",
-        function_info=func_info,
-        run_datetime=datetime.datetime.now(),
-        requires_calibration=False,
-        parameters=Parameters(
-            some_argument=some_argument, some_keyword_argument=some_keyword_argument
-        ),
-        suffix="DBL",
-    )
-    # Example transformation logic
-    outputs = []
-    for series in input_series:
-        transformed_series = series.apply(
-            lambda x: x * 2
-        )  # Example transformation: double the values
-
-        # Append the transformed series and its processing steps
-        outputs.append((transformed_series, [processing_step]))
-
-    return outputs
-
-```
+<!-- INSERT CODE: ./snippets/all_together_signal.py -->
 
 Explanation:
 
@@ -287,76 +134,7 @@ Explanation:
 
 A custom Dataset transformation would therefore look like the following:
 
-```python
-import datetime
-from typing import Optional
-
-import pandas as pd
-from meteaudata.types import (
-    DataProvenance,
-    FunctionInfo,
-    ProcessingStep,
-    ProcessingType,
-    Signal,
-    TimeSeries,
-)
-
-
-def my_dataset_func(
-    input_signals: list[Signal],
-    input_series_names: list[str],
-    final_provenance: Optional[DataProvenance] = None,
-    *args,
-    **kwargs,
-) -> list[Signal]:
-    # Documentation of function intent
-    func_info = FunctionInfo(
-        name="Time Series Addition",
-        version="0.1",
-        author="Jean-David Therrien",
-        reference="www.github.com/modelEAU/metEAUdata",
-    )
-
-    # Define processing step for averaging signals
-    processing_step = ProcessingStep(
-        type=ProcessingType.DIMENSIONALITY_REDUCTION,
-        description="The sum of input time series.",
-        function_info=func_info,
-        run_datetime=datetime.datetime.now(),
-        requires_calibration=False,
-        parameters=None,  ## if the function takes parameters, add the in a Parameters() object,
-        suffix="SUM",
-    )
-
-    # Check that each signal has the same units, etc, that each time series exists, etc.
-
-    # Extract the pandas Series from the input signals
-    input_series = [
-        signal.time_series[input_series_name].series
-        for signal, input_series_name in zip(input_signals, input_series_names)
-    ]
-    # apply the transformation
-    summed_series = pd.concat(input_series, axis=1).sum(axis=1)
-
-    # Create new Signal for the transformed series
-    # Give it a new name that is descriptive
-    signals_prefix = "+".join([signal.name for signal in input_signals])
-    new_signal_name = f"{signals_prefix}-SUM"
-
-    # Wrap the pandas Series in a Time Series object
-    summed_time_series = TimeSeries(
-        series=summed_series, processing_steps=[processing_step]
-    )
-    new_signal = Signal(
-        name=new_signal_name,
-        units="some unit",
-        provenance=final_provenance or input_signals[0].provenance,
-        time_series={summed_time_series.series.name: summed_time_series},
-    )
-
-    return [new_signal]
-
-```
+<!-- INSERT CODE: ./snippets/all_together_dataset.py -->
 
 Explanation:
 
