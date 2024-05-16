@@ -410,7 +410,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Contact
 
 For any queries, you can reach me at <jeandavidt@gmail.com>.
-```python
-print("Hello!")
-
-```
