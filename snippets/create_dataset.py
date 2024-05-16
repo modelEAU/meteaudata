@@ -48,19 +48,19 @@ dataset = Dataset(
 )
 
 # create a new signal by applying a transformation to items in the dataset
-dataset.process(["CODs_RAW", "NH4-N_RAW"], average_signals)
+dataset.process(["CODs#1_RAW#1", "NH4-N#1_RAW#1"], average_signals)
 
-print(dataset.signals["CODs+NH4-N-AVERAGE"])
-# outputs Signal(name="CODs+NH4-N-AVERAGE", ...)
+print(dataset.signals["AVERAGE#1"])
+# outputs Signal(name="AVERAGE#1", ...)
 # The new signal has its own raw time series
-print(dataset.signals["CODs+NH4-N-AVERAGE"].time_series["CODs+NH4-N-AVERAGE_RAW"])
+print(dataset.signals["AVERAGE#1"].time_series["AVERAGE#1_RAW#1"])
 # outputs TimeSeries(..., processing_steps=[<list of all the processing steps that went into creating CODs, NH4-N, and the averaged signal>])
 
 # Save the resulting signal to a directory (data + metadata)
-dataset.save("test directory")
+# dataset.save("test directory")
 
 # Load a signal from a file
-dataset = Dataset.load(
-    "test directory/test dataset.zip",  # path to the dataset directory or zip file
-    "test dataset",  # name of the dataset
-)
+# dataset = Dataset.load(
+#    "test directory/test dataset.zip",  # path to the dataset directory or zip file
+#    "test dataset",  # name of the dataset
+# )

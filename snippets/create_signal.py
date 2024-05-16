@@ -20,18 +20,18 @@ provenance = DataProvenance(
 signal = Signal(input_data=data, name="CODs", provenance=provenance, units="mg/l")
 
 # Add a processing step
-signal.process(["CODs_RAW"], resample, "5min")
+signal.process(["CODs#1_RAW#1"], resample, "5min")
 
-print(len(signal.time_series["CODs_RESAMPLED"].processing_steps))
+print(len(signal.time_series["CODs#1_RESAMPLED#1"].processing_steps))
 # outputs 1
 
 # Add another step to CODs_RESAMPLED
-signal.process(["CODs_RESAMPLED"], linear_interpolation)
-print(len(signal.time_series["CODs_LIN-INT"].processing_steps))
+signal.process(["CODs#1_RESAMPLED#1"], linear_interpolation)
+print(len(signal.time_series["CODs#1_LIN-INT#1"].processing_steps))
 # outputs 2
 
 # Save the resulting signal to a directory (data + metadata)
-signal.save("path/to/directory")
+# signal.save("path/to/directory")
 
 # Load a signal from a file
-signal = Signal.load_from_directory("path/to/directory/CODs.zip", "CODs")
+# signal = Signal.load_from_directory("path/to/directory/CODs.zip", "CODs")

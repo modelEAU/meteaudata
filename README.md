@@ -64,21 +64,21 @@ provenance = DataProvenance(
 signal = Signal(input_data=data, name="CODs", provenance=provenance, units="mg/l")
 
 # Add a processing step
-signal.process(["CODs_RAW"], resample, "5min")
+signal.process(["CODs#1_RAW#1"], resample, "5min")
 
-print(len(signal.time_series["CODs_RESAMPLED"].processing_steps))
+print(len(signal.time_series["CODs#1_RESAMPLED#1"].processing_steps))
 # outputs 1
 
 # Add another step to CODs_RESAMPLED
-signal.process(["CODs_RESAMPLED"], linear_interpolation)
-print(len(signal.time_series["CODs_LIN-INT"].processing_steps))
+signal.process(["CODs#1_RESAMPLED#1"], linear_interpolation)
+print(len(signal.time_series["CODs#1_LIN-INT#1"].processing_steps))
 # outputs 2
 
 # Save the resulting signal to a directory (data + metadata)
-signal.save("path/to/directory")
+# signal.save("path/to/directory")
 
 # Load a signal from a file
-signal = Signal.load_from_directory("path/to/directory/CODs.zip", "CODs")
+# signal = Signal.load_from_directory("path/to/directory/CODs.zip", "CODs")
 
 ```
 
@@ -135,22 +135,22 @@ dataset = Dataset(
 )
 
 # create a new signal by applying a transformation to items in the dataset
-dataset.process(["CODs_RAW", "NH4-N_RAW"], average_signals)
+dataset.process(["CODs#1_RAW#1", "NH4-N#1_RAW#1"], average_signals)
 
-print(dataset.signals["CODs+NH4-N-AVERAGE"])
-# outputs Signal(name="CODs+NH4-N-AVERAGE", ...)
+print(dataset.signals["AVERAGE#1"])
+# outputs Signal(name="AVERAGE#1", ...)
 # The new signal has its own raw time series
-print(dataset.signals["CODs+NH4-N-AVERAGE"].time_series["CODs+NH4-N-AVERAGE_RAW"])
+print(dataset.signals["AVERAGE#1"].time_series["AVERAGE#1_RAW#1"])
 # outputs TimeSeries(..., processing_steps=[<list of all the processing steps that went into creating CODs, NH4-N, and the averaged signal>])
 
 # Save the resulting signal to a directory (data + metadata)
-dataset.save("test directory")
+# dataset.save("test directory")
 
 # Load a signal from a file
-dataset = Dataset.load(
-    "test directory/test dataset.zip",  # path to the dataset directory or zip file
-    "test dataset",  # name of the dataset
-)
+# dataset = Dataset.load(
+#    "test directory/test dataset.zip",  # path to the dataset directory or zip file
+#    "test dataset",  # name of the dataset
+# )
 
 ```
 
