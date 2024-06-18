@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "meteaudata"
-version = "0.5.2"
+version = "0.6.0"
 description = "A lightweight package for tracking metadata about time series to create repeatable data pipelines."
 authors = ["Jean-David Therrien <jeandavidt@gmail.com>"]
 license = "CC-BY4"

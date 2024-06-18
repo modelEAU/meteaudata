@@ -2,7 +2,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from meteaudata.processing_steps.multivariate import average
-from meteaudata.processing_steps.univariate import interpolate, prediction, resample
+from meteaudata.processing_steps.univariate import (
+    interpolate,
+    prediction,
+    replace,
+    resample,
+)
 from meteaudata.types import DataProvenance, Dataset, Signal, TimeSeries
 
 
@@ -77,7 +82,13 @@ def sample_dataset():
     for signal_name, signal in dataset.signals.items():
         signal = signal.process([f"{signal_name}_RAW#1"], resample.resample, "5min")
         # introduce a nan in the resampled ts
-        signal.time_series[f"{signal_name}_RESAMPLED#1"].series.iloc[10:20] = np.nan
+        signal = signal.process(
+            [f"{signal_name}_RESAMPLED#1"],
+            replace.replace_ranges,
+            [["2020-01-01 3:00:00", "2020-01-02 00:00:00"]],
+            reason="sensor calibration procedure",
+            replace_with=np.nan,
+        )
         signal = signal.process(
             [f"{signal_name}_RESAMPLED#1"], interpolate.linear_interpolation
         )
@@ -155,10 +166,17 @@ def sample_dataset_no_nums():
     for signal_name, signal in dataset.signals.items():
         signal = signal.process([f"{signal_name}_RAW#1"], resample.resample, "5min")
         # introduce a nan in the resampled ts
-        signal.time_series[f"{signal_name}_RESAMPLED#1"].series.iloc[10:20] = np.nan
         signal = signal.process(
-            [f"{signal_name}_RESAMPLED#1"], interpolate.linear_interpolation
+            [f"{signal_name}_RESAMPLED#1"],
+            replace.replace_ranges,
+            [("2020-01-01 3:00:00", "2020-01-02 00:00:00")],
+            reason="sensor calibration procedure",
+            replace_with=np.nan,
         )
+        signal = signal.process(
+            [f"{signal_name}_REPLACED-RANGES#1"], interpolate.linear_interpolation
+        )
+
     return dataset
 
 

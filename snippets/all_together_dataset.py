@@ -34,7 +34,7 @@ def my_dataset_func(
         function_info=func_info,
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
-        parameters=None,  ## if the function takes parameters, add the in a Parameters() object,
+        parameters=None,  # if the function takes parameters, add the in a Parameters() object,
         suffix="SUM",
     )
 

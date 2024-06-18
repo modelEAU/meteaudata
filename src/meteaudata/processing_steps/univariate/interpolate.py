@@ -21,7 +21,7 @@ def linear_interpolation(
         name="linear interpolation",
         version="0.1",
         author="Jean-David Therrien",
-        reference="www.github.com/modelEAU/data_filters",
+        reference="www.github.com/modelEAU/meteaudata",
     )
     parameters = Parameters()
     processing_step = ProcessingStep(
