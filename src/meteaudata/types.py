@@ -472,6 +472,9 @@ class TimeSeries(BaseModel):
         self.processing_steps = new_steps
         return self
 
+    def __str__(self):
+        return f"{self.series.name}"
+
 
 class SignalTransformFunctionProtocol(Protocol):
     """
@@ -740,7 +743,7 @@ class Signal(BaseModel):
         return f"Signal(name={self.name}, units={self.units}, provenance={self.provenance}, last_updated={self.last_updated}, created_on={self.created_on}, time_series={[ts for ts in self.time_series.keys()]})"
 
     def __str__(self):
-        return self.__repr__()
+        return f"Signal '{self.name}', units={self.units}, time_series={self.all_time_series}"
 
     def _to_dataframe(self):
         return pd.DataFrame(
@@ -1492,6 +1495,9 @@ class Dataset(BaseModel):
             if self.signals[name] != other.signals[name]:
                 return False
         return True
+
+    def __str__(self):
+        return f"Dataset {self.name}, owner={self.owner}, purpose={self.purpose}, signals={self.all_signals}"
 
 
 if __name__ == "__main__":
