@@ -52,3 +52,4 @@
 
 - Fixed a typo in the processing functions where the reference pointed to the wrong GitHub repository.
 - Added a processing function (`replace_ranges`) that lets users replace values in a time series with a filler value (eg, NaN). Can be used to filter out manually-identified invalid data.
+- Added `__str__` method to processing steps so they print nicely
