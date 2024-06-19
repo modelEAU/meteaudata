@@ -250,6 +250,9 @@ class ProcessingStep(BaseModel):
     suffix: str
     input_series_names: list[str] = Field(default_factory=list)
 
+    def __str__(self) -> str:
+        return f"Processed {self.input_series_names} on {self.run_datetime.strftime('%Y-%m-%d %H:%M:%S')} using function `{self.function_info.name}`. Result has suffix {self.suffix}"
+
 
 class ProcessingConfig(BaseModel):
     steps: list[ProcessingStep]
