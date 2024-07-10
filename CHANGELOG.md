@@ -53,3 +53,7 @@
 - Fixed a typo in the processing functions where the reference pointed to the wrong GitHub repository.
 - Added a processing function (`replace_ranges`) that lets users replace values in a time series with a filler value (eg, NaN). Can be used to filter out manually-identified invalid data.
 - Added `__str__` method to processing steps so they print nicely
+
+## 0.7.0
+
+- Added a new univariate processing function `subset` that lets you slice time series to a desired length or index values

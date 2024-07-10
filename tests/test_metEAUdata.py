@@ -7,6 +7,7 @@ from meteaudata.processing_steps.univariate import (
     prediction,
     replace,
     resample,
+    subset,
 )
 from meteaudata.types import DataProvenance, Dataset, Signal, TimeSeries
 
@@ -93,6 +94,19 @@ def sample_dataset():
             [f"{signal_name}_RESAMPLED#1"], interpolate.linear_interpolation
         )
     return dataset
+
+
+def test_subset():
+    dataset = sample_dataset()
+    signal_names = dataset.all_signals
+    signal_name = signal_names[0]
+    signal = dataset.signals[signal_name]
+
+    start = 2
+    end = 7
+
+    signal.process([f"{signal_name}_RESAMPLED#1"], subset.subset, start, end, True)
+    assert len(signal.time_series[f"{signal_name}_SLICE#1"].series) == 5
 
 
 def sample_dataset_no_nums():
