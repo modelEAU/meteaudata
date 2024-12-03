@@ -57,3 +57,7 @@
 ## 0.7.0
 
 - Added a new univariate processing function `subset` that lets you slice time series to a desired length or index values
+
+## 0.7.1
+
+- Added a `dataset.remove(signal_name)` and `signal.remove(ts_name)` to facilitate rapid creation and deletion of time series / signals

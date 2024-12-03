@@ -618,13 +618,15 @@ class Signal(BaseModel):
         else:
             number = 1
         return number_indicator.join([separator.join([self.name, rest]), str(number)])
-
     def add(self, ts: TimeSeries) -> None:
         old_name = ts.series.name
         new_name = self.new_ts_name(str(old_name))
         new_name = self.update_numbered_ts_name(new_name)
         ts.series.name = new_name
         self.time_series[new_name] = ts
+
+    def remove(self, ts_name: str) -> None:
+        self.time_series.pop(ts_name)
 
     @property
     def all_time_series(self):
@@ -1265,6 +1267,9 @@ class Dataset(BaseModel):
         signal.rename(new_name)
         self.signals[new_name] = signal
         return self
+
+    def remove(self, signal_name: str) -> None:
+        self.signals.pop(signal_name)
 
     model_config: dict = {"arbitrary_types_allowed": True}
 
