@@ -37,14 +37,14 @@ def select_time_range(
     parameters = Parameters(start_time=start_time, end_time=end_time)
 
     processing_step = ProcessingStep(
-        type=ProcessingType.FILTERING,
+        type=ProcessingType.SELECTTIMERANGE,
         parameters=parameters,
         function_info=func_info,
         description="A processing function to select data between a specific time range",
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
         input_series_names=[str(col.name) for col in input_series],
-        suffix="SELECTED_TIMERANGE",
+        suffix="SelectedTimeRange",
     )
 
     outputs = []

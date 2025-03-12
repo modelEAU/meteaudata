@@ -7,6 +7,7 @@ from meteaudata.processing_steps.univariate.interpolate import (  # noqa: F401
 from meteaudata.processing_steps.univariate.replace import replace_ranges  # noqa: F401
 from meteaudata.processing_steps.univariate.resample import resample  # noqa: F401
 from meteaudata.processing_steps.univariate.select_time_range import select_time_range  # noqa: F401
+from meteaudata.processing_steps.univariate.check_missing_values import check_missing_values  # noqa: F401
 
 from meteaudata.processing_steps.univariate.subset import subset  # noqa: F401
 from meteaudata.types import (  # noqa: F401

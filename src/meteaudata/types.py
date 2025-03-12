@@ -185,6 +185,8 @@ class ProcessingType(Enum):
     REMOVE_DUPLICATES = "remove_duplicates"
     SMOOTHING = "smoothing"
     FILTERING = "filtering"
+    SELECTTIMERANGE = 'selecting_time_range'
+    MISSINGVALUES = 'check_for_nan'
     RESAMPLING = "resampling"
     GAP_FILLING = "gap_filling"
     PREDICTION = "prediction"
