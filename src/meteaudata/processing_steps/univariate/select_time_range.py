@@ -37,7 +37,7 @@ def select_time_range(
     parameters = Parameters(start_time=start_time, end_time=end_time)
 
     processing_step = ProcessingStep(
-        type=ProcessingType.SELECTTIMERANGE,
+        type=ProcessingType.SORTING,
         parameters=parameters,
         function_info=func_info,
         description="A processing function to select data between a specific time range",

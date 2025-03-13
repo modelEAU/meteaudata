@@ -30,7 +30,7 @@ def check_missing_values(
     )
 
     processing_step = ProcessingStep(
-        type=ProcessingType.MISSINGVALUES,
+        type=ProcessingType.SORTING,
         parameters=Parameters(),  # No specific parameters for missing value check
         function_info=func_info,
         description="A processing function to check for missing values in a time series",
