@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
+pio.renderers.default = "browser" # make sure the figures are shown in a browser, if they are shown in a notebook, this blocks the code 
 import yaml
 from plotly.subplots import make_subplots
 from pydantic import BaseModel, Field, field_serializer, field_validator
@@ -185,8 +186,6 @@ class ProcessingType(Enum):
     REMOVE_DUPLICATES = "remove_duplicates"
     SMOOTHING = "smoothing"
     FILTERING = "filtering"
-    SELECTTIMERANGE = 'selecting_time_range'
-    MISSINGVALUES = 'check_for_nan'
     RESAMPLING = "resampling"
     GAP_FILLING = "gap_filling"
     PREDICTION = "prediction"
