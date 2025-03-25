@@ -15,7 +15,13 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import yaml
 from plotly.subplots import make_subplots
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 # set the default plotly template
 pio.templates.default = "plotly_white"
@@ -174,10 +180,51 @@ class IndexMetadata(BaseModel):
 
 
 class Parameters(BaseModel):
-    model_config: dict = {"extra": "allow"}
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
-    def as_dict(self):
-        return self.model_dump()
+    @model_validator(mode="before")
+    @classmethod
+    def handle_numpy_arrays(cls, data: Any) -> Any:
+        """Prepare data for Pydantic validation."""
+        if isinstance(data, dict):
+            return {k: cls._prepare_value(v) for k, v in data.items()}
+        return data
+
+    @classmethod
+    def _prepare_value(cls, value: Any) -> Any:
+        """Convert numpy arrays to lists for validation."""
+        if isinstance(value, np.ndarray):
+            return {
+                "__numpy_array__": True,
+                "data": value.tolist(),
+                "dtype": str(value.dtype),
+                "shape": value.shape,
+            }
+        elif isinstance(value, dict):
+            return {k: cls._prepare_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [cls._prepare_value(v) for v in value]
+        elif hasattr(value, "__dict__"):
+            obj_dict = value.__dict__.copy()
+            processed_dict = {k: cls._prepare_value(v) for k, v in obj_dict.items()}
+            return processed_dict
+        return value
+
+    def as_dict(self) -> dict[str, Any]:
+        """Convert to dict, handling special types."""
+        data = self.model_dump()
+        return self._restore_values(data)
+
+    def _restore_values(self, data: Any) -> Any:
+        """Restore special types like numpy arrays from the dict representation."""
+        if isinstance(data, dict):
+            if data.get("__numpy_array__"):
+                # Restore numpy array
+                return np.array(data["data"], dtype=data["dtype"])
+            return {k: self._restore_values(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._restore_values(v) for v in data]
+        return data
 
 
 class ProcessingType(Enum):
@@ -618,6 +665,7 @@ class Signal(BaseModel):
         else:
             number = 1
         return number_indicator.join([separator.join([self.name, rest]), str(number)])
+
     def add(self, ts: TimeSeries) -> None:
         old_name = ts.series.name
         new_name = self.new_ts_name(str(old_name))
