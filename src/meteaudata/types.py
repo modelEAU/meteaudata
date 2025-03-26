@@ -351,8 +351,25 @@ class TimeSeries(BaseModel):
             return False
         if not str(self.series.dtype) == str(other.series.dtype):
             return False
-        if not np.allclose(self.series.values, other.series.values, equal_nan=True):  # type: ignore
-            return False
+
+        # For numeric data, use np.allclose
+        if np.issubdtype(self.series.dtype, np.number):
+            if not np.allclose(self.series.values, other.series.values, equal_nan=True):
+                return False
+        # For non-numeric data (strings, objects, etc.)
+        else:
+            # Handle NaN/None values separately if needed
+            mask_self = pd.isna(self.series)
+            mask_other = pd.isna(other.series)
+
+            # Check if NaN patterns match
+            if not (mask_self == mask_other).all():
+                return False
+
+            # Compare non-NaN values
+            if not (self.series[~mask_self] == other.series[~mask_other]).all():
+                return False
+
         if self.index_metadata != other.index_metadata:
             return False
         if self.values_dtype != other.values_dtype:

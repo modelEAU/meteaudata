@@ -66,3 +66,7 @@
 
 - Added methods to Parameters so it can handle numpy arrays and tuples.
 
+## 0.7.3
+
+- Added support for series with strings in them.
+
