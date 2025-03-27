@@ -70,3 +70,6 @@
 
 - Added support for series with strings in them.
 
+## 0.7.4
+
+- Added start and end parameters to plotting functions.

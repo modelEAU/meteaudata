@@ -446,6 +446,8 @@ class TimeSeries(BaseModel):
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
         legend_name: Optional[str] = None,
+        start=None,
+        end=None,
     ) -> go.Figure:
         processing_type_to_marker = {
             ProcessingType.SORTING: "circle",
@@ -496,6 +498,22 @@ class TimeSeries(BaseModel):
         last_type = last_step.type if last_step else ProcessingType.OTHER
         marker = processing_type_to_marker[last_type]
         mode = processing_type_to_mode[last_type]
+        # Apply date filtering if specified
+        if start is not None or end is not None:
+            filtered_series = self.series.copy()
+            # Convert string dates to datetime if necessary
+            if isinstance(start, str):
+                start_date = pd.to_datetime(start)
+            if isinstance(end, str):
+                end_date = pd.to_datetime(end)
+
+            # Apply filter
+            if start_date is not None:
+                filtered_series = filtered_series[filtered_series.index >= start_date]
+            if end_date is not None:
+                filtered_series = filtered_series[filtered_series.index <= end_date]
+        else:
+            filtered_series = self.series
         index_shift = 0
         for step in self.processing_steps:
             if step.type == ProcessingType.PREDICTION:
@@ -506,14 +524,14 @@ class TimeSeries(BaseModel):
             # check if the first character is a number
             if not first_character.isdigit():
                 frequency = "1" + frequency
-            x = self.series.index + pd.to_timedelta(frequency) * index_shift
+            x = filtered_series.index + pd.to_timedelta(frequency) * index_shift
         else:
             distance = self.series.index[1] - self.series.index[0]
-            x = self.series.index + distance * index_shift
+            x = filtered_series.index + distance * index_shift
         fig = go.Figure(
             go.Scatter(
                 x=x,
-                y=self.series.values,
+                y=filtered_series.values,
                 name=legend_name,
                 mode=mode,
                 marker_symbol=marker,
@@ -970,6 +988,8 @@ class Signal(BaseModel):
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
+        start=None,
+        end=None,
     ) -> go.Figure:
         if not title:
             title = f"Time series plot of {self.name}"
@@ -981,7 +1001,7 @@ class Signal(BaseModel):
         for ts_name in ts_names:
             # recover the scatter trace from the plot of the time series
             ts = self.time_series[ts_name]
-            ts_fig = ts.plot(legend_name=ts_name)
+            ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
             ts_trace = ts_fig.data[0]
             fig.add_trace(ts_trace)
 
@@ -1505,6 +1525,8 @@ class Dataset(BaseModel):
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
+        start=None,
+        end=None,
     ) -> go.Figure:
         if not title:
             title = f"Time series plots of dataset {self.name}"
@@ -1523,7 +1545,7 @@ class Dataset(BaseModel):
             ]
             for ts_name in signal_ts_names:
                 ts = signal.time_series[ts_name]
-                ts_fig = ts.plot(legend_name=ts_name)
+                ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
                 ts_trace = ts_fig.data[0]
                 fig.add_trace(ts_trace, row=i + 1, col=1)
         fig.update_layout(
