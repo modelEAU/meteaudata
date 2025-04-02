@@ -13,8 +13,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
-pio.renderers.default = "browser" # make sure the figures are shown in a browser, if they are shown in a notebook, this blocks the code 
+pio.renderers.default = "vscode" 
 import yaml
+import matplotlib.pyplot as plt
 from plotly.subplots import make_subplots
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
@@ -927,6 +928,44 @@ class Signal(BaseModel):
             yaxis_title=y_axis,
         )
         return fig
+    
+    def plot_fast(
+        self,
+        ts_names: list[str],
+        title: Optional[str] = None,
+        y_axis: Optional[str] = None,
+        x_axis: Optional[str] = None,
+    ) -> None:
+        # Set default titles if not provided
+        if not title:
+            title = f"Time series plot of {self.name}"
+        if not y_axis:
+            y_axis = f"{self.name} ({self.units})"
+        if not x_axis:
+            x_axis = "Time"
+
+        # Create a figure and axis
+        plt.figure(figsize=(12, 6))
+
+        # Loop through time series names and plot each one
+        for ts_name in ts_names:
+            ts = self.time_series[ts_name].series
+            # Assuming the time series `ts` has a pandas Series structure
+            plt.plot(ts, label=ts_name)
+
+        # Add title and labels
+        plt.title(title)
+        plt.xlabel(x_axis)
+        plt.ylabel(y_axis)
+
+        # Show legend
+        plt.legend()
+
+        # Display the plot
+        plt.tight_layout()
+        plt.show()        
+        
+        return
 
     def build_dependency_graph(self, ts_name: str) -> list[dict[str, Any]]:
         """
