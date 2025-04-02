@@ -17,7 +17,13 @@ pio.renderers.default = "vscode"
 import yaml
 import matplotlib.pyplot as plt
 from plotly.subplots import make_subplots
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 
 # set the default plotly template
 pio.templates.default = "plotly_white"
@@ -176,10 +182,51 @@ class IndexMetadata(BaseModel):
 
 
 class Parameters(BaseModel):
-    model_config: dict = {"extra": "allow"}
+    model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
-    def as_dict(self):
-        return self.model_dump()
+    @model_validator(mode="before")
+    @classmethod
+    def handle_numpy_arrays(cls, data: Any) -> Any:
+        """Prepare data for Pydantic validation."""
+        if isinstance(data, dict):
+            return {k: cls._prepare_value(v) for k, v in data.items()}
+        return data
+
+    @classmethod
+    def _prepare_value(cls, value: Any) -> Any:
+        """Convert numpy arrays to lists for validation."""
+        if isinstance(value, np.ndarray):
+            return {
+                "__numpy_array__": True,
+                "data": value.tolist(),
+                "dtype": str(value.dtype),
+                "shape": value.shape,
+            }
+        elif isinstance(value, dict):
+            return {k: cls._prepare_value(v) for k, v in value.items()}
+        elif isinstance(value, list):
+            return [cls._prepare_value(v) for v in value]
+        elif hasattr(value, "__dict__"):
+            obj_dict = value.__dict__.copy()
+            processed_dict = {k: cls._prepare_value(v) for k, v in obj_dict.items()}
+            return processed_dict
+        return value
+
+    def as_dict(self) -> dict[str, Any]:
+        """Convert to dict, handling special types."""
+        data = self.model_dump()
+        return self._restore_values(data)
+
+    def _restore_values(self, data: Any) -> Any:
+        """Restore special types like numpy arrays from the dict representation."""
+        if isinstance(data, dict):
+            if data.get("__numpy_array__"):
+                # Restore numpy array
+                return np.array(data["data"], dtype=data["dtype"])
+            return {k: self._restore_values(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._restore_values(v) for v in data]
+        return data
 
 
 class ProcessingType(Enum):
@@ -306,8 +353,25 @@ class TimeSeries(BaseModel):
             return False
         if not str(self.series.dtype) == str(other.series.dtype):
             return False
-        if not np.allclose(self.series.values, other.series.values, equal_nan=True):  # type: ignore
-            return False
+
+        # For numeric data, use np.allclose
+        if np.issubdtype(self.series.dtype, np.number):
+            if not np.allclose(self.series.values, other.series.values, equal_nan=True):
+                return False
+        # For non-numeric data (strings, objects, etc.)
+        else:
+            # Handle NaN/None values separately if needed
+            mask_self = pd.isna(self.series)
+            mask_other = pd.isna(other.series)
+
+            # Check if NaN patterns match
+            if not (mask_self == mask_other).all():
+                return False
+
+            # Compare non-NaN values
+            if not (self.series[~mask_self] == other.series[~mask_other]).all():
+                return False
+
         if self.index_metadata != other.index_metadata:
             return False
         if self.values_dtype != other.values_dtype:
@@ -384,6 +448,8 @@ class TimeSeries(BaseModel):
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
         legend_name: Optional[str] = None,
+        start=None,
+        end=None,
     ) -> go.Figure:
         processing_type_to_marker = {
             ProcessingType.SORTING: "circle",
@@ -434,6 +500,22 @@ class TimeSeries(BaseModel):
         last_type = last_step.type if last_step else ProcessingType.OTHER
         marker = processing_type_to_marker[last_type]
         mode = processing_type_to_mode[last_type]
+        # Apply date filtering if specified
+        if start is not None or end is not None:
+            filtered_series = self.series.copy()
+            # Convert string dates to datetime if necessary
+            if isinstance(start, str):
+                start_date = pd.to_datetime(start)
+            if isinstance(end, str):
+                end_date = pd.to_datetime(end)
+
+            # Apply filter
+            if start_date is not None:
+                filtered_series = filtered_series[filtered_series.index >= start_date]
+            if end_date is not None:
+                filtered_series = filtered_series[filtered_series.index <= end_date]
+        else:
+            filtered_series = self.series
         index_shift = 0
         for step in self.processing_steps:
             if step.type == ProcessingType.PREDICTION:
@@ -444,14 +526,14 @@ class TimeSeries(BaseModel):
             # check if the first character is a number
             if not first_character.isdigit():
                 frequency = "1" + frequency
-            x = self.series.index + pd.to_timedelta(frequency) * index_shift
+            x = filtered_series.index + pd.to_timedelta(frequency) * index_shift
         else:
             distance = self.series.index[1] - self.series.index[0]
-            x = self.series.index + distance * index_shift
+            x = filtered_series.index + distance * index_shift
         fig = go.Figure(
             go.Scatter(
                 x=x,
-                y=self.series.values,
+                y=filtered_series.values,
                 name=legend_name,
                 mode=mode,
                 marker_symbol=marker,
@@ -620,6 +702,7 @@ class Signal(BaseModel):
         else:
             number = 1
         return number_indicator.join([separator.join([self.name, rest]), str(number)])
+
     def add(self, ts: TimeSeries) -> None:
         old_name = ts.series.name
         new_name = self.new_ts_name(str(old_name))
@@ -907,6 +990,8 @@ class Signal(BaseModel):
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
+        start=None,
+        end=None,
     ) -> go.Figure:
         if not title:
             title = f"Time series plot of {self.name}"
@@ -918,7 +1003,7 @@ class Signal(BaseModel):
         for ts_name in ts_names:
             # recover the scatter trace from the plot of the time series
             ts = self.time_series[ts_name]
-            ts_fig = ts.plot(legend_name=ts_name)
+            ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
             ts_trace = ts_fig.data[0]
             fig.add_trace(ts_trace)
 
@@ -1480,6 +1565,8 @@ class Dataset(BaseModel):
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
+        start=None,
+        end=None,
     ) -> go.Figure:
         if not title:
             title = f"Time series plots of dataset {self.name}"
@@ -1498,7 +1585,7 @@ class Dataset(BaseModel):
             ]
             for ts_name in signal_ts_names:
                 ts = signal.time_series[ts_name]
-                ts_fig = ts.plot(legend_name=ts_name)
+                ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
                 ts_trace = ts_fig.data[0]
                 fig.add_trace(ts_trace, row=i + 1, col=1)
         fig.update_layout(

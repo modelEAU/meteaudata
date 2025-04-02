@@ -61,3 +61,15 @@
 ## 0.7.1
 
 - Added a `dataset.remove(signal_name)` and `signal.remove(ts_name)` to facilitate rapid creation and deletion of time series / signals
+
+## 0.7.2
+
+- Added methods to Parameters so it can handle numpy arrays and tuples.
+
+## 0.7.3
+
+- Added support for series with strings in them.
+
+## 0.7.4
+
+- Added start and end parameters to plotting functions.
