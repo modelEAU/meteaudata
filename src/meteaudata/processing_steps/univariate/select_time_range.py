@@ -1,5 +1,7 @@
 import datetime
+
 import pandas as pd
+
 from meteaudata.types import (
     FunctionInfo,
     Parameters,
@@ -7,12 +9,10 @@ from meteaudata.types import (
     ProcessingType,
 )
 
+
 def select_time_range(
-
     input_series: list[pd.Series], start_time: str, end_time: str, *args, **kwargs
-
 ) -> list[tuple[pd.Series, list[ProcessingStep]]]:
-
     """
     A processing function to filter time series data within a specified time range.
 
@@ -37,14 +37,14 @@ def select_time_range(
     parameters = Parameters(start_time=start_time, end_time=end_time)
 
     processing_step = ProcessingStep(
-        type=ProcessingType.SORTING,
+        type=ProcessingType.FILTERING,
         parameters=parameters,
         function_info=func_info,
         description="A processing function to select data between a specific time range",
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
         input_series_names=[str(col.name) for col in input_series],
-        suffix="SelectedTimeRange",
+        suffix="TIME-SLICE",
     )
 
     outputs = []

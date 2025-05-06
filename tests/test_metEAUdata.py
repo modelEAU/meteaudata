@@ -6,8 +6,10 @@ from meteaudata.processing_steps.multivariate import average
 from meteaudata.processing_steps.univariate import (
     interpolate,
     prediction,
+    remove_duplicates,
     replace,
     resample,
+    select_time_range,
     subset,
 )
 from meteaudata.types import DataProvenance, Dataset, Signal, TimeSeries
@@ -91,8 +93,20 @@ def sample_dataset():
             reason="sensor calibration procedure",
             replace_with=np.nan,
         )
+        # pd.date_range(start="2020-01-01", freq="6min", periods=100),)
         signal = signal.process(
             [f"{signal_name}_RESAMPLED#1"], interpolate.linear_interpolation
+        )
+        signal = signal.process(
+            [f"{signal_name}_LIN-INT#1"],
+            select_time_range.select_time_range,
+            "2020-01-01 00:00:00",
+            "2020-01-01 02:00:00",
+        )
+        signal = signal.process(
+            [f"{signal_name}_TIME-SLICE#1"],
+            remove_duplicates.remove_duplicates,
+            keep="last",
         )
     return dataset
 

@@ -9,13 +9,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Protocol, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
-pio.renderers.default = "vscode" 
 import yaml
-import matplotlib.pyplot as plt
 from plotly.subplots import make_subplots
 from pydantic import (
     BaseModel,
@@ -547,6 +546,8 @@ class TimeSeries(BaseModel):
         )
         return fig
 
+    # TODO: implement plot_mpl for the time_series object.
+
     def remove_duplicated_steps(self):
         steps = self.processing_steps
         new_steps = []
@@ -1013,14 +1014,17 @@ class Signal(BaseModel):
             yaxis_title=y_axis,
         )
         return fig
-    
-    def plot_fast(
+
+    def plot_mpl(
         self,
         ts_names: list[str],
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
     ) -> None:
+        """
+        Renders the selected time series in a matplotlib figure.
+        """
         # Set default titles if not provided
         if not title:
             title = f"Time series plot of {self.name}"
@@ -1030,7 +1034,7 @@ class Signal(BaseModel):
             x_axis = "Time"
 
         # Create a figure and axis
-        plt.figure(figsize=(12, 6))
+        fig = plt.figure(figsize=(12, 6))
 
         # Loop through time series names and plot each one
         for ts_name in ts_names:
@@ -1048,9 +1052,7 @@ class Signal(BaseModel):
 
         # Display the plot
         plt.tight_layout()
-        plt.show()        
-        
-        return
+        return fig
 
     def build_dependency_graph(self, ts_name: str) -> list[dict[str, Any]]:
         """
@@ -1603,6 +1605,8 @@ class Dataset(BaseModel):
                 col=1,
             )
         return fig
+
+    # TODO: implement plot_mpl for the dataset object.
 
     def __eq__(self, other):
         if not isinstance(other, Dataset):

@@ -1,5 +1,8 @@
 import datetime
+from typing import Literal
+
 import pandas as pd
+
 from meteaudata.types import (
     FunctionInfo,
     Parameters,
@@ -7,13 +10,20 @@ from meteaudata.types import (
     ProcessingType,
 )
 
+
 def remove_duplicates(
-    input_series: list[pd.Series], *args, **kwargs
+    input_series: list[pd.Series],
+    *args,
+    keep: Literal["first", "last", False] = "first",
+    **kwargs,
 ) -> list[tuple[pd.Series, list[ProcessingStep]]]:
     """
     A processing function to remove duplicate sample points from time series data.
 
-    The function checks for duplicates and retains only the first occurrence of each duplicate.
+    The function checks for duplicates and retains only the desired occurrence of each duplicate.
+    first -> keeps first encountered row with that index
+    last -> keeps last encountered value with that index
+    False -> removes all duplicated values
 
     Args:
         input_series (list[pd.Series]): List of input time series to be processed.
@@ -31,13 +41,13 @@ def remove_duplicates(
 
     processing_step = ProcessingStep(
         type=ProcessingType.RESAMPLING,
-        parameters=None,
+        parameters=Parameters(keep=keep),
         function_info=func_info,
         description="A processing function to remove duplicate sample points from time series",
         run_datetime=datetime.datetime.now(),
         requires_calibration=False,
         input_series_names=[str(col.name) for col in input_series],
-        suffix="NoDuplicates",
+        suffix="DEDUPLICATED",
     )
 
     outputs = []
@@ -54,7 +64,7 @@ def remove_duplicates(
             )
 
         # Remove duplicate values while keeping the first occurrence
-        filtered_col = col.loc[~col.index.duplicated(keep='first')]
+        filtered_col = col.loc[~col.index.duplicated(keep=keep)]
 
         # Update the series name with the processing step suffix
         new_name = f"{signal}_{processing_step.suffix}"
