@@ -39,7 +39,7 @@ def resample(
     for col in input_series:
         col = col.copy()
         col_name = col.name
-        signal, _ = str(col_name).split("_")
+        signal = "_".join(str(col_name).split("_")[:-1])
         if not isinstance(col.index, (pd.DatetimeIndex, pd.TimedeltaIndex)):
             raise IndexError(
                 f"Series {col.name} has index type {type(col.index)}. Please provide either pd.DatetimeIndex or pd.TimedeltaIndex"

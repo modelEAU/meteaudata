@@ -73,3 +73,8 @@
 ## 0.7.4
 
 - Added start and end parameters to plotting functions.
+
+## 0.8.0
+
+// TODO: says what you added to the pacakge
+- Added
