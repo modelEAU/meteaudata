@@ -7,7 +7,7 @@ import tempfile
 import zipfile
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional, Protocol, Union
+from typing import Any, Dict, Optional, Protocol, Union
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from meteaudata.displayable import DisplayableBase
 
 # set the default plotly template
 pio.templates.default = "plotly_white"
@@ -85,7 +86,7 @@ def serialize_series(series: pd.Series) -> dict:
     }
 
 
-class IndexMetadata(BaseModel):
+class IndexMetadata(BaseModel, DisplayableBase):
     type: str
     name: Optional[str] = None
     frequency: Optional[str] = None
@@ -97,7 +98,7 @@ class IndexMetadata(BaseModel):
     end: Optional[int] = None
     step: Optional[int] = None
     dtype: str
-
+    
     @staticmethod
     def extract_index_metadata(index: pd.Index) -> "IndexMetadata":
         metadata = {
@@ -177,9 +178,28 @@ class IndexMetadata(BaseModel):
 
         reconstructed_index.name = metadata.name
         return reconstructed_index
+    def _get_identifier(self) -> str:
+        """Get the key identifier for IndexMetadata."""
+        return f"type='{self.type}'"
+    
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for IndexMetadata."""
+        return {
+            'type': self.type,
+            'name': self.name,
+            'dtype': self.dtype,
+            'frequency': self.frequency,
+            'time_zone': self.time_zone,
+            'closed': self.closed,
+            'categories': self.categories,
+            'ordered': self.ordered,
+            'start': self.start,
+            'end': self.end,
+            'step': self.step
+        }
 
 
-class Parameters(BaseModel):
+class Parameters(BaseModel, DisplayableBase):
     model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
     @model_validator(mode="before")
@@ -226,6 +246,31 @@ class Parameters(BaseModel):
             return [self._restore_values(v) for v in data]
         return data
 
+    def _get_identifier(self) -> str:
+        """Get the key identifier for Parameters."""
+        # Get all non-private attributes
+        param_attrs = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        param_count = len(param_attrs)
+        return f"parameters[{param_count}]"
+    
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for Parameters."""
+        # Return all non-private attributes
+        attrs = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        
+        # For numpy arrays, show shape and dtype instead of the full array
+        processed_attrs = {}
+        for key, value in attrs.items():
+            if hasattr(value, 'shape') and hasattr(value, 'dtype'):  # Likely a numpy array
+                processed_attrs[key] = f"array(shape={value.shape}, dtype={value.dtype})"
+            elif isinstance(value, list) and len(value) > 5:
+                processed_attrs[key] = f"list[{len(value)} items]"
+            elif isinstance(value, dict):
+                processed_attrs[key] = f"dict[{len(value)} items]"
+            else:
+                processed_attrs[key] = value
+        
+        return processed_attrs
 
 class ProcessingType(Enum):
     SORTING = "sorting"
@@ -243,7 +288,7 @@ class ProcessingType(Enum):
     OTHER = "other"
 
 
-class DataProvenance(BaseModel):
+class DataProvenance(BaseModel, DisplayableBase):
     source_repository: Optional[str] = None
     project: Optional[str] = None
     location: Optional[str] = None
@@ -251,9 +296,30 @@ class DataProvenance(BaseModel):
     parameter: Optional[str] = None
     purpose: Optional[str] = None
     metadata_id: Optional[str]
+    
+    def _get_identifier(self) -> str:
+        """Get the key identifier for DataProvenance."""
+        if self.parameter:
+            return f"parameter='{self.parameter}'"
+        elif self.metadata_id:
+            return f"metadata_id='{self.metadata_id}'"
+        else:
+            return f"location='{self.location}'"
+    
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for DataProvenance."""
+        return {
+            'source_repository': self.source_repository,
+            'project': self.project,
+            'location': self.location,
+            'equipment': self.equipment,
+            'parameter': self.parameter,
+            'purpose': self.purpose,
+            'metadata_id': self.metadata_id
+        }
 
 
-class FunctionInfo(BaseModel):
+class FunctionInfo(BaseModel, DisplayableBase):
     name: str
     version: str
     author: str
@@ -285,8 +351,32 @@ class FunctionInfo(BaseModel):
         except Exception as e:
             self.source_code = f"An error occurred: {e}"
 
+    def _get_identifier(self) -> str:
+        """Get the key identifier for FunctionInfo."""
+        return f"name='{self.name}'"
+    
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for FunctionInfo."""
+        attrs = {
+            'name': self.name,
+            'version': self.version,
+            'author': self.author,
+            'reference': self.reference
+        }
+        
+        # Only show source code info if it exists and isn't an error message
+        if (self.source_code and 
+            not self.source_code.startswith("Could not determine") and
+            not self.source_code.startswith("Function not found") and
+            not self.source_code.startswith("An error occurred")):
+            attrs['has_source_code'] = True
+            attrs['source_code_lines'] = len(self.source_code.splitlines())
+        else:
+            attrs['has_source_code'] = False
+        
+        return attrs
 
-class ProcessingStep(BaseModel):
+class ProcessingStep(BaseModel, DisplayableBase):
     type: ProcessingType
     description: str
     run_datetime: datetime.datetime
@@ -300,12 +390,29 @@ class ProcessingStep(BaseModel):
     def __str__(self) -> str:
         return f"Processed {self.input_series_names} on {self.run_datetime.strftime('%Y-%m-%d %H:%M:%S')} using function `{self.function_info.name}`. Result has suffix {self.suffix}"
 
+    def _get_identifier(self) -> str:
+        """Get the key identifier for ProcessingStep."""
+        return f"type='{self.type.value} ({self.suffix})'"
+    
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for ProcessingStep."""
+        return {
+            'type': self.type.value,
+            'description': self.description,
+            'suffix': self.suffix,
+            'run_datetime': self.run_datetime,
+            'requires_calibration': self.requires_calibration,
+            'step_distance': self.step_distance,
+            'function_info': self.function_info,
+            'parameters': self.parameters,
+            'input_series_names': self.input_series_names
+        }
 
 class ProcessingConfig(BaseModel):
     steps: list[ProcessingStep]
 
 
-class TimeSeries(BaseModel):
+class TimeSeries(BaseModel, DisplayableBase):
     series: pd.Series = Field(default=pd.Series(dtype=object))
     processing_steps: list[ProcessingStep] = Field(default_factory=list)
     index_metadata: Optional[IndexMetadata] = None
@@ -556,6 +663,36 @@ class TimeSeries(BaseModel):
 
     def __str__(self):
         return f"{self.series.name}"
+    
+    def _get_identifier(self) -> str:
+        """Get the key identifier for TimeSeries."""
+        series_name = getattr(self.series, 'name', 'unnamed')
+        return f"series='{series_name}'"
+
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for TimeSeries."""
+        attrs = {
+            'series_name': self.series.name,
+            'series_length': len(self.series),
+            'values_dtype': self.values_dtype,
+            'created_on': self.created_on,
+            'processing_steps_count': len(self.processing_steps),
+            'index_metadata': self.index_metadata
+        }
+        
+        # Add date range if it's a datetime index
+        if hasattr(self.series.index, 'min') and len(self.series) > 0:
+            try:
+                attrs['date_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
+            except:
+                attrs['index_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
+        
+        # Add processing steps summary if they exist
+        if self.processing_steps:
+            step_types = [step.type.value for step in self.processing_steps]
+            attrs['processing_step_types'] = step_types
+        
+        return attrs
 
 
 class SignalTransformFunctionProtocol(Protocol):
@@ -577,7 +714,7 @@ class SignalTransformFunctionProtocol(Protocol):
     ) -> list[tuple[pd.Series, list[ProcessingStep]]]: ...  # noqa: E704
 
 
-class Signal(BaseModel):
+class Signal(BaseModel, DisplayableBase):
     """Represents a signal with associated time series data and processing steps.
 
     Attributes:
@@ -1262,8 +1399,24 @@ class Signal(BaseModel):
             if v != other.time_series[k]:
                 return False
         return True
+    
+    def _get_identifier(self) -> str:
+        """Get the key identifier for Signal."""
+        return f"name='{self.name}'"
 
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for Signal."""
+        return {
+            'name': self.name,
+            'units': self.units,
+            'provenance': self.provenance,
+            'created_on': self.created_on,
+            'last_updated': self.last_updated,
+            'time_series_count': len(self.time_series),
+            'time_series_names': list(self.time_series.keys())
+        }
 
+    
 class DatasetTransformFunctionProtocol(Protocol):
     def __call__(
         self,
@@ -1287,7 +1440,7 @@ class DatasetTransformFunctionProtocol(Protocol):
     """
 
 
-class Dataset(BaseModel):
+class Dataset(BaseModel, DisplayableBase):
     created_on: datetime.datetime = Field(default=datetime.datetime.now())
     last_updated: datetime.datetime = Field(default=datetime.datetime.now())
     name: str
@@ -1590,6 +1743,24 @@ class Dataset(BaseModel):
 
     def __str__(self):
         return f"Dataset {self.name}, owner={self.owner}, purpose={self.purpose}, signals={self.all_signals}"
+
+    def _get_identifier(self) -> str:
+        """Get the key identifier for Dataset."""
+        return f"name='{self.name}'"
+
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Get attributes to display for Dataset."""
+        return {
+            'name': self.name,
+            'description': self.description,
+            'owner': self.owner,
+            'purpose': self.purpose,
+            'project': self.project,
+            'created_on': self.created_on,
+            'last_updated': self.last_updated,
+            'signals_count': len(self.signals),
+            'signal_names': list(self.signals.keys())
+        }
 
 
 if __name__ == "__main__":
