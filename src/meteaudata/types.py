@@ -249,27 +249,25 @@ class Parameters(BaseModel, DisplayableBase):
     def _get_identifier(self) -> str:
         """Get the key identifier for Parameters."""
         # Get all non-private attributes
-        param_attrs = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        param_attrs = {k: v for k, v in self.model_extra.items()}
         param_count = len(param_attrs)
-        return f"parameters[{param_count}]"
+        return f"parameters[{param_count} items]"
     
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for Parameters."""
-        # Return all non-private attributes
-        attrs = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
-        
-        # For numpy arrays, show shape and dtype instead of the full array
         processed_attrs = {}
-        for key, value in attrs.items():
-            if hasattr(value, 'shape') and hasattr(value, 'dtype'):  # Likely a numpy array
-                processed_attrs[key] = f"array(shape={value.shape}, dtype={value.dtype})"
+        # For numpy arrays, show shape and dtype instead of the full array
+        # Get all field names from the model
+        for field_name in self.model_fields_set:
+            value = getattr(self, field_name)
+            if isinstance(value, dict) and "__numpy_array__" in value:
+                processed_attrs[field_name] = f"array(shape={value['shape']}, dtype={value['dtype']})"
             elif isinstance(value, list) and len(value) > 5:
-                processed_attrs[key] = f"list[{len(value)} items]"
+                processed_attrs[field_name] = f"list[{len(value)} items]"
             elif isinstance(value, dict):
-                processed_attrs[key] = f"dict[{len(value)} items]"
+                processed_attrs[field_name] = f"dict[{len(value)} items]"
             else:
-                processed_attrs[key] = value
-        
+                processed_attrs[field_name] = value
         return processed_attrs
 
 class ProcessingType(Enum):
@@ -295,7 +293,7 @@ class DataProvenance(BaseModel, DisplayableBase):
     equipment: Optional[str] = None
     parameter: Optional[str] = None
     purpose: Optional[str] = None
-    metadata_id: Optional[str]
+    metadata_id: Optional[str] = None
     
     def _get_identifier(self) -> str:
         """Get the key identifier for DataProvenance."""

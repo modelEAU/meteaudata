@@ -21,17 +21,21 @@ from meteaudata.types import (
 class TestDisplayableBase:
     """Test the core display functionality that all classes inherit."""
     
-    def test_str_method(self):
-        """Test that __str__ returns object type + identifier."""
-        provenance = DataProvenance(parameter="temperature", metadata_id="123")
-        result = str(provenance)
-        assert result == "DataProvenance(parameter='temperature')"
+    def test_str_method_identifier_priority(self):
+        """Test that __str__ uses the right identifier based on priority."""
+        # Parameter takes priority
+        prov1 = DataProvenance(parameter="temperature", metadata_id="123")
+        assert "parameter='temperature'" in str(prov1)
+        
+        # Metadata_id when no parameter
+        prov2 = DataProvenance(metadata_id="123", location="lab")
+        assert "metadata_id='123'" in str(prov2)
+        
+        # Location as fallback
+        prov3 = DataProvenance(location="lab")
+        assert "location='lab'" in str(prov3)
     
-    def test_str_method_fallback_identifier(self):
-        """Test __str__ with fallback identifier logic."""
-        provenance = DataProvenance(location="lab", metadata_id="123")
-        result = str(provenance)
-        assert result == "DataProvenance(metadata_id='123')"
+
     
     def test_display_invalid_format(self):
         """Test that invalid format raises ValueError."""
@@ -178,7 +182,8 @@ class TestTimeSeriesDisplay:
             run_datetime=datetime.datetime.now(),
             requires_calibration=False,
             function_info=func_info,
-            suffix="SMOOTH"
+            suffix="SMOOTH",
+            parameters=Parameters(window_size=3, method="mean"),
         )
         
         data = pd.Series([1, 2, 3], name="test")
@@ -322,13 +327,13 @@ class TestParametersDisplay:
         """Test parameters identifier with no parameters."""
         params = Parameters()
         identifier = params._get_identifier()
-        assert identifier == "parameters[0]"
+        assert identifier == "parameters[0 items]"
     
     def test_parameters_identifier_with_params(self):
         """Test parameters identifier with parameters."""
         params = Parameters(window_size=5, method="linear", threshold=0.1)
         identifier = params._get_identifier()
-        assert identifier == "parameters[3]"
+        assert identifier == "parameters[3 items]"
     
     def test_parameters_display_attributes_simple(self):
         """Test parameters display with simple values."""
@@ -423,7 +428,7 @@ class TestDisplayFormatHandling:
         assert "name:" in captured.out
         assert "units:" in captured.out
     
-    @patch('meteaudata.types._is_jupyter_environment')
+    @patch('meteaudata.displayable._is_jupyter_environment')
     def test_html_format_no_jupyter(self, mock_jupyter_check, simple_signal, capsys):
         """Test HTML format when not in Jupyter (should fall back to text)."""
         mock_jupyter_check.return_value = False
@@ -437,8 +442,8 @@ class TestDisplayFormatHandling:
             mock_html.assert_called_once()
             mock_display.assert_called_once()
     
-    @patch('meteaudata.types._is_jupyter_environment')
-    @patch('meteaudata.types._import_widgets')
+    @patch('meteaudata.displayable._is_jupyter_environment')
+    @patch('meteaudata.displayable._import_widgets')
     def test_widget_format_with_widgets(self, mock_import_widgets, mock_jupyter_check, simple_signal):
         """Test widget format when widgets are available."""
         mock_jupyter_check.return_value = True
@@ -620,7 +625,8 @@ class TestDisplayIntegration:
             run_datetime=datetime.datetime.now(),
             requires_calibration=False,
             function_info=func_info,
-            suffix="RESAMP"
+            suffix="RESAMP",
+            parameters=Parameters(frequency="H"),
         )
         
         # Test that processing step displays correctly
