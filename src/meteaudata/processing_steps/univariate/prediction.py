@@ -1,6 +1,7 @@
 import datetime
 
 import pandas as pd
+
 from meteaudata.types import (
     FunctionInfo,
     Parameters,
@@ -42,6 +43,10 @@ def predict_previous_point(
             raise IndexError(
                 f"Series {col.name} has index type {type(col.index)}. Please provide either pd.DatetimeIndex or pd.TimedeltaIndex"
             )
+        # actual prediction logic
+        # no need to shift, because the step_distance indicates the distance.
+        # can be interpreted as:
+        # prediction at time (t) of time (t+step_distance) = col(t)
         col = col
         new_name = f"{signal}_{processing_step.suffix}"
         if col is None:
