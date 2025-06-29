@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional, Protocol, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -545,6 +546,8 @@ class TimeSeries(BaseModel):
         )
         return fig
 
+    # TODO: implement plot_mpl for the time_series object.
+
     def remove_duplicated_steps(self):
         steps = self.processing_steps
         new_steps = []
@@ -1010,6 +1013,45 @@ class Signal(BaseModel):
             xaxis_title=x_axis,
             yaxis_title=y_axis,
         )
+        return fig
+
+    def plot_mpl(
+        self,
+        ts_names: list[str],
+        title: Optional[str] = None,
+        y_axis: Optional[str] = None,
+        x_axis: Optional[str] = None,
+    ) -> None:
+        """
+        Renders the selected time series in a matplotlib figure.
+        """
+        # Set default titles if not provided
+        if not title:
+            title = f"Time series plot of {self.name}"
+        if not y_axis:
+            y_axis = f"{self.name} ({self.units})"
+        if not x_axis:
+            x_axis = "Time"
+
+        # Create a figure and axis
+        fig = plt.figure(figsize=(12, 6))
+
+        # Loop through time series names and plot each one
+        for ts_name in ts_names:
+            ts = self.time_series[ts_name].series
+            # Assuming the time series `ts` has a pandas Series structure
+            plt.plot(ts, label=ts_name)
+
+        # Add title and labels
+        plt.title(title)
+        plt.xlabel(x_axis)
+        plt.ylabel(y_axis)
+
+        # Show legend
+        plt.legend()
+
+        # Display the plot
+        plt.tight_layout()
         return fig
 
     def build_dependency_graph(self, ts_name: str) -> list[dict[str, Any]]:
@@ -1563,6 +1605,8 @@ class Dataset(BaseModel):
                 col=1,
             )
         return fig
+
+    # TODO: implement plot_mpl for the dataset object.
 
     def __eq__(self, other):
         if not isinstance(other, Dataset):

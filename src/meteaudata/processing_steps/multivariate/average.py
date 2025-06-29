@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 
 import pandas as pd
+
 from meteaudata.types import (
     DataProvenance,
     FunctionInfo,
