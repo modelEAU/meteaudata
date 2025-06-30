@@ -198,6 +198,76 @@ class IndexMetadata(BaseModel, DisplayableBase):
             'step': self.step
         }
 
+class ParameterValue(BaseModel, DisplayableBase):
+    """
+    Wrapper class for complex parameter values to make them displayable.
+    This allows us to recursively display nested dicts and lists.
+    """
+    value: Any
+    value_type: str
+    
+    model_config = {"arbitrary_types_allowed": True}
+    
+    def __init__(self, value: Any, **data):
+        super().__init__(value=value, value_type=type(value).__name__, **data)
+    
+    def _get_identifier(self) -> str:
+        return f"type='{self.value_type}'"
+    
+    def _get_display_attributes(self) -> Dict[str, Any]:
+        """Recursively handle nested structures."""
+        if isinstance(self.value, dict):
+            attrs = {}
+            for key, val in self.value.items():
+                if self._is_displayable_complex(val):
+                    attrs[f"key_{key}"] = ParameterValue(val)
+                else:
+                    attrs[key] = self._format_simple_parameter_value(val)
+            return attrs
+        elif isinstance(self.value, (list, tuple)):
+            attrs = {
+                'length': len(self.value),
+                'type': self.value_type
+            }
+            # Show first few items if they're complex, or a summary if simple
+            for i, item in enumerate(self.value[:5]):  # Limit to first 5 items
+                if self._is_displayable_complex(item):
+                    attrs[f"item_{i}"] = ParameterValue(item)
+                else:
+                    attrs[f"item_{i}"] = self._format_simple_parameter_value(item)
+            
+            if len(self.value) > 5:
+                attrs['more_items'] = f"... and {len(self.value) - 5} more items"
+            
+            return attrs
+        else:
+            # For simple values, just show the value
+            return {'value': self._format_simple_parameter_value(self.value)}
+    
+    def _is_displayable_complex(self, obj: Any) -> bool:
+        """Check if an object is complex enough to warrant its own ParameterValue wrapper."""
+        if isinstance(obj, dict):
+            return len(obj) > 1 or any(
+                isinstance(v, (dict, list, tuple)) or (hasattr(v, '__dict__') and not isinstance(v, (str, int, float, bool, datetime))) for v in obj.values()
+            )
+        elif isinstance(obj, (list, tuple)):
+            return len(obj) > 1 or any(isinstance(item, (dict, list, tuple)) for item in obj)
+        elif hasattr(obj, '__dict__') and not isinstance(obj, (str, int, float, bool, datetime.datetime)):
+            return True
+        return False
+    
+    def _format_simple_parameter_value(self, value: Any) -> str:
+        """Format simple parameter values."""
+        if isinstance(value, dict) and "__numpy_array__" in value:
+            return f"array(shape={value['shape']}, dtype={value['dtype']})"
+        elif isinstance(value, str):
+            return f"'{value}'"
+        elif isinstance(value, datetime.datetime):
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+        elif isinstance(value, (list, tuple)) and len(value) > 3:
+            return f"{type(value).__name__}[{len(value)} items]"
+        else:
+            return str(value)
 
 class Parameters(BaseModel, DisplayableBase):
     model_config = {"extra": "allow", "arbitrary_types_allowed": True}
@@ -248,27 +318,59 @@ class Parameters(BaseModel, DisplayableBase):
 
     def _get_identifier(self) -> str:
         """Get the key identifier for Parameters."""
-        # Get all non-private attributes
-        param_attrs = {k: v for k, v in self.model_extra.items()}
+        # Get all non-private attributes from model_extra
+        param_attrs = getattr(self, 'model_extra', {})
         param_count = len(param_attrs)
         return f"parameters[{param_count} items]"
     
     def _get_display_attributes(self) -> Dict[str, Any]:
-        """Get attributes to display for Parameters."""
-        processed_attrs = {}
-        # For numpy arrays, show shape and dtype instead of the full array
-        # Get all field names from the model
-        for field_name in self.model_fields_set:
-            value = getattr(self, field_name)
-            if isinstance(value, dict) and "__numpy_array__" in value:
-                processed_attrs[field_name] = f"array(shape={value['shape']}, dtype={value['dtype']})"
-            elif isinstance(value, list) and len(value) > 5:
-                processed_attrs[field_name] = f"list[{len(value)} items]"
-            elif isinstance(value, dict):
-                processed_attrs[field_name] = f"dict[{len(value)} items]"
-            else:
-                processed_attrs[field_name] = value
-        return processed_attrs
+        """Get attributes to display for Parameters with nested object support."""
+        attrs = {}
+        
+        # Get parameter count
+        param_attrs = getattr(self, 'model_extra', {})
+        if param_attrs:
+            attrs['parameter_count'] = len(param_attrs)
+            
+            # Process each parameter
+            for field_name, value in param_attrs.items():
+                if self._is_displayable_complex(value):
+                    # Wrap complex values in ParameterValue for recursive display
+                    attrs[f"param_{field_name}"] = ParameterValue(value)
+                else:
+                    # Show simple values directly
+                    attrs[field_name] = self._format_simple_parameter_value(value)
+        
+        return attrs
+    
+    def _is_displayable_complex(self, obj: Any) -> bool:
+        """Check if a parameter value is complex enough to warrant recursive display."""
+        if isinstance(obj, dict):
+            # Complex if it has multiple keys or contains nested structures
+            if obj.get("__numpy_array__"):
+                return False  # Numpy arrays are handled as simple values
+            return len(obj) > 1 or any(isinstance(v, (dict, list, tuple)) for v in obj.values())
+        elif isinstance(obj, (list, tuple)):
+            # Complex if it's long or contains nested structures
+            return len(obj) > 3 or any(isinstance(item, (dict, list, tuple)) for item in obj[:3])
+        elif hasattr(obj, '__dict__') and not isinstance(obj, (str, int, float, bool, datetime.datetime)):
+            return True
+        return False
+    
+    def _format_simple_parameter_value(self, value: Any) -> str:
+        """Format simple parameter values for display."""
+        if isinstance(value, dict) and "__numpy_array__" in value:
+            return f"array(shape={value['shape']}, dtype={value['dtype']})"
+        elif isinstance(value, str):
+            return f"'{value}'"
+        elif isinstance(value, datetime.datetime):
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+        elif isinstance(value, (list, tuple)) and len(value) > 3:
+            return f"{type(value).__name__}[{len(value)} items]"
+        elif isinstance(value, dict):
+            return f"dict[{len(value)} items]"
+        else:
+            return str(value)
 
 class ProcessingType(Enum):
     SORTING = "sorting"
@@ -394,17 +496,22 @@ class ProcessingStep(BaseModel, DisplayableBase):
     
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for ProcessingStep."""
-        return {
+        attrs = {
             'type': self.type.value,
             'description': self.description,
             'suffix': self.suffix,
             'run_datetime': self.run_datetime,
             'requires_calibration': self.requires_calibration,
             'step_distance': self.step_distance,
-            'function_info': self.function_info,
-            'parameters': self.parameters,
-            'input_series_names': self.input_series_names
+            'input_series_names': self.input_series_names,
+            'function_info': self.function_info,  # This allows drilling into FunctionInfo
         }
+        
+        # Add parameters if they exist
+        if self.parameters:
+            attrs['parameters'] = self.parameters
+        
+        return attrs
 
 class ProcessingConfig(BaseModel):
     steps: list[ProcessingStep]
@@ -685,10 +792,9 @@ class TimeSeries(BaseModel, DisplayableBase):
             except:
                 attrs['index_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
         
-        # Add processing steps summary if they exist
-        if self.processing_steps:
-            step_types = [step.type.value for step in self.processing_steps]
-            attrs['processing_step_types'] = step_types
+        # Add actual ProcessingStep objects for drill-down
+        for i, step in enumerate(self.processing_steps):
+            attrs[f'step_{i+1}_{step.type.value}'] = step
         
         return attrs
 
@@ -1404,15 +1510,20 @@ class Signal(BaseModel, DisplayableBase):
 
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for Signal."""
-        return {
+        attrs = {
             'name': self.name,
             'units': self.units,
             'provenance': self.provenance,
             'created_on': self.created_on,
             'last_updated': self.last_updated,
             'time_series_count': len(self.time_series),
-            'time_series_names': list(self.time_series.keys())
         }
+        
+        # Add actual TimeSeries objects for drill-down
+        for ts_name, ts in self.time_series.items():
+            attrs[f'timeseries_{ts_name}'] = ts
+        
+        return attrs
 
     
 class DatasetTransformFunctionProtocol(Protocol):
@@ -1748,7 +1859,7 @@ class Dataset(BaseModel, DisplayableBase):
 
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for Dataset."""
-        return {
+        attrs = {
             'name': self.name,
             'description': self.description,
             'owner': self.owner,
@@ -1757,8 +1868,14 @@ class Dataset(BaseModel, DisplayableBase):
             'created_on': self.created_on,
             'last_updated': self.last_updated,
             'signals_count': len(self.signals),
-            'signal_names': list(self.signals.keys())
         }
+        
+        # Add actual Signal objects for drill-down
+        for signal_name, signal in self.signals.items():
+            attrs[f'signal_{signal_name}'] = signal
+        
+        return attrs
+
 
 
 if __name__ == "__main__":

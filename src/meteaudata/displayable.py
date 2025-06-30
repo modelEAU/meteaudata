@@ -212,6 +212,55 @@ class DisplayableBase(ABC):
                     """)
                 else:
                     lines.append(f"<div class='meteaudata-attr'><span class='meteaudata-attr-name'>{attr_name}:</span> <span class='meteaudata-attr-value'>{str(attr_value)}</span></div>")
+            elif isinstance(attr_value, (list, tuple)) and len(attr_value) > 0:
+                # Handle collections that might contain displayable objects
+                if hasattr(attr_value[0], '_build_html_content'):
+                    # This is a list of displayable objects
+                    nested_items = []
+                    for i, item in enumerate(attr_value):
+                        if i >= 10:  # Limit to first 10 items to avoid overwhelming display
+                            nested_items.append(f"<div class='meteaudata-attr'>... and {len(attr_value) - 10} more items</div>")
+                            break
+                        item_content = item._build_html_content(depth - 1)
+                        nested_items.append(f"<div class='meteaudata-nested'>{item_content}</div>")
+                    
+                    nested_content = "\n".join(nested_items)
+                    lines.append(f"""
+                    <details class='meteaudata-collapsible'>
+                        <summary class='meteaudata-summary'>{attr_name}: {type(attr_value).__name__}[{len(attr_value)} items]</summary>
+                        <div class='meteaudata-nested'>{nested_content}</div>
+                    </details>
+                    """)
+                else:
+                    # Regular list of simple values
+                    value_str = _format_simple_value(attr_value)
+                    lines.append(f"<div class='meteaudata-attr'><span class='meteaudata-attr-name'>{attr_name}:</span> <span class='meteaudata-attr-value'>{value_str}</span></div>")
+            elif isinstance(attr_value, dict):
+                # Handle dictionaries that might contain displayable objects
+                if any(hasattr(v, '_build_html_content') for v in attr_value.values()):
+                    # This dictionary contains displayable objects
+                    nested_items = []
+                    for key, value in list(attr_value.items())[:10]:  # Limit to first 10 items
+                        if hasattr(value, '_build_html_content'):
+                            item_content = value._build_html_content(depth - 1)
+                            nested_items.append(f"<div class='meteaudata-nested'><strong>{key}:</strong><br>{item_content}</div>")
+                        else:
+                            nested_items.append(f"<div class='meteaudata-attr'><strong>{key}:</strong> {_format_simple_value(value)}</div>")
+                    
+                    if len(attr_value) > 10:
+                        nested_items.append(f"<div class='meteaudata-attr'>... and {len(attr_value) - 10} more items</div>")
+                    
+                    nested_content = "\n".join(nested_items)
+                    lines.append(f"""
+                    <details class='meteaudata-collapsible'>
+                        <summary class='meteaudata-summary'>{attr_name}: dict[{len(attr_value)} items]</summary>
+                        <div class='meteaudata-nested'>{nested_content}</div>
+                    </details>
+                    """)
+                else:
+                    # Regular dictionary
+                    value_str = _format_simple_value(attr_value)
+                    lines.append(f"<div class='meteaudata-attr'><span class='meteaudata-attr-name'>{attr_name}:</span> <span class='meteaudata-attr-value'>{value_str}</span></div>")
             else:
                 value_str = _format_simple_value(attr_value)
                 lines.append(f"<div class='meteaudata-attr'><span class='meteaudata-attr-name'>{attr_name}:</span> <span class='meteaudata-attr-value'>{value_str}</span></div>")
