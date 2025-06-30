@@ -6,6 +6,8 @@ Refactored to use inheritance with minimal code duplication.
 from typing import Any, Dict
 from datetime import datetime
 from abc import ABC, abstractmethod
+import plotly.graph_objects as go
+from meteaudata import graph_display
 
 
 def _is_jupyter_environment() -> bool:
@@ -120,25 +122,6 @@ class DisplayableBase(ABC):
         obj_type = self.__class__.__name__
         identifier = self._get_identifier()
         return f"{obj_type}({identifier})"
-    
-    def display(self, format: str = "text", depth: int = 2, use_widgets: bool = True) -> None:
-        """
-        Display rich representation of the object.
-        
-        Args:
-            format: "text" or "html"
-            depth: how many levels deep to expand complex objects
-            use_widgets: if True and in Jupyter, use ipywidgets
-        """
-        if format == "text":
-            print(self._render_text(depth))
-        elif format == "html":
-            if use_widgets and _is_jupyter_environment():
-                self._render_widget(depth)
-            else:
-                self._render_html(depth)
-        else:
-            raise ValueError(f"Unknown format: {format}")
     
     def _render_text(self, depth: int, indent: int = 0) -> str:
         """Render text representation."""
@@ -266,6 +249,70 @@ class DisplayableBase(ABC):
                 lines.append(f"<div class='meteaudata-attr'><span class='meteaudata-attr-name'>{attr_name}:</span> <span class='meteaudata-attr-value'>{value_str}</span></div>")
         
         return "\n".join(lines)
+    
+    def _render_graph(self, max_depth: int = 4, show_labels: bool = True,
+                     width: int = 1000, height: int = 700) -> go.Figure:
+        """Render graph representation and return figure."""
+        from meteaudata.graph_display import GraphBuilder, create_standalone_interactive_graph
+        
+        builder = GraphBuilder()
+        graph_data = builder.build_graph(self, max_depth)
+        return create_standalone_interactive_graph(graph_data, show_labels, width, height)
+    
+    def display(self, format: str = "text", depth: int = 2, 
+                               use_widgets: bool = True, max_depth: int = 4,
+                               show_labels: bool = True, width: int = 1000, 
+                               height: int = 700, interactive: bool = True) -> None:
+        """
+        Enhanced display method with graph visualization.
+        
+        Args:
+            format: "text", "html", or "graph"
+            depth: how many levels deep to expand complex objects (text/html)
+            use_widgets: if True and in Jupyter, use ipywidgets (html)
+            max_depth: maximum depth for graph traversal (graph)
+            show_labels: whether to show node labels (graph)
+            width: figure width in pixels (graph)
+            height: figure height in pixels (graph)
+            interactive: whether to use interactive widgets for graph (graph)
+        """
+        if format == "text":
+            print(self._render_text(depth))
+        elif format == "html":
+            if use_widgets and _is_jupyter_environment():
+                self._render_widget(depth)
+            else:
+                self._render_html(depth)
+        elif format == "graph":
+            builder = graph_display.GraphBuilder()
+            graph_data = builder.build_graph(self, max_depth)
+            
+            if interactive and _is_jupyter_environment() and use_widgets:
+                try:
+                    # Try to create interactive widget version
+                    container = graph_display.create_interactive_graph_with_details(
+                        graph_data, show_labels, width, height
+                    )
+                    graph_display.display(container)
+                except ImportError:
+                    # Fallback to hover-only version
+                    fig = graph_display.create_standalone_interactive_graph(
+                        graph_data, show_labels, width, height
+                    )
+                    graph_display.display(fig)
+            else:
+                # Standalone hover version
+                fig = graph_display.create_standalone_interactive_graph(
+                    graph_data, show_labels, width, height
+                )
+                try:
+                    from IPython.display import display
+                    display(fig)
+                except ImportError:
+                    fig.show()
+        else:
+            raise ValueError(f"Unknown format: {format}. Use 'text', 'html', or 'graph'")
+
     
     def _build_widget(self, depth: int, widgets) -> Any:
         """Build widget representation."""
