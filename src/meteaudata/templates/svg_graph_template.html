@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Nested Box Graph</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            height: 90vh;
+        }
+
+        .graph-container {
+            flex: 2;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .details-panel {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 100%;
+        }
+
+        .details-content {
+            display: none;
+        }
+
+        .details-content.active {
+            display: block;
+        }
+
+        .details-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f77b4;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+
+        .details-attribute {
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .details-attribute:last-child {
+            border-bottom: none;
+        }
+
+        .attribute-name {
+            font-weight: 600;
+            color: #495057;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .attribute-value {
+            color: #6c757d;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        .graph-svg {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+
+        .graph-svg:active {
+            cursor: grabbing;
+        }
+
+        .nested-box {
+            stroke-width: 2;
+            fill-opacity: 1;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .nested-box:hover {
+            stroke-width: 3;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
+        }
+
+        .box-label {
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            fill: #2d3748;
+            pointer-events: none;
+            text-anchor: start;
+            dominant-baseline: hanging;
+        }
+
+        .expand-button {
+            cursor: pointer;
+        }
+
+        .expand-button-circle {
+            fill: white;
+            stroke-width: 2;
+        }
+
+        .expand-button-text {
+            font-size: 16px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .zoom-btn {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .zoom-btn:hover {
+            background: #f8f9fa;
+            transform: scale(1.05);
+        }
+
+        .default-details {
+            text-align: center;
+            color: #6c757d;
+            margin-top: 50px;
+        }
+
+        .processing-step {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .processing-step:hover rect {
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));
+            stroke-width: 3;
+        }
+
+        .processing-step-text {
+            pointer-events: none;
+            user-select: none;
+        }
+
+        .processing-step-placeholder {
+            opacity: 0.7;
+        }
+
+        .processing-step-placeholder-text {
+            pointer-events: none;
+            user-select: none;
+            font-style: italic;
+        }
+
+        .details-attribute ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .details-attribute li {
+            margin: 2px 0;
+        }
+
+        .object-type-dataset { stroke: #1f77b4; fill: #e3f2fd; }
+        .object-type-signal { stroke: #ff7f0e; fill: #fff3e0; }
+        .object-type-timeseries { stroke: #2ca02c; fill: #e8f5e8; }
+        .object-type-processingstep { stroke: #d62728; fill: #ffebee; }
+        .object-type-parameters { stroke: #9467bd; fill: #f3e5f5; }
+        .object-type-parametervalue { stroke: #8c564b; fill: #efebe9; }
+        .object-type-functioninfo { stroke: #e377c2; fill: #fce4ec; }
+        .object-type-dataprovenance { stroke: #7f7f7f; fill: #f5f5f5; }
+        .object-type-container { stroke: #607d8b; fill: #eceff1; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="graph-container">
+            <svg class="graph-svg" id="graph-svg"></svg>
+            <div class="zoom-controls">
+                <div class="zoom-btn" id="zoom-in">+</div>
+                <div class="zoom-btn" id="zoom-out">−</div>
+                <div class="zoom-btn" id="zoom-reset">⌂</div>
+            </div>
+        </div>
+        
+        <div class="details-panel">
+            <div class="default-details">
+                <h3>Object Details</h3>
+                <p>Click on any box in the graph to see detailed information about that object.</p>
+                <p><strong>Navigation:</strong><br>
+                   • Mouse wheel or zoom controls to zoom<br>
+                   • Drag to pan around the graph<br>
+                   • Click +/− buttons to expand/collapse<br>
+                   • Click boxes for details</p>
+            </div>
+            <div class="details-content" id="details-content">
+                <!-- Details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class InteractiveNestedBoxGraph {
+            constructor(containerId) {
+                this.svg = d3.select(containerId);
+                this.container = this.svg.node().parentElement;
+                this.width = this.container.clientWidth;
+                this.height = this.container.clientHeight;
+                
+                this.margin = { top: 20, right: 20, bottom: 20, left: 20 };
+                this.innerWidth = this.width - this.margin.left - this.margin.right;
+                this.innerHeight = this.height - this.margin.top - this.margin.bottom;
+                
+                this.collapsedNodes = new Set();
+                this.currentHierarchy = null;
+                
+                this.setupSVG();
+                this.setupZoom();
+                this.setupEventListeners();
+            }
+
+            // Add this new method to set default collapsed state
+            setDefaultCollapsedState(node) {
+                // Collapse containers, signals, AND TimeSeries by default
+                if (node.type === 'Container' || node.type === 'Signal' || node.type === 'TimeSeries') {
+                    this.collapsedNodes.add(node.id);
+                }
+                
+                // Recursively apply to children
+                if (node.children) {
+                    for (const child of node.children) {
+                        this.setDefaultCollapsedState(child);
+                    }
+                }
+            }
+
+
+            
+            setupSVG() {
+                this.svg
+                    .attr('width', this.width)
+                    .attr('height', this.height);
+                
+                this.zoomGroup = this.svg.append('g')
+                    .attr('class', 'zoom-group');
+                
+                this.mainGroup = this.zoomGroup.append('g')
+                    .attr('class', 'main-group')
+                    .attr('transform', `translate(${this.margin.left},${this.margin.top})`);
+            }
+            
+            setupZoom() {
+                this.zoom = d3.zoom()
+                    .scaleExtent([0.1, 3])
+                    .on('zoom', (event) => {
+                        this.zoomGroup.attr('transform', event.transform);
+                    });
+                
+                this.svg.call(this.zoom);
+            }
+            
+            setupEventListeners() {
+                d3.select('#zoom-in').on('click', () => {
+                    this.svg.transition().call(this.zoom.scaleBy, 1.5);
+                });
+                
+                d3.select('#zoom-out').on('click', () => {
+                    this.svg.transition().call(this.zoom.scaleBy, 1 / 1.5);
+                });
+                
+                d3.select('#zoom-reset').on('click', () => {
+                    this.svg.transition().call(this.zoom.transform, d3.zoomIdentity);
+                });
+                
+                window.addEventListener('resize', () => this.handleResize());
+            }
+            
+            handleResize() {
+                this.width = this.container.clientWidth;
+                this.height = this.container.clientHeight;
+                this.innerWidth = this.width - this.margin.left - this.margin.right;
+                this.innerHeight = this.height - this.margin.top - this.margin.bottom;
+                
+                this.svg.attr('width', this.width).attr('height', this.height);
+                this.render();
+            }
+            
+            // Update loadData to set default state
+            loadData(hierarchyData) {
+                this.currentHierarchy = hierarchyData;
+                this.collapsedNodes.clear(); // Clear any existing state
+                this.setDefaultCollapsedState(hierarchyData); // Set defaults
+                this.render(hierarchyData);
+            }
+            
+            renderHierarchy() {
+                if (this.currentHierarchy) {
+                    this.render(this.currentHierarchy);
+                }
+            }
+            
+            render(hierarchyData) {
+                if (!hierarchyData) return;
+                
+                // Clear previous rendering
+                this.mainGroup.selectAll('*').remove();
+                
+                // Calculate layout and render
+                const positions = this.calculateLayout(hierarchyData);
+                this.renderNodes(hierarchyData, positions);
+            }
+            
+            calculateLayout(hierarchyData) {
+                const padding = 20;
+                const minBoxSize = { width: 250, height: 80 };
+                const labelHeight = 30;
+                
+                const positions = {};
+                
+                const layoutNode = (node, x, y, availableWidth, availableHeight, depth = 0) => {
+                    const nodeId = node.id;
+                    const isCollapsed = this.collapsedNodes.has(nodeId);
+                    const hasChildren = node.children && node.children.length > 0;
+                    
+                    let actualWidth = Math.max(minBoxSize.width, availableWidth);
+                    let actualHeight = minBoxSize.height;
+                    
+                    let currentY = y + labelHeight + padding;
+                    let maxChildWidth = 0;
+                    
+                    if (hasChildren && !isCollapsed) {
+                        const children = node.children;
+                        
+                        // For TimeSeries, calculate height based on processing steps only if not collapsed
+                        if (node.type === 'TimeSeries') {
+                            actualHeight = this.calculateTimeSeriesHeight(node, actualWidth);
+                        } else {
+                            for (let i = 0; i < children.length; i++) {
+                                const child = children[i];
+                                const childWidth = actualWidth - 2 * padding;
+                                const childHeight = this.estimateNodeHeight(child, depth + 1);
+                                
+                                const childActualHeight = layoutNode(
+                                    child, x + padding, currentY, childWidth, childHeight, depth + 1
+                                );
+                                
+                                maxChildWidth = Math.max(maxChildWidth, childWidth);
+                                currentY += childActualHeight + padding;
+                            }
+                            
+                            actualHeight = Math.max(minBoxSize.height, currentY - y + padding);
+                            if (maxChildWidth + 2 * padding > actualWidth) {
+                                actualWidth = maxChildWidth + 2 * padding;
+                            }
+                        }
+                    } else if (node.type === 'TimeSeries' && isCollapsed) {
+                        // For collapsed TimeSeries, use minimum height (no processing steps shown)
+                        actualHeight = minBoxSize.height;
+                    }
+                    
+                    positions[nodeId] = {
+                        x, y, width: actualWidth, height: actualHeight,
+                        labelX: x + 12, labelY: y + 12,
+                        expandButtonX: x + actualWidth - 20,
+                        expandButtonY: y + 20,
+                        hasChildren, isCollapsed,
+                        zIndex: depth * 10, node: node
+                    };
+                    
+                    return actualHeight;
+                };
+                
+                layoutNode(hierarchyData, 30, 30, this.innerWidth - 60, this.innerHeight - 60);
+                return positions;
+            }
+            
+            estimateNodeHeight(node, depth) {
+                // Estimate node height for layout calculations
+                const baseHeight = 80;
+                const hasChildren = node.children && node.children.length > 0;
+                
+                if (!hasChildren || depth > 3) return baseHeight;
+                
+                // Add height for children
+                let totalChildHeight = 0;
+                for (const child of node.children) {
+                    totalChildHeight += this.estimateNodeHeight(child, depth + 1) + 20;
+                }
+                
+                return Math.max(baseHeight, totalChildHeight + 40);
+            }
+            
+            calculateTimeSeriesHeight(timeSeriesNode, availableWidth) {
+                const baseHeight = 80;
+                const labelHeight = 30;
+                const stepHeight = 40;
+                const stepSpacing = 10;
+                const stepMinWidth = 120;
+                const padding = 20;
+                
+                const processingSteps = this.getProcessingStepsFromNode(timeSeriesNode);
+                
+                if (!processingSteps || processingSteps.length === 0) {
+                    return baseHeight;
+                }
+                
+                const stepWidths = processingSteps.map(step => {
+                    const stepName = step.name || step.type || 'Step';
+                    const textWidth = stepName.length * 8 + 20;
+                    return Math.max(stepMinWidth, textWidth);
+                });
+                
+                const availableStepWidth = availableWidth - 2 * padding;
+                const stepsPerRow = this.calculateStepsPerRow(stepWidths, availableStepWidth, stepSpacing);
+                const numberOfRows = Math.ceil(processingSteps.length / stepsPerRow);
+                
+                const stepsAreaHeight = numberOfRows * stepHeight + (numberOfRows - 1) * stepSpacing;
+                
+                return labelHeight + padding + stepsAreaHeight + padding;
+            }
+            
+            calculateStepsPerRow(stepWidths, availableWidth, spacing) {
+                if (stepWidths.length === 0) return 0;
+                
+                let currentRowWidth = 0;
+                let stepsInRow = 0;
+                
+                for (let i = 0; i < stepWidths.length; i++) {
+                    const stepWidth = stepWidths[i];
+                    const widthWithSpacing = stepWidth + (stepsInRow > 0 ? spacing : 0);
+                    
+                    if (currentRowWidth + widthWithSpacing <= availableWidth) {
+                        currentRowWidth += widthWithSpacing;
+                        stepsInRow++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                return Math.max(1, stepsInRow);
+            }
+            
+            getProcessingStepsFromNode(node) {
+                // First, check if there are processing steps in attributes (legacy format)
+                if (node.attributes && node.attributes.processing_steps) {
+                    return node.attributes.processing_steps;
+                }
+                
+                // NEW: Look for processing steps in children (current format)
+                if (node.children && node.children.length > 0) {
+                    // Look for a "Processing Steps" container in children
+                    for (const child of node.children) {
+                        if (child.type === 'Container' && 
+                            child.identifier === 'Processing Steps') {
+                            // Found the processing steps container, return its children
+                            return child.children.map((stepChild, index) => ({
+                                name: stepChild.name || `Step ${index + 1}`,
+                                type: stepChild.type || 'ProcessingStep',
+                                stepNumber: index + 1,
+                                stepObject: stepChild
+                            }));
+                        }
+                    }
+                }
+    
+    // Fallback: Look for step attributes that follow the pattern step_N_type
+    const steps = [];
+    for (const [key, value] of Object.entries(node.attributes || {})) {
+        if (key.startsWith('step_') && key.includes('_')) {
+            const parts = key.split('_');
+            if (parts.length >= 3) {
+                steps.push({
+                    name: parts.slice(2).join('_'),
+                    type: parts.slice(2).join('_'),
+                    stepNumber: parseInt(parts[1]),
+                    stepObject: value
+                });
+            }
+        }
+    }
+    
+    return steps.sort((a, b) => a.stepNumber - b.stepNumber);
+}
+            
+            renderNodes(hierarchyData, positions) {
+                this.renderNodeRecursive(hierarchyData, positions);
+            }
+            
+            renderNodeRecursive(node, positions) {
+                const pos = positions[node.id];
+                if (!pos) return;
+                
+                this.renderBox(node.id, pos);
+                
+                // Render children if not collapsed
+                if (node.children && !pos.isCollapsed) {
+                    for (const child of node.children) {
+                        this.renderNodeRecursive(child, positions);
+                    }
+                }
+            }
+            
+            renderBox(nodeId, pos) {
+                const node = pos.node;
+                const objType = node.type || 'dataset';
+                
+                const boxGroup = this.mainGroup.append('g')
+                    .attr('class', 'box-group')
+                    .style('z-index', pos.zIndex);
+                
+                // Main box
+                boxGroup.append('path')
+                    .attr('class', `nested-box object-type-${objType.toLowerCase()}`)
+                    .attr('d', this.createRoundedRectPath(pos.x, pos.y, pos.width, pos.height))
+                    .on('click', (event) => {
+                        event.stopPropagation();
+                        this.showDetails(nodeId, node);
+                    });
+                
+                // Box label
+                const labelText = this.createLabelText(node);
+                boxGroup.append('text')
+                    .attr('class', 'box-label')
+                    .attr('x', pos.labelX)
+                    .attr('y', pos.labelY)
+                    .text(labelText);
+                
+                // Special rendering for TimeSeries with processing steps
+                // ONLY render steps if the TimeSeries is NOT collapsed
+                if (objType === 'TimeSeries' && !pos.isCollapsed) {
+                    this.renderProcessingSteps(boxGroup, pos, node);
+                }
+                
+                // Expand/collapse button for ALL nodes with children (including TimeSeries)
+                if (pos.hasChildren) {
+                    const buttonGroup = boxGroup.append('g')
+                        .attr('class', 'expand-button')
+                        .on('click', (event) => {
+                            event.stopPropagation();
+                            this.toggleCollapse(nodeId);
+                        });
+                    
+                    buttonGroup.append('circle')
+                        .attr('class', 'expand-button-circle')
+                        .attr('cx', pos.expandButtonX)
+                        .attr('cy', pos.expandButtonY)
+                        .attr('r', 10)
+                        .attr('stroke', this.getColorForType(objType))
+                        .attr('fill', 'white');
+                    
+                    buttonGroup.append('text')
+                        .attr('class', 'expand-button-text')
+                        .attr('x', pos.expandButtonX)
+                        .attr('y', pos.expandButtonY)
+                        .attr('fill', this.getColorForType(objType))
+                        .text(pos.isCollapsed ? '+' : '−');
+                }
+            }
+            
+            renderProcessingSteps(parentGroup, timeSeriesPos, timeSeriesNode) {
+                const padding = 20;
+                const stepHeight = 40;
+                const stepMinWidth = 120;
+                const stepSpacing = 10;
+                const labelHeight = 30;
+                
+                const processingSteps = this.getProcessingStepsFromNode(timeSeriesNode);
+                
+                if (!processingSteps || processingSteps.length === 0) {
+                    const placeholder = parentGroup.append('g')
+                        .attr('class', 'processing-step-placeholder');
+                    
+                    const placeholderY = timeSeriesPos.y + labelHeight + padding;
+                    const placeholderWidth = 100;
+                    const placeholderHeight = 30;
+                    const placeholderX = timeSeriesPos.x + padding;
+                    
+                    placeholder.append('rect')
+                        .attr('x', placeholderX)
+                        .attr('y', placeholderY)
+                        .attr('width', placeholderWidth)
+                        .attr('height', placeholderHeight)
+                        .attr('fill', 'none')
+                        .attr('stroke', '#9467bd')
+                        .attr('stroke-width', 2)
+                        .attr('stroke-dasharray', '5,5')
+                        .attr('rx', 4);
+                    
+                    placeholder.append('text')
+                        .attr('x', placeholderX + placeholderWidth / 2)
+                        .attr('y', placeholderY + placeholderHeight / 2)
+                        .attr('text-anchor', 'middle')
+                        .attr('dominant-baseline', 'central')
+                        .attr('class', 'processing-step-placeholder-text')
+                        .style('font-size', '12px')
+                        .style('fill', '#9467bd')
+                        .text('(No Steps)');
+                    
+                    return;
+                }
+                
+                const availableWidth = timeSeriesPos.width - 2 * padding;
+                const stepWidths = processingSteps.map(step => {
+                    const stepName = this.getStepDisplayName(step);
+                    const textWidth = stepName.length * 8 + 20;
+                    return Math.max(stepMinWidth, textWidth);
+                });
+                
+                const stepsPerRow = this.calculateStepsPerRow(stepWidths, availableWidth, stepSpacing);
+                
+                let currentRow = 0;
+                let currentCol = 0;
+                let currentX = timeSeriesPos.x + padding;
+                let currentY = timeSeriesPos.y + labelHeight + padding;
+                
+                processingSteps.forEach((step, index) => {
+                    const stepWidth = stepWidths[index];
+                    
+                    if (currentCol >= stepsPerRow) {
+                        currentCol = 0;
+                        currentRow++;
+                        currentX = timeSeriesPos.x + padding;
+                        currentY += stepHeight + stepSpacing;
+                    }
+                    
+                    const stepGroup = parentGroup.append('g')
+                        .attr('class', 'processing-step')
+                        .on('click', (event) => {
+                            event.stopPropagation();
+                            this.showStepDetails(step, timeSeriesNode);
+                        });
+                    
+                    stepGroup.append('rect')
+                        .attr('x', currentX)
+                        .attr('y', currentY)
+                        .attr('width', stepWidth)
+                        .attr('height', stepHeight)
+                        .attr('fill', '#e377c2')
+                        .attr('stroke', '#d62728')
+                        .attr('stroke-width', 2)
+                        .attr('rx', 4)
+                        .style('cursor', 'pointer');
+                    
+                    stepGroup.append('text')
+                        .attr('x', currentX + stepWidth / 2)
+                        .attr('y', currentY + stepHeight / 2)
+                        .attr('text-anchor', 'middle')
+                        .attr('dominant-baseline', 'central')
+                        .attr('class', 'processing-step-text')
+                        .style('font-size', '12px')
+                        .style('font-weight', '500')
+                        .style('fill', '#2d3748')
+                        .text(this.getStepDisplayName(step));
+                    
+                    currentX += stepWidth + stepSpacing;
+                    currentCol++;
+                });
+            }
+            
+            getStepDisplayName(step) {
+                let name = '';
+            
+                if (step.name) {
+                    name = step.name;
+                } else if (step.type) {
+                    name = step.type.replace(/_/g, ' ').toUpperCase();
+                } else {
+                    name = 'STEP';
+                }
+            
+                // Remove "type='" prefix if present
+                if (name.startsWith("type='")) {
+                    name = name.substring(6); // Remove "type='"
+                }
+                
+                // Remove trailing "'" if present
+                if (name.endsWith("'")) {
+                    name = name.slice(0, -1);
+                }
+            
+                // Extract just the suffix part (the part in parentheses)
+                const match = name.match(/\(([^)]+)\)/);
+                if (match) {
+                    return match[1]; // Return just the suffix part
+                }
+            
+                return name;
+            }
+                    
+            createRoundedRectPath(x, y, width, height, radius = 8) {
+                const jitter = () => (Math.random() - 0.5) * 0.8;
+                
+                return `M ${x + radius + jitter()},${y + jitter()}
+                        L ${x + width - radius + jitter()},${y + jitter()}
+                        Q ${x + width + jitter()},${y + jitter()} ${x + width + jitter()},${y + radius + jitter()}
+                        L ${x + width + jitter()},${y + height - radius + jitter()}
+                        Q ${x + width + jitter()},${y + height + jitter()} ${x + width - radius + jitter()},${y + height + jitter()}
+                        L ${x + radius + jitter()},${y + height + jitter()}
+                        Q ${x + jitter()},${y + height + jitter()} ${x + jitter()},${y + height - radius + jitter()}
+                        L ${x + jitter()},${y + radius + jitter()}
+                        Q ${x + jitter()},${y + jitter()} ${x + radius + jitter()},${y + jitter()} Z`;
+            }
+            
+            createLabelText(node) {
+                const type = node.type || 'Object';
+                const name = node.name || node.identifier || 'Unnamed';
+                
+                // Special handling for containers - remove "Container: " prefix
+                if (type === 'Container') {
+                    return name; // Just return "Time Series" or "Signals", not "Container: Time Series"
+                }
+                
+                const truncatedName = name.length > 18 ? name.substring(0, 15) + '...' : name;
+                return `${type}: ${truncatedName}`;
+            }
+            
+            getColorForType(objType) {
+                const colors = {
+                    'dataset': '#1f77b4', 'signal': '#ff7f0e', 'timeseries': '#2ca02c',
+                    'processingstep': '#d62728', 'parameters': '#9467bd', 'parametervalue': '#8c564b',
+                    'functioninfo': '#e377c2', 'dataprovenance': '#7f7f7f', 'container': '#607d8b'
+                };
+                return colors[objType.toLowerCase()] || '#999999';
+            }
+            
+            toggleCollapse(nodeId) {
+                if (this.collapsedNodes.has(nodeId)) {
+                    this.collapsedNodes.delete(nodeId);
+                } else {
+                    this.collapsedNodes.add(nodeId);
+                }
+                this.render(this.currentHierarchy);
+            }
+            
+            showDetails(nodeId, node) {
+                const defaultDetails = document.querySelector('.default-details');
+                const detailsContent = document.getElementById('details-content');
+                
+                defaultDetails.style.display = 'none';
+                detailsContent.style.display = 'block';
+                
+                detailsContent.innerHTML = this.createDetailsHTML(node);
+            }
+            
+            showStepDetails(step, parentNode) {
+                const defaultDetails = document.querySelector('.default-details');
+                const detailsContent = document.getElementById('details-content');
+                
+                defaultDetails.style.display = 'none';
+                detailsContent.style.display = 'block';
+                
+                if (step.stepObject) {
+                    detailsContent.innerHTML = this.createDetailsHTML(step.stepObject);
+                } else {
+                    detailsContent.innerHTML = `
+                        <div class="details-header">Processing Step: ${step.name}</div>
+                        <div class="details-attribute">
+                            <span class="attribute-name">Type:</span>
+                            <div class="attribute-value">${step.type}</div>
+                        </div>
+                    `;
+                }
+            }
+            
+            createDetailsHTML(node) {
+                const type = node.type || 'Object';
+                const name = node.name || node.identifier || 'Unnamed';
+                
+                let html = `<div class="details-header">${type}: ${name}</div>`;
+                
+                if (node.attributes) {
+                    Object.entries(node.attributes).forEach(([key, value]) => {
+                        html += `
+                            <div class="details-attribute">
+                                <span class="attribute-name">${key}:</span>
+                                <div class="attribute-value">${this.formatAttributeValue(value)}</div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                return html;
+            }
+            
+            formatAttributeValue(value) {
+                if (value === null || value === undefined) return '<em>None</em>';
+                
+                // Special handling for Function Info (pipe-separated values)
+                if (typeof value === 'string' && value.includes(' | ')) {
+                    const parts = value.split(' | ');
+                    if (parts.length > 1) {
+                        return '<ul>' + parts.map(part => `<li>${part.trim()}</li>`).join('') + '</ul>';
+                    }
+                }
+                
+                if (typeof value === 'object') return `<code>${JSON.stringify(value, null, 2)}</code>`;
+                return String(value);
+            }
+        }
+        
+        // Initialize the graph
+        const graph = new InteractiveNestedBoxGraph('#graph-svg');
+        
+        // INJECT_DATA_HERE
+        
+        // Fallback demo data if no real data is injected
+        if (typeof graphData === 'undefined') {
+            const demoData = {
+                id: 'dataset-1',
+                type: 'Dataset',
+                name: 'Demo Water Treatment Data',
+                identifier: 'dataset-1',
+                attributes: {
+                    'Created': '2024-01-15',
+                    'Purpose': 'Effluent Analysis',
+                    'Signals Count': '2'
+                },
+                children: [
+                    {
+                        id: 'signal-1',
+                        type: 'Signal',
+                        name: 'Temperature',
+                        identifier: 'temperature-sensor-01',
+                        attributes: {
+                            'Units': '°C',
+                            'Location': 'Primary Tank'
+                        },
+                        children: [
+                            {
+                                id: 'ts-1',
+                                type: 'TimeSeries',
+                                name: 'Raw Data',
+                                identifier: 'temperature_RAW',
+                                attributes: {
+                                    'Length': '1440 points',
+                                    'Date Range': '2024-01-01 to 2024-01-02'
+                                },
+                                children: []
+                            }
+                        ]
+                    }
+                ]
+            };
+            graph.loadData(demoData);
+        }
+    </script>
+</body>
+</html>

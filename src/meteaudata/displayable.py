@@ -3,48 +3,14 @@ Display extensions for meteaudata objects.
 Refactored to use inheritance with minimal code duplication.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from datetime import datetime
 from abc import ABC, abstractmethod
-import plotly.graph_objects as go
-from meteaudata import graph_display
-
-
-def _is_jupyter_environment() -> bool:
-    """Check if we're running in a Jupyter environment."""
-    try:
-        from IPython import get_ipython
-        return get_ipython() is not None
-    except ImportError:
-        return False
-
-
-def _import_widgets():
-    """Safely import ipywidgets."""
-    try:
-        import ipywidgets as widgets
-        from IPython.display import display
-        return widgets, display
-    except ImportError:
-        return None, None
-
-
-def _is_complex_object(obj: Any) -> bool:
-    """Check if an object is complex and should be expandable."""
-    return hasattr(obj, '__dict__') and not isinstance(obj, (str, int, float, bool, datetime))
-
-
-def _format_simple_value(value: Any) -> str:
-    """Format simple values for display."""
-    if isinstance(value, str):
-        return f"'{value}'"
-    elif isinstance(value, datetime):
-        return value.strftime("%Y-%m-%d %H:%M:%S")
-    elif isinstance(value, (list, tuple)) and len(value) > 3:
-        return f"{type(value).__name__}[{len(value)} items]"
-    else:
-        return str(value)
-
+from meteaudata.display_utils import (
+    _is_notebook_environment,
+    _is_complex_object,
+    _format_simple_value
+)
 
 # HTML style constants
 HTML_STYLE = """
@@ -103,8 +69,7 @@ summary.meteaudata-summary:hover {
 
 class DisplayableBase(ABC):
     """
-    Base class for all meteaudata objects that need rich display functionality.
-    Can be mixed with pydantic BaseModel or used standalone.
+    Enhanced base class for meteaudata objects with SVG graph visualization.
     """
     
     @abstractmethod
@@ -151,23 +116,13 @@ class DisplayableBase(ABC):
         return "\n".join(lines)
     
     def _render_html(self, depth: int) -> None:
-        """Render HTML representation and display it."""
+        """Render HTML representation."""
         try:
             from IPython.display import HTML, display
             html_content = f"{HTML_STYLE}<div class='meteaudata-display'>{self._build_html_content(depth)}</div>"
             display(HTML(html_content))
         except ImportError:
             print(self._render_text(depth))
-    
-    def _render_widget(self, depth: int) -> None:
-        """Render widget representation."""
-        widgets, display_func = _import_widgets()
-        if widgets is None:
-            self._render_html(depth)
-            return
-        
-        widget = self._build_widget(depth, widgets)
-        display_func(widget)
     
     def _build_html_content(self, depth: int) -> str:
         """Build HTML content for the object."""
@@ -201,7 +156,7 @@ class DisplayableBase(ABC):
                     # This is a list of displayable objects
                     nested_items = []
                     for i, item in enumerate(attr_value):
-                        if i >= 10:  # Limit to first 10 items to avoid overwhelming display
+                        if i >= 10:  # Limit to first 10 items
                             nested_items.append(f"<div class='meteaudata-attr'>... and {len(attr_value) - 10} more items</div>")
                             break
                         item_content = item._build_html_content(depth - 1)
@@ -250,102 +205,116 @@ class DisplayableBase(ABC):
         
         return "\n".join(lines)
     
-    def _render_graph(self, max_depth: int = 4, show_labels: bool = True,
-                     width: int = 1000, height: int = 700) -> go.Figure:
-        """Render graph representation and return figure."""
-        from meteaudata.graph_display import GraphBuilder, create_standalone_interactive_graph
-        
-        builder = GraphBuilder()
-        graph_data = builder.build_graph(self, max_depth)
-        return create_standalone_interactive_graph(graph_data, show_labels, width, height)
-    
-    def display(self, format: str = "text", depth: int = 2, 
-                               use_widgets: bool = True, max_depth: int = 4,
-                               show_labels: bool = True, width: int = 1000, 
-                               height: int = 700, interactive: bool = True) -> None:
+    def render_svg_graph(self, max_depth: int = 4, width: int = 1200, 
+                        height: int = 800, title: str = None) -> str:
         """
-        Enhanced display method with graph visualization.
+        Render as interactive SVG nested box graph and return HTML string.
         
         Args:
-            format: "text", "html", or "graph"
-            depth: how many levels deep to expand complex objects (text/html)
-            use_widgets: if True and in Jupyter, use ipywidgets (html)
-            max_depth: maximum depth for graph traversal (graph)
-            show_labels: whether to show node labels (graph)
-            width: figure width in pixels (graph)
-            height: figure height in pixels (graph)
-            interactive: whether to use interactive widgets for graph (graph)
+            max_depth: Maximum depth to traverse in object hierarchy
+            width: Graph width in pixels
+            height: Graph height in pixels
+            title: Page title (auto-generated if None)
+            
+        Returns:
+            HTML string with embedded interactive SVG graph
+        """
+        try:
+            from meteaudata.graph_display import SVGNestedBoxGraphRenderer
+            
+            if title is None:
+                title = f"Interactive {self.__class__.__name__} Hierarchy"
+            
+            renderer = SVGNestedBoxGraphRenderer()
+            return renderer.render_to_html(self, max_depth, width, height, title)
+        except ImportError:
+            raise ImportError(
+                "SVG graph rendering requires the svg_nested_boxes module. "
+                "Please ensure meteaudata is properly installed."
+            )
+    
+    def show_graph_in_browser(self, max_depth: int = 4, width: int = 1200, 
+                             height: int = 800, title: str = None) -> str:
+        """
+        Render SVG graph and open in browser.
+        
+        Args:
+            max_depth: Maximum depth to traverse in object hierarchy
+            width: Graph width in pixels
+            height: Graph height in pixels
+            title: Page title (auto-generated if None)
+            
+        Returns:
+            Path to the generated HTML file
+        """
+        try:
+            from meteaudata.graph_display import open_meteaudata_graph_in_browser
+            
+            if title is None:
+                title = f"Interactive {self.__class__.__name__} Hierarchy"
+            
+            return open_meteaudata_graph_in_browser(self, max_depth, width, height, title)
+        except ImportError:
+            raise ImportError(
+                "Browser functionality requires additional modules. "
+                "Please ensure meteaudata is properly installed."
+            )
+    
+    def display(self, format: str = "html", depth: int = 2, 
+                max_depth: int = 4, width: int = 1200, height: int = 800) -> None:
+        """
+        Display method with support for text, HTML, and interactive graph formats.
+        
+        Args:
+            format: Display format - 'text', 'html', or 'graph' 
+            depth: Depth for text/html displays
+            max_depth: Maximum depth for graph traversal
+            width: Graph width in pixels
+            height: Graph height in pixels
         """
         if format == "text":
             print(self._render_text(depth))
         elif format == "html":
-            if use_widgets and _is_jupyter_environment():
-                self._render_widget(depth)
-            else:
-                self._render_html(depth)
+            self._render_html(depth)
         elif format == "graph":
-            builder = graph_display.GraphBuilder()
-            graph_data = builder.build_graph(self, max_depth)
-            
-            if interactive and _is_jupyter_environment() and use_widgets:
+            # For notebooks, display the HTML directly
+            if _is_notebook_environment():
                 try:
-                    # Try to create interactive widget version
-                    container = graph_display.create_interactive_graph_with_details(
-                        graph_data, show_labels, width, height
-                    )
-                    graph_display.display(container)
+                    from IPython.display import HTML, display
+                    html_content = self.render_svg_graph(max_depth, width, height)
+                    display(HTML(html_content))
                 except ImportError:
-                    # Fallback to hover-only version
-                    fig = graph_display.create_standalone_interactive_graph(
-                        graph_data, show_labels, width, height
-                    )
-                    graph_display.display(fig)
+                    print("Notebook environment detected but IPython not available.")
+                    print("Use show_graph_in_browser() to open in browser instead.")
             else:
-                # Standalone hover version
-                fig = graph_display.create_standalone_interactive_graph(
-                    graph_data, show_labels, width, height
-                )
-                try:
-                    from IPython.display import display
-                    display(fig)
-                except ImportError:
-                    fig.show()
+                # For non-notebook environments, open in browser
+                self.show_graph_in_browser(max_depth, width, height)
         else:
             raise ValueError(f"Unknown format: {format}. Use 'text', 'html', or 'graph'")
 
+    # Convenience methods for quick access to different display modes
+    def show_details(self, depth: int = 3) -> None:
+        """
+        Convenience method to show detailed HTML view.
+        
+        Args:
+            depth: How deep to expand nested objects
+        """
+        self.display(format="html", depth=depth)
     
-    def _build_widget(self, depth: int, widgets) -> Any:
-        """Build widget representation."""
-        children = []
+    def show_summary(self) -> None:
+        """
+        Convenience method to show a text summary.
+        """
+        self.display(format="text", depth=1)
+    
+    def show_graph(self, max_depth: int = 4, width: int = 1200, height: int = 800) -> None:
+        """
+        Convenience method to show the interactive graph.
         
-        # Header
-        header = widgets.HTML(f"<h3 style='margin:0; color:#0969da; font-family: system-ui;'>{self.__class__.__name__}</h3>")
-        children.append(header)
-        
-        # Attributes
-        for attr_name, attr_value in self._get_display_attributes().items():
-            if depth <= 0:
-                if hasattr(attr_value, '_build_widget'):
-                    value_str = str(attr_value)
-                else:
-                    value_str = f"{type(attr_value).__name__}(...)"
-                children.append(widgets.HTML(f"<div style='font-family: system-ui; margin: 2px 0;'><strong>{attr_name}:</strong> {value_str}</div>"))
-            elif _is_complex_object(attr_value):
-                if hasattr(attr_value, '_build_widget'):
-                    nested_widget = attr_value._build_widget(depth - 1, widgets)
-                    accordion = widgets.Accordion(children=[nested_widget])
-                    accordion.set_title(0, f"{attr_name}: {type(attr_value).__name__}")
-                    accordion.selected_index = None  # Start collapsed
-                    children.append(accordion)
-                else:
-                    children.append(widgets.HTML(f"<div style='font-family: system-ui; margin: 2px 0;'><strong>{attr_name}:</strong> {str(attr_value)}</div>"))
-            else:
-                value_str = _format_simple_value(attr_value)
-                children.append(widgets.HTML(f"<div style='font-family: system-ui; margin: 2px 0;'><strong>{attr_name}:</strong> {value_str}</div>"))
-        
-        return widgets.VBox(children, layout=widgets.Layout(
-            border='1px solid #d0d7de',
-            border_radius='6px',
-            padding='16px',
-            margin='8px 0'
-        ))
+        Args:
+            max_depth: Maximum depth to traverse in object hierarchy
+            width: Graph width in pixels  
+            height: Graph height in pixels
+        """
+        self.display(format="graph", max_depth=max_depth, width=width, height=height)

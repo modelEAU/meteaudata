@@ -22,7 +22,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from meteaudata.displayable import DisplayableBase
+from .displayable import DisplayableBase
 
 # set the default plotly template
 pio.templates.default = "plotly_white"
@@ -782,6 +782,7 @@ class TimeSeries(BaseModel, DisplayableBase):
             'values_dtype': self.values_dtype,
             'created_on': self.created_on,
             'processing_steps_count': len(self.processing_steps),
+            'processing_steps': self.processing_steps,
             'index_metadata': self.index_metadata
         }
         
@@ -789,13 +790,10 @@ class TimeSeries(BaseModel, DisplayableBase):
         if hasattr(self.series.index, 'min') and len(self.series) > 0:
             try:
                 attrs['date_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
-            except:
+            except (TypeError, ValueError):
                 attrs['index_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
         
-        # Add actual ProcessingStep objects for drill-down
-        for i, step in enumerate(self.processing_steps):
-            attrs[f'step_{i+1}_{step.type.value}'] = step
-        
+
         return attrs
 
 
@@ -1517,11 +1515,8 @@ class Signal(BaseModel, DisplayableBase):
             'created_on': self.created_on,
             'last_updated': self.last_updated,
             'time_series_count': len(self.time_series),
+            'time_series': self.time_series,
         }
-        
-        # Add actual TimeSeries objects for drill-down
-        for ts_name, ts in self.time_series.items():
-            attrs[f'timeseries_{ts_name}'] = ts
         
         return attrs
 
@@ -1867,12 +1862,12 @@ class Dataset(BaseModel, DisplayableBase):
             'project': self.project,
             'created_on': self.created_on,
             'last_updated': self.last_updated,
+            'signals': self.signals,
             'signals_count': len(self.signals),
         }
+
         
-        # Add actual Signal objects for drill-down
-        for signal_name, signal in self.signals.items():
-            attrs[f'signal_{signal_name}'] = signal
+        
         
         return attrs
 
