@@ -534,8 +534,8 @@ document.title = "{escaped_title}";
 
 
 # Clean convenience functions for external usage
-def render_meteaudata_graph_html(obj, max_depth: int = 4, width: int = 1200, 
-                                 height: int = 800, title: str = None) -> str:
+def render_meteaudata_graph_html(obj: Any, max_depth: int = 4, width: int = 1200, 
+                                 height: int = 800, title: Optional[str] = None) -> str:
     """
     Render any meteaudata object as HTML string with interactive SVG graph.
     

@@ -46,6 +46,8 @@ nav:
     - Time Series Processing: user-guide/time-series.md
     - Processing Steps: user-guide/processing-steps.md
     - Visualization: user-guide/visualization.md
+    - Metadata Visualization: user-guide/metadata-visualization.md
+    - Saving and Loading: user-guide/saving-loading.md
   - Metadata Dictionary:
     - Overview: metadata-dictionary/index.md
     - Data Provenance: metadata-dictionary/data-provenance.md
@@ -65,7 +67,12 @@ nav:
     - Processing Functions:
       - Univariate: api-reference/processing/univariate.md
       - Multivariate: api-reference/processing/multivariate.md
-    - Display System: api-reference/display.md
+    - Visualization:
+      - Overview: api-reference/visualization/index.md
+      - TimeSeries Plotting: api-reference/visualization/timeseries-plotting.md
+      - Signal Plotting: api-reference/visualization/signal-plotting.md
+      - Dataset Plotting: api-reference/visualization/dataset-plotting.md
+      - Display System: api-reference/visualization/display-system.md
   - Examples:
     - Basic Workflow: examples/basic-workflow.md
     - Custom Processing Functions: examples/custom-processing.md
@@ -100,6 +107,7 @@ plugins:
   - gen-files:
       scripts:
         - docs/scripts/gen_metadata_dict.py
+        - docs/scripts/gen_visualization_api.py
 
 markdown_extensions:
   - admonition

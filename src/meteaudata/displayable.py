@@ -206,7 +206,7 @@ class DisplayableBase(ABC):
         return "\n".join(lines)
     
     def render_svg_graph(self, max_depth: int = 4, width: int = 1200, 
-                        height: int = 800, title: str = None) -> str:
+                        height: int = 800, title: Optional[str] = None) -> str:
         """
         Render as interactive SVG nested box graph and return HTML string.
         
@@ -234,7 +234,7 @@ class DisplayableBase(ABC):
             )
     
     def show_graph_in_browser(self, max_depth: int = 4, width: int = 1200, 
-                             height: int = 800, title: str = None) -> str:
+                             height: int = 800, title: Optional[str] = None) -> str:
         """
         Render SVG graph and open in browser.
         

@@ -24,6 +24,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/modelEAU/meteaudata"
+Documentation = "https://modeleau.github.io/meteaudata/"
 
 # Generate docs before building
 [tool.hatch.build.hooks.custom]
