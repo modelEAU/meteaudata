@@ -1,6 +1,6 @@
 [project]
 name = "meteaudata"
-version = "0.7.13"
+version = "0.8.0"
 description = "A lightweight package for tracking metadata about time series to create repeatable data pipelines."
 authors = [
     {name = "Jean-David Therrien", email = "jeandavidt@gmail.com"}
@@ -17,6 +17,9 @@ dependencies = [
     "networkx>=3.2.1",
     "ipywidgets>=8.1.7",
 ]
+
+[project.urls]
+Homepage = "https://github.com/modelEAU/meteaudata"
 
 [build-system]
 

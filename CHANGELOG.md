@@ -73,3 +73,7 @@
 ## 0.7.4
 
 - Added start and end parameters to plotting functions.
+
+## 0.8.0
+
+- Added the ability to visually explore metadata using the `Dataset.show_graph_in_browser()` and `Signal.showgraph_in_browser()` methods.
