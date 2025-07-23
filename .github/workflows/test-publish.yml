@@ -17,7 +17,7 @@ jobs:
     - name: Install dependencies with dev group
       run: uv sync --group dev
     - name: Generate documentation
-      run: python docs/build_docs.py
+      run: uv run python docs/build_docs.py
     - name: Run tests
       run: uv run pytest
     - name: Build package
