@@ -1,0 +1,137 @@
+site_name: metEAUdata Documentation
+site_description: A lightweight package for tracking metadata about time series to create repeatable data pipelines
+site_url: https://modeleau.github.io/meteaudata/
+repo_url: https://github.com/modelEAU/meteaudata
+repo_name: modelEAU/meteaudata
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: blue
+      accent: light blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.highlight
+    - search.share
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - Basic Concepts: getting-started/basic-concepts.md
+  - User Guide:
+    - Working with Signals: user-guide/signals.md
+    - Managing Datasets: user-guide/datasets.md
+    - Time Series Processing: user-guide/time-series.md
+    - Processing Steps: user-guide/processing-steps.md
+    - Visualization: user-guide/visualization.md
+  - Metadata Dictionary:
+    - Overview: metadata-dictionary/index.md
+    - Data Provenance: metadata-dictionary/data-provenance.md
+    - Processing Step: metadata-dictionary/processing-step.md
+    - Function Info: metadata-dictionary/function-info.md
+    - Parameters: metadata-dictionary/parameters.md
+    - Index Metadata: metadata-dictionary/index-metadata.md
+    - Time Series: metadata-dictionary/time-series.md
+    - Signal: metadata-dictionary/signal.md
+    - Dataset: metadata-dictionary/dataset.md
+    - Processing Type: metadata-dictionary/processing-type.md
+    - Signal Transform Protocol: metadata-dictionary/signal-transform-protocol.md
+    - Dataset Transform Protocol: metadata-dictionary/dataset-transform-protocol.md
+  - API Reference:
+    - Overview: api-reference/index.md
+    - Core Types: api-reference/types.md
+    - Processing Functions:
+      - Univariate: api-reference/processing/univariate.md
+      - Multivariate: api-reference/processing/multivariate.md
+    - Display System: api-reference/display.md
+  - Examples:
+    - Basic Workflow: examples/basic-workflow.md
+    - Custom Processing Functions: examples/custom-processing.md
+    - Real-world Use Cases: examples/real-world-cases.md
+  - Development:
+    - Contributing: development/contributing.md
+    - Architecture: development/architecture.md
+    - Extending metEAUdata: development/extending.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
+            show_signature_annotations: true
+            show_source: false
+            members_order: source
+            group_by_category: true
+            show_category_heading: false  # This might help
+            show_if_no_docstring: false
+            heading_level: 2  # Control heading levels
+            show_root_heading: true
+            show_root_toc_entry: false  # This should prevent duplicates
+            filters:
+              - "!^_"  # Hide private members
+            
+  - gen-files:
+      scripts:
+        - docs/scripts/gen_metadata_dict.py
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/modelEAU/meteaudata
+  version:
+    provider: mike

@@ -48,3 +48,23 @@ dev = [
     "pre-commit>=3.6.2,<4.0.0",
     "hatchling>=1.27.0",
 ]
+# New documentation group
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.25.0",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-literate-nav>=0.6.0",
+    "mkdocs-section-index>=0.3.0",
+    "griffe>=0.38.0",
+    "jupyter>=1.0.0",
+    "nbconvert>=7.0.0",
+    "pillow>=10.0.0",
+    "cairosvg>=2.7.0",
+]
+
+# Combined environment for full development
+all = [
+    { include-group = "dev" },
+    { include-group = "docs" },
+]

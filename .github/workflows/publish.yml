@@ -16,6 +16,10 @@ jobs:
       run: uv sync --group dev
     - name: Generate documentation
       run: uv run python docs/build_docs.py
+    - name: Build and test documentation
+      run: |
+        uv sync --group docs
+        uv run mkdocs build --strict
     - name: Run tests
       run: uv run pytest
   

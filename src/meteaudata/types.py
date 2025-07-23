@@ -87,17 +87,29 @@ def serialize_series(series: pd.Series) -> dict:
 
 
 class IndexMetadata(BaseModel, DisplayableBase):
-    type: str
-    name: Optional[str] = None
-    frequency: Optional[str] = None
-    time_zone: Optional[str] = None
-    closed: Optional[str] = None
-    categories: Optional[list[Any]] = None
-    ordered: Optional[bool] = None
-    start: Optional[int] = None
-    end: Optional[int] = None
-    step: Optional[int] = None
-    dtype: str
+    """Metadata describing the characteristics of a pandas Index.
+    
+    This class captures essential information about time series indices to enable
+    proper reconstruction after serialization. It handles various pandas Index types
+    including DatetimeIndex, PeriodIndex, RangeIndex, and CategoricalIndex.
+    
+    The metadata preserves critical properties like timezone information for datetime
+    indices, frequency for time-based indices, and categorical ordering, ensuring
+    that reconstructed indices maintain their original behavior and constraints.
+    
+    """
+    type: str = Field(description="Type of pandas Index (e.g., 'DatetimeIndex', 'RangeIndex', 'PeriodIndex')")
+    name: Optional[str] = Field(default=None, description="Name assigned to the index, if any")
+    frequency: Optional[str] = Field(default=None, description="Frequency string for time-based indices (e.g., 'D', 'H', '15min')")
+    time_zone: Optional[str] = Field(default=None, description="Timezone information for datetime indices (e.g., 'UTC', 'America/Toronto')")
+    closed: Optional[str] = Field(default=None, description="Which side of intervals are closed for IntervalIndex ('left', 'right', 'both', 'neither')")
+    categories: Optional[list[Any]] = Field(default=None, description="List of category values for CategoricalIndex")
+    ordered: Optional[bool] = Field(default=None, description="Whether categories have a meaningful order for CategoricalIndex")
+    start: Optional[int] = Field(default=None, description="Start value for RangeIndex")
+    end: Optional[int] = Field(default=None, description="End value (exclusive) for RangeIndex") 
+    step: Optional[int] = Field(default=None, description="Step size for RangeIndex")
+    dtype: str = Field(description="Data type of the index values (e.g., 'datetime64[ns]', 'int64')")
+
     
     @staticmethod
     def extract_index_metadata(index: pd.Index) -> "IndexMetadata":
@@ -199,12 +211,24 @@ class IndexMetadata(BaseModel, DisplayableBase):
         }
 
 class ParameterValue(BaseModel, DisplayableBase):
+    """Wrapper for complex parameter values in processing functions.
+    
+    This class provides a structured way to store and display complex parameter
+    values like nested dictionaries, lists, or custom objects that are used in
+    time series processing functions. It enables recursive display of nested
+    structures while maintaining type information.
+    
+    The wrapper handles numpy arrays by converting them to a serializable format
+    and provides formatted display for various data types commonly used in
+    environmental data processing workflows.
+    
+    Attributes:
+        value: The actual parameter value of any type
+        value_type: String representation of the value's type
     """
-    Wrapper class for complex parameter values to make them displayable.
-    This allows us to recursively display nested dicts and lists.
-    """
-    value: Any
-    value_type: str
+    value: Any = Field(description="The actual parameter value of any type")
+    value_type: str = Field(description="String representation of the value's Python type")
+
     
     model_config = {"arbitrary_types_allowed": True}
     
@@ -270,6 +294,18 @@ class ParameterValue(BaseModel, DisplayableBase):
             return str(value)
 
 class Parameters(BaseModel, DisplayableBase):
+    """Container for processing function parameters with numpy array support.
+    
+    This class stores parameters passed to time series processing functions,
+    automatically handling complex data types like numpy arrays, nested objects,
+    and custom classes. It provides serialization capabilities while preserving
+    the ability to reconstruct original parameter values.
+    
+    The class is particularly useful for maintaining reproducible processing
+    pipelines where parameter values need to be stored as metadata alongside
+    processed time series data.
+    
+    """
     model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
     @model_validator(mode="before")
@@ -373,29 +409,56 @@ class Parameters(BaseModel, DisplayableBase):
             return str(value)
 
 class ProcessingType(Enum):
-    SORTING = "sorting"
-    REMOVE_DUPLICATES = "remove_duplicates"
-    SMOOTHING = "smoothing"
-    FILTERING = "filtering"
-    RESAMPLING = "resampling"
-    GAP_FILLING = "gap_filling"
-    PREDICTION = "prediction"
-    TRANSFORMATION = "transformation"
-    DIMENSIONALITY_REDUCTION = "dimensionality_reduction"
-    FAULT_DETECTION = "fault_detection"
-    FAULT_IDENTIFICATION = "fault_identification"
-    FAULT_DIAGNOSIS = "fault_diagnosis"
-    OTHER = "other"
+    """Standardized categories for time series processing operations.
+    
+    This enumeration defines the standard types of processing operations that can
+    be applied to environmental time series data. Each type represents a distinct
+    category of data transformation with specific characteristics and purposes
+    in environmental monitoring and wastewater treatment analysis.
+    
+    The processing types enable consistent categorization of operations across
+    different processing pipelines and facilitate automated quality control,
+    reporting, and method comparison workflows.
+    
+    """
+    
+    SORTING = "sorting"  # "Reordering time series data by timestamp or value"
+    REMOVE_DUPLICATES = "remove_duplicates"  # "Eliminating duplicate measurements at the same timestamp"
+    SMOOTHING = "smoothing"  # "Noise reduction using moving averages, exponential smoothing, or similar techniques"
+    FILTERING = "filtering"  # "Signal filtering operations (low-pass, high-pass, band-pass, notch filters)"
+    RESAMPLING = "resampling"  # "Changing temporal resolution through upsampling, downsampling, or interpolation"
+    GAP_FILLING = "gap_filling"  # "Filling missing data points using interpolation, forecasting, or substitution methods"
+    PREDICTION = "prediction"  # "Forecasting future values using statistical or machine learning models"
+    TRANSFORMATION = "transformation"  # "Mathematical transformations (log, power, normalization, standardization)"
+    DIMENSIONALITY_REDUCTION = "dimensionality_reduction"  # "Reducing data complexity using PCA, feature selection, or similar techniques"
+    FAULT_DETECTION = "fault_detection"  # "Identifying anomalous measurements or sensor malfunctions"
+    FAULT_IDENTIFICATION = "fault_identification"  # "Classifying the type or cause of detected faults"
+    FAULT_DIAGNOSIS = "fault_diagnosis"  # "Determining root causes and recommending corrective actions for faults"
+    OTHER = "other"  # "Custom or specialized processing operations not covered by standard categories"
 
+ 
 
 class DataProvenance(BaseModel, DisplayableBase):
-    source_repository: Optional[str] = None
-    project: Optional[str] = None
-    location: Optional[str] = None
-    equipment: Optional[str] = None
-    parameter: Optional[str] = None
-    purpose: Optional[str] = None
-    metadata_id: Optional[str] = None
+    """Information about the source and context of time series data.
+    
+    This class captures essential metadata about where time series data originated,
+    including the source repository, project context, physical location, equipment
+    used, and the measured parameter. This information is crucial for data
+    traceability and understanding measurement context in environmental monitoring.
+    
+    Provenance information enables users to assess data quality, understand
+    measurement conditions, and make informed decisions about data usage in
+    analysis and modeling workflows.
+    
+    """
+    source_repository: Optional[str] = Field(default=None, description="Name or identifier of the data repository or database")
+    project: Optional[str] = Field(default=None, description="Project name or identifier under which data was collected")
+    location: Optional[str] = Field(default=None, description="Physical location where measurements were taken (e.g., 'Site_A', 'Influent_Tank_1')")
+    equipment: Optional[str] = Field(default=None, description="Equipment or instrument used for data collection (e.g., 'pH_probe_001', 'flow_meter')")
+    parameter: Optional[str] = Field(default=None, description="Physical/chemical parameter being measured (e.g., 'temperature', 'dissolved_oxygen', 'TSS')")
+    purpose: Optional[str] = Field(default=None, description="Purpose or context of the measurement (e.g., 'regulatory_compliance', 'process_optimization')")
+    metadata_id: Optional[str] = Field(default=None, description="Unique identifier for linking to external metadata systems")
+
     
     def _get_identifier(self) -> str:
         """Get the key identifier for DataProvenance."""
@@ -420,11 +483,24 @@ class DataProvenance(BaseModel, DisplayableBase):
 
 
 class FunctionInfo(BaseModel, DisplayableBase):
-    name: str
-    version: str
-    author: str
-    reference: str
-    source_code: Optional[str] = None  # new field to store function source code
+    """Metadata about processing functions applied to time series data.
+    
+    This class documents the functions used in data processing pipelines,
+    capturing essential information for reproducibility including function name,
+    version, author, and reference documentation. It can optionally capture
+    the actual source code of the function for complete reproducibility.
+    
+    Function information is critical for understanding how data has been processed
+    and for reproducing analysis results. The automatic source code capture
+    feature helps maintain processing lineage even when function implementations
+    change over time.
+    
+    """
+    name: str = Field(description="Name of the processing function")
+    version: str = Field(description="Version identifier of the function (e.g., '1.2.0', 'v2024.1')")
+    author: str = Field(description="Author or team responsible for the function implementation")
+    reference: str = Field(description="Reference documentation, paper, or URL describing the method")
+    source_code: Optional[str] = Field(default=None, description="Complete source code of the function for reproducibility")
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -477,15 +553,29 @@ class FunctionInfo(BaseModel, DisplayableBase):
         return attrs
 
 class ProcessingStep(BaseModel, DisplayableBase):
-    type: ProcessingType
-    description: str
-    run_datetime: datetime.datetime
-    requires_calibration: bool
-    function_info: FunctionInfo
-    parameters: Optional[Parameters]
-    step_distance: int = Field(default=0)
-    suffix: str
-    input_series_names: list[str] = Field(default_factory=list)
+    """Record of a single data processing operation applied to time series.
+    
+    This class documents individual steps in a data processing pipeline, capturing
+    the type of processing performed, when it was executed, the function used,
+    and the parameters applied. Each step maintains a complete audit trail of
+    data transformations.
+    
+    Processing steps are chained together to form a complete processing history,
+    enabling full traceability from raw data to final processed results. The
+    step_distance field tracks temporal shifts introduced by operations like
+    forecasting or lag analysis.
+    
+    """
+    type: ProcessingType = Field(description="Category of processing operation performed")
+    description: str = Field(description="Human-readable description of what this processing step accomplished")
+    run_datetime: datetime.datetime = Field(description="Timestamp when this processing step was executed")
+    requires_calibration: bool = Field(description="Whether this processing step requires calibration data or parameters")
+    function_info: FunctionInfo = Field(description="Information about the function used for processing")
+    parameters: Optional[Parameters] = Field(default=None, description="Parameters passed to the processing function")
+    step_distance: int = Field(default=0, description="Number of time steps shifted (positive for future predictions, negative for lag operations)")
+    suffix: str = Field(description="Short identifier appended to time series names (e.g., 'SMOOTH', 'FILT', 'PRED')")
+    input_series_names: list[str] = Field(default_factory=list, description="Names of input time series used in this processing step")
+
 
     def __str__(self) -> str:
         return f"Processed {self.input_series_names} on {self.run_datetime.strftime('%Y-%m-%d %H:%M:%S')} using function `{self.function_info.name}`. Result has suffix {self.suffix}"
@@ -518,15 +608,28 @@ class ProcessingConfig(BaseModel):
 
 
 class TimeSeries(BaseModel, DisplayableBase):
-    series: pd.Series = Field(default=pd.Series(dtype=object))
-    processing_steps: list[ProcessingStep] = Field(default_factory=list)
-    index_metadata: Optional[IndexMetadata] = None
-    values_dtype: str = Field(default="str")
+    """Time series data with complete processing history and metadata.
+    
+    This class represents a single time series with its associated pandas Series
+    data, complete processing history, and index metadata. It maintains a full
+    audit trail of all transformations applied to the data from its raw state
+    to the current processed form.
+    
+    The class handles serialization of pandas objects and preserves critical
+    index information to ensure proper reconstruction. It's the fundamental
+    building block for environmental time series analysis workflows.
+    
+    """
+    series: pd.Series = Field(default=pd.Series(dtype=object), description="The pandas Series containing the actual time series data")
+    processing_steps: list[ProcessingStep] = Field(default_factory=list, description="Complete history of processing operations applied to this time series")
+    index_metadata: Optional[IndexMetadata] = Field(default=None, description="Metadata about the time series index for proper reconstruction")
+    values_dtype: str = Field(default="str", description="Data type of the time series values")
+    created_on: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp when this TimeSeries object was created")
+
     model_config: dict = {
         "arbitrary_types_allowed": True,
     }
-    created_on: datetime.datetime = Field(default_factory=datetime.datetime.now)
-
+    
     def __init__(self, **data):
         super().__init__(**data)
         from_serialized = (
@@ -798,72 +901,95 @@ class TimeSeries(BaseModel, DisplayableBase):
 
 
 class SignalTransformFunctionProtocol(Protocol):
-    """
-    The SignalTransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
-    - input_series: a list of pandas Series objects representing the input time series data to be transformed.
-    - *args: additional positional arguments that can be passed to the transformation function.
-    - **kwargs: additional keyword arguments that can be passed to the transformation function.
-
-    The protocol also specifies that the callable object should return a list of tuples, where each tuple contains:
-    - The transformed pandas Series object.
-    - A list of ProcessingStep objects representing the processing steps applied during the transformation.
-
-    This protocol allows for flexibility in defining transformation functions that can operate on time series data and capture the processing steps involved in the transformation.
+    """Protocol defining the interface for Signal-level processing functions.
+    
+    This protocol specifies the required signature for functions that can be used
+    with the Signal.process() method. Transform functions take multiple input
+    time series and return processed results with complete processing metadata.
+    
+    Signal transform functions operate within a single measured parameter (Signal)
+    and can take multiple time series representing different processing stages
+    of that parameter. They are ideal for operations like smoothing, filtering,
+    gap filling, and other single-parameter processing tasks.
+    
+    The protocol ensures consistent interfaces across different processing
+    functions while maintaining complete audit trails of all transformations
+    applied to environmental monitoring data.
+    
+    Parameters:
+        input_series (list[pd.Series]): List of pandas Series objects containing
+            the input time series data to be processed. Each series should have
+            proper datetime indexing and consistent data types.
+        *args: Additional positional arguments specific to the processing function.
+            Common examples include window sizes, filter parameters, or model settings.
+        **kwargs: Additional keyword arguments for function configuration.
+            Typical parameters include method selection, tolerance settings,
+            or processing options.
+    
+    Returns:
+        list[tuple[pd.Series, list[ProcessingStep]]]: List of tuples where each
+            tuple contains:
+            - A transformed pandas Series with the same index structure as inputs
+            - A list of ProcessingStep objects documenting the transformations applied
+    
     """
 
     def __call__(
         self, input_series: list[pd.Series], *args, **kwargs
-    ) -> list[tuple[pd.Series, list[ProcessingStep]]]: ...  # noqa: E704
-
+    ) -> list[tuple[pd.Series, list[ProcessingStep]]]: 
+        """Process input time series and return results with processing metadata.
+                
+                Args:
+                    input_series: List of pandas Series to be processed
+                    *args: Function-specific positional arguments
+                    **kwargs: Function-specific keyword arguments
+                    
+                Returns:
+                    List of (processed_series, processing_steps) tuples
+                """
+        ...
 
 class Signal(BaseModel, DisplayableBase):
-    """Represents a signal with associated time series data and processing steps.
-
-    Attributes:
-        name (str): The name of the signal.
-        units (str): The units of the signal.
-        provenance (DataProvenance): Information about the data source and purpose.
-        last_updated (datetime.datetime): The timestamp of the last update.
-        created_on (datetime.datetime): The timestamp of the creation.
-        time_series (dict[str, TimeSeries]): Dictionary of time series associated with the signal.
-
-    Methods:
-        new_ts_name(self, old_name: str) -> str: Generates a new name for a time series based on the signal name.
-        __init__(self, data: Union[pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]],
-                 name: str, units: str, provenance: DataProvenance): Initializes the Signal object.
-        add(self, ts: TimeSeries) -> None: Adds a new time series to the signal.
-        process(self, input_time_series_names: list[str], transform_function: TransformFunctionProtocol, *args, **kwargs) -> Signal:
-            Processes the signal data using a transformation function.
-        all_time_series: Property that returns a list of all time series names associated with the signal.
-        __setattr__(self, name, value): Custom implementation to update 'last_updated' timestamp when attributes are set.
+    """Collection of related time series representing a measured parameter.
+    
+    A Signal groups multiple time series that represent the same physical
+    parameter (e.g., temperature) at different processing stages or from
+    different processing paths. This enables comparison between raw and
+    processed data, evaluation of different processing methods, and
+    maintenance of data lineage.
+    
+    Signals handle the naming conventions for time series, ensuring consistent
+    identification across processing workflows. They support processing
+    operations that can take multiple input time series and produce new
+    processed versions with complete metadata preservation.
+    
     """
 
     model_config: dict = {"arbitrary_types_allowed": True}
-    created_on: datetime.datetime = Field(default=datetime.datetime.now())
-    last_updated: datetime.datetime = Field(default=datetime.datetime.now())
-    input_data: Optional[
-        Union[
-            pd.Series,
-            pd.DataFrame,
-            TimeSeries,
-            list[TimeSeries],
-            dict[str, TimeSeries],
-        ]
-    ] = Field(default=None)
-    name: str = Field(default="signal")
-    units: str = Field(default="unit")
+    created_on: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp when this Signal was created")
+    last_updated: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp of the most recent modification to this Signal")
+    input_data: Optional[Union[pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]]] = Field(
+        default=None, 
+        description="Initial data used to create the Signal (removed after initialization)"
+    )
+    name: str = Field(default="signal", description="Name identifying this signal with automatic numbering (e.g., 'temperature#1')")
+    units: str = Field(default="unit", description="Units of measurement for this parameter (e.g., '°C', 'mg/L', 'NTU')")
     provenance: DataProvenance = Field(
         default_factory=lambda: DataProvenance(
             source_repository="unknown",
-            project="unknown",
+            project="unknown", 
             location="unknown",
             equipment="unknown",
             parameter="unknown",
             purpose="unknown",
             metadata_id="unknown",
-        )
+        ),
+        description="Information about the source and context of this signal's data"
     )
-    time_series: dict[str, TimeSeries] = Field(default_factory=dict)
+    time_series: dict[str, TimeSeries] = Field(
+        default_factory=dict, 
+        description="Dictionary mapping time series names to TimeSeries objects for this signal"
+    )
 
     def __init__(self, **data):
         super().__init__(**data)  # Initialize Pydantic model with given data
@@ -1522,37 +1648,90 @@ class Signal(BaseModel, DisplayableBase):
 
     
 class DatasetTransformFunctionProtocol(Protocol):
+    """Protocol defining the interface for Dataset-level processing functions.
+    
+    This protocol specifies the required signature for functions that can be used
+    with the Dataset.process() method. These functions can operate across multiple
+    signals and create new signals with cross-parameter relationships.
+    
+    Dataset transform functions are ideal for operations that require multiple
+    parameters simultaneously, such as:
+    - Calculating derived parameters (e.g., BOD/COD ratios)
+    - Multivariate analysis and modeling
+    - Cross-parameter quality control
+    - System-wide fault detection
+    - Process efficiency calculations
+    
+    The protocol ensures that new signals created by dataset processing maintain
+    proper metadata inheritance and processing lineage from their input signals.
+    
+    Parameters:
+        input_signals (list[Signal]): List of Signal objects containing the input
+            data. Each signal represents a different measured parameter with its
+            complete processing history and metadata.
+        input_series_names (list[str]): List of specific time series names to be
+            used from the input signals. Format: "signal_name_processing_suffix#number"
+            (e.g., "temperature#1_SMOOTH#1", "pH#1_RAW#1").
+        *args: Additional positional arguments specific to the processing function.
+        **kwargs: Additional keyword arguments for function configuration.
+    
+    Returns:
+        list[Signal]: List of new Signal objects created by the processing function.
+            Each signal should have appropriate metadata including provenance,
+            units, and processing history inherited from input signals.
+    
+    Note:
+        New signals created by dataset processing will have their project property
+        automatically updated to match the parent dataset's project. The transform
+        function is responsible for setting appropriate signal names, units,
+        provenance parameters, and purposes.
+    
+    """
+
     def __call__(
         self,
         input_signals: list[Signal],
         input_series_names: list[str],
         *args,
         **kwargs,
-    ) -> list[Signal]: ...  # noqa: E704
-
-    """
-    The DatasetTransformFunctionProtocol defines a protocol for a callable object that can be used to transform time series data. The protocol specifies that an object that conforms to this protocol must be callable and accept the following arguments:
-    - input_series: a list of pandas Series objects representing the input time series data to be transformed.
-    - *args: additional positional arguments that can be passed to the transformation function.
-    - **kwargs: additional keyword arguments that can be passed to the transformation function.
-
-    The protocol also specifies that the callable object should return a list of Signals. The Signals should contain the transformed time series data and the processing steps applied during the transformation, as well as any other relevant metadata.
-
-    This protocol allows for flexibility in defining transformation functions that can operate on time series data and capture the processing steps involved in the transformation.
-    Notice that the new signal's Project property will be overwritten by the Dataset's project property.
-    New signals' purposes and units are directed by the transform function that create them.
-    """
+    ) -> list[Signal]:
+        """Process input signals and return new signals with processing metadata.
+        
+        Args:
+            input_signals: List of Signal objects containing input data
+            input_series_names: Specific time series names to use from input signals
+            *args: Function-specific positional arguments  
+            **kwargs: Function-specific keyword arguments
+            
+        Returns:
+            List of new Signal objects created by processing
+        """
+        ...
 
 
 class Dataset(BaseModel, DisplayableBase):
-    created_on: datetime.datetime = Field(default=datetime.datetime.now())
-    last_updated: datetime.datetime = Field(default=datetime.datetime.now())
-    name: str
-    description: Optional[str] = None
-    owner: Optional[str] = None
-    signals: dict[str, Signal]
-    purpose: Optional[str] = None
-    project: Optional[str] = None
+    """Collection of signals representing a complete monitoring dataset.
+    
+    A Dataset groups multiple signals that are collected together as part of
+    a monitoring project or analysis workflow. It provides project-level
+    metadata and enables coordinated processing operations across multiple
+    parameters.
+    
+    Datasets support cross-signal processing operations and maintain consistent
+    naming conventions across all contained signals. They provide the highest
+    level of organization for environmental monitoring data with complete
+    metadata preservation and serialization capabilities.
+        
+    """
+    created_on: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp when this Dataset was created")
+    last_updated: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp of the most recent modification to this Dataset")
+    name: str = Field(description="Name identifying this dataset")
+    description: Optional[str] = Field(default=None, description="Detailed description of the dataset contents and purpose")
+    owner: Optional[str] = Field(default=None, description="Person or organization responsible for this dataset")
+    signals: dict[str, Signal] = Field(description="Dictionary mapping signal names to Signal objects in this dataset")
+    purpose: Optional[str] = Field(default=None, description="Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research')")
+    project: Optional[str] = Field(default=None, description="Project or study name associated with this dataset")
+
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -1870,48 +2049,3 @@ class Dataset(BaseModel, DisplayableBase):
         
         
         return attrs
-
-
-
-if __name__ == "__main__":
-    # Example usage
-    os.chdir("/Users/jeandavidt/Developer/modelEAU/data_filters")
-    data = pd.DataFrame(
-        {
-            "temperature": [20, 21, 22, 23, 24],
-            "pressure": [100, 101, 102, 103, 104],
-        }
-    )
-    provenance = DataProvenance(
-        source_repository="pilEAUte",
-        project="meteaudata",
-        location="lab",
-        equipment="sensor",
-        parameter="temperature",
-        purpose="testing",
-        metadata_id="12345",
-    )
-    signal = Signal(
-        input_data=data["temperature"].rename("RAW"),
-        name="temperature",
-        units="C",
-        provenance=provenance,
-    )
-
-    dataset_name = "test_dataset"
-    dataset = Dataset(
-        name=dataset_name,
-        description="A test dataset",
-        owner="jean-david therrien",
-        signals={"temperature": signal},
-        purpose="testing",
-        project="meteaudata",
-    )
-    signal.save("./test_data")
-    signal2 = Signal.load_from_directory("./test_data/temperature.zip", "temperature")
-    assert signal == signal2
-    dataset.save("test_data")
-    dataset2 = Dataset.load("./test_data/test_dataset.zip", dataset_name)
-    assert dataset == dataset2
-
-    print("Success!")

@@ -18,21 +18,20 @@
 ```bash
 git clone https://github.com/your-username/meteaudata.git
 cd meteaudata
-poetry install
+uv sync
 ```
 
 ### To use `meteaudata` as a dependency for another project
 
-If your project uses poetry:
-
 ```bash
-poetry add git+https://github.com/your-repo/meteaudata.git
-```
+# pip
+pip install meteaudata
 
-If your project uses pip, the following should work:
+# poetry
+poetry add meteaudata
 
-```bash
-pip install git+https://github.com/your-repo/meteaudata.git
+# uv
+uv add meteaudata
 ```
 
 ## Usage
