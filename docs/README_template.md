@@ -41,11 +41,11 @@ Below are a few examples of how to use `meteaudata`:
 
 ### Creating and Manipulating a Signal
 
-<!-- INSERT CODE: ./snippets/create_signal.py -->
+<!-- INSERT CODE: create_signal.py -->
 
 ### Creating and Manipulating a Dataset
 
-<!-- INSERT CODE: ./snippets/create_dataset.py -->
+<!-- INSERT CODE: create_dataset.py -->
 
 
 ## Create your own transformation functions
@@ -118,7 +118,7 @@ Simply include a `FunctionInfo` object as part of each `ProcessingStep` to docum
 
 A custom Signal transformation would therefore look like the following
 
-<!-- INSERT CODE: ./snippets/all_together_signal.py -->
+<!-- INSERT CODE: all_together_signal.py -->
 
 Explanation:
 
@@ -134,7 +134,7 @@ Explanation:
 
 A custom Dataset transformation would therefore look like the following:
 
-<!-- INSERT CODE: ./snippets/all_together_dataset.py -->
+<!-- INSERT CODE: all_together_dataset.py -->
 
 Explanation:
 
