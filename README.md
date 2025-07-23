@@ -34,7 +34,6 @@ poetry add meteaudata
 uv add meteaudata
 ```
 
-
 ## Usage
 
 Below are a few examples of how to use `meteaudata`:

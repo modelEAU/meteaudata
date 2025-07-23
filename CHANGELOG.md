@@ -77,3 +77,7 @@
 ## 0.8.0
 
 - Added the ability to visually explore metadata using the `Dataset.show_graph_in_browser()` and `Signal.showgraph_in_browser()` methods.
+
+## 0.9.0
+
+- The project now contains a documentation website!
