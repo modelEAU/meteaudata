@@ -6,7 +6,7 @@ This guide will get you up and running with meteaudata in just a few minutes. We
 
 Let's start by creating a simple Signal with some sample time series data:
 
-```python
+```python exec="setup:simple_signal"
 # The signal has already been created for you! Let's explore it.
 print(f"Created signal: {signal.name}")
 print(f"Time series available: {list(signal.time_series.keys())}")
@@ -15,20 +15,11 @@ print(f"Units: {signal.units}")
 print(f"Data source: {signal.provenance.source_repository}")
 ```
 
-**Output:**
-```
-Created signal: Temperature#1
-Time series available: ['Temperature#1_RAW#1']
-Data points in raw series: 100
-Units: °C
-Data source: Example System
-```
-
 ## Applying Processing Steps
 
 Now let's apply some processing to clean and transform our data:
 
-```python
+```python exec="continue"
 from meteaudata import resample, linear_interpolation
 
 # Resample to 2-hour intervals
@@ -52,18 +43,11 @@ for i, step in enumerate(processing_steps, 1):
     print(f"  {i}. {step.description}")
 ```
 
-**Output:**
-```
-Applied 2 processing steps:
-  1. A simple processing function that resamples a series to a given frequency
-  2. A simple processing function that linearly interpolates a series
-```
-
 ## Visualization
 
 meteaudata provides built-in visualization capabilities:
 
-```python
+```python exec="continue"
 # Display the signal (shows metadata and rich HTML)
 signal.display(format='html', depth=2)
 
@@ -71,17 +55,6 @@ signal.display(format='html', depth=2)
 fig = signal.plot(["Temperature#1_RAW#1", "Temperature#1_LIN-INT#1"])
 print("Generated interactive plot with processed time series")
 ```
-
-**Output:**
-```
-Generated interactive plot with processed time series
-```
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_491be6f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_491be6f4_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_491be6f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Key Concepts Recap
 

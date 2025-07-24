@@ -23,7 +23,7 @@ Dataset
 
 DataProvenance captures the essential metadata about where your data came from:
 
-```python
+```python exec="provenance"
 print("DataProvenance fields:")
 print(f"- source_repository: {provenance.source_repository}")
 print(f"- project: {provenance.project}")
@@ -32,18 +32,6 @@ print(f"- equipment: {provenance.equipment}")
 print(f"- parameter: {provenance.parameter}")
 print(f"- purpose: {provenance.purpose}")
 print(f"- metadata_id: {provenance.metadata_id}")
-```
-
-**Output:**
-```
-DataProvenance fields:
-- source_repository: Example System
-- project: Documentation Example
-- location: Demo Location
-- equipment: Temperature Sensor v2.1
-- parameter: Temperature
-- purpose: Documentation example
-- metadata_id: doc_example_001
 ```
 
 **Key fields:**
@@ -59,7 +47,7 @@ DataProvenance fields:
 
 A TimeSeries represents a single time-indexed data series along with its processing history:
 
-```python
+```python exec="continue"
 import datetime
 from meteaudata.types import TimeSeries, ProcessingStep, ProcessingType, FunctionInfo
 
@@ -97,15 +85,6 @@ print(f"Processing steps: {len(time_series.processing_steps)}")
 print(f"Data values: {time_series.series.values}")
 ```
 
-**Output:**
-```
-TimeSeries contents:
-Data shape: (3,)
-Index range: 2024-01-01 00:00:00 to 2024-01-01 02:00:00
-Processing steps: 1
-Data values: [1.2 1.5 1.8]
-```
-
 **Key features:**
 - Contains a pandas Series with your time-indexed data
 - Maintains a list of all processing steps applied to create this data
@@ -115,7 +94,7 @@ Data values: [1.2 1.5 1.8]
 
 ProcessingStep objects document each transformation applied to time series data:
 
-```python
+```python exec="continue"
 step = ProcessingStep(
     type=ProcessingType.FILTERING,
     description="Applied 3-point moving average filter",
@@ -140,17 +119,6 @@ print(f"- Run time: {step.run_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"- Suffix: {step.suffix}")
 ```
 
-**Output:**
-```
-ProcessingStep details:
-- Type: ProcessingType.FILTERING
-- Description: Applied 3-point moving average filter
-- Function: moving_average v1.0
-- Author: Plant Engineer
-- Run time: 2025-07-24 15:05:28
-- Suffix: MA3
-```
-
 **Key fields:**
 - `type`: Category of processing (filtering, resampling, etc.)
 - `description`: Human-readable explanation
@@ -162,7 +130,7 @@ ProcessingStep details:
 
 A Signal represents a single measured parameter and contains multiple TimeSeries at different processing stages:
 
-```python
+```python exec="simple_signal"
 print("Signal created with initial time series:")
 print(f"Signal name: {signal.name}")
 print(f"Units: {signal.units}")
@@ -170,16 +138,7 @@ print(f"Number of time series: {len(signal.time_series)}")
 print(f"Available time series: {list(signal.time_series.keys())}")
 ```
 
-**Output:**
-```
-Signal created with initial time series:
-Signal name: Temperature#1
-Units: °C
-Number of time series: 1
-Available time series: ['Temperature#1_RAW#1']
-```
-
-```python
+```python exec="continue"
 # Apply some processing to demonstrate multiple time series
 from meteaudata import resample
 signal.process(["Temperature#1_RAW#1"], resample, frequency="2H")
@@ -187,13 +146,6 @@ signal.process(["Temperature#1_RAW#1"], resample, frequency="2H")
 print(f"\nAfter processing:")
 print(f"Number of time series: {len(signal.time_series)}")
 print(f"Available time series: {list(signal.time_series.keys())}")
-```
-
-**Output:**
-```
-After processing:
-Number of time series: 2
-Available time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
 ```
 
 **Key features:**
@@ -206,7 +158,7 @@ Available time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
 
 A Dataset groups multiple related Signals together:
 
-```python
+```python exec="dataset"
 print("Dataset contents:")
 print(f"Dataset name: {dataset.name}")
 print(f"Description: {dataset.description}")
@@ -223,32 +175,6 @@ for name, signal_obj in dataset.signals.items():
     print(f"  - Parameter: {signal_obj.provenance.parameter}")
 ```
 
-**Output:**
-```
-Dataset contents:
-Dataset name: reactor_monitoring
-Description: Multi-parameter monitoring of reactor R-101
-Owner: Process Engineer
-Project: Process Monitoring Study
-Number of signals: 3
-Signal names: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
-
-Temperature#1 signal:
-  - Units: °C
-  - Time series: 1
-  - Parameter: Temperature
-
-pH#1 signal:
-  - Units: pH units
-  - Time series: 1
-  - Parameter: pH
-
-DissolvedOxygen#1 signal:
-  - Units: mg/L
-  - Time series: 1
-  - Parameter: Dissolved Oxygen
-```
-
 **Key features:**
 - Contains multiple Signal objects
 - Maintains dataset-level metadata
@@ -263,12 +189,12 @@ meteaudata uses a structured naming convention for time series:
 {SignalName}#{SignalVersion}_{ProcessingSuffix}#{StepNumber}
 ```
 
-```python
+```python exec="continue"
 # Demonstrate naming convention with processing steps
 from meteaudata import linear_interpolation
 
 # Apply multiple processing steps to our dataset signals
-temp_signal = dataset.signals["temperature"]
+temp_signal = dataset.signals["Temperature#1"]
 temp_signal.process(["Temperature#1_RAW#1"], resample, frequency="2H")
 temp_signal.process(["Temperature#1_RESAMPLED#1"], linear_interpolation)
 
@@ -286,16 +212,6 @@ print("- Processing history is traceable")
 print("- Multiple versions of the same signal can coexist")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpglkujm56.py", line 297, in <module>
-    temp_signal = dataset.signals["temperature"]
-KeyError: 'temperature'
-```
-
 ## Processing Philosophy
 
 ### Immutable History
@@ -304,7 +220,7 @@ Once created, time series are never modified. Each processing step creates a new
 ### Complete Traceability  
 Every processed time series knows exactly how it was created:
 
-```python
+```python exec="continue"
 # Show complete traceability
 final_series_name = list(temp_signal.time_series.keys())[-1]
 final_series = temp_signal.time_series[final_series_name]
@@ -320,20 +236,10 @@ for i, step in enumerate(final_series.processing_steps, 1):
     print(f"  - Type: {step.type}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpxe3adhgs.py", line 294, in <module>
-    temp_signal = dataset.signals["temperature"]
-KeyError: 'temperature'
-```
-
 ### Reproducible Workflows
 All processing steps are documented with enough detail to reproduce the analysis:
 
-```python
+```python exec="continue"
 # Show reproducible workflow documentation
 print("Reproducible workflow example:")
 for ts_name, ts in temp_signal.time_series.items():
@@ -347,21 +253,11 @@ for ts_name, ts in temp_signal.time_series.items():
                 print(f"    Parameters: {step.parameters}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp2o_hopwx.py", line 294, in <module>
-    temp_signal = dataset.signals["temperature"]
-KeyError: 'temperature'
-```
-
 ## Data Flow Example
 
 Here's how data flows through meteaudata:
 
-```python
+```python exec="full_environment"
 # 1. Start with raw data
 import pandas as pd
 import numpy as np
@@ -412,27 +308,6 @@ for i, step in enumerate(final_series.processing_steps, 1):
     print(f"   Step {i}: {step.description}")
 ```
 
-**Output:**
-```
-1. Raw data created:
-   Shape: (20,)
-   Range: 16.17 to 23.16
-
-2. Signal created:
-   Initial time series: ['Temperature#1_RAW#1']
-
-3. After resampling:
-   Time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
-
-4. After interpolation:
-   Time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1', 'Temperature#1_LIN-INT#1']
-
-5. Final series history:
-   This data went through 2 processing steps
-   Step 1: A simple processing function that resamples a series to a given frequency
-   Step 2: A simple processing function that linearly interpolates a series
-```
-
 ## Best Practices
 
 ### Naming Conventions
@@ -458,7 +333,7 @@ for i, step in enumerate(final_series.processing_steps, 1):
 ## Common Patterns
 
 ### Iterative Processing
-```python
+```python exec="continue"
 # Process step by step, building on previous results
 from meteaudata import subset
 
@@ -470,7 +345,8 @@ print(f"Starting with: {current_series}")
 end_position = len(flow_signal.time_series[current_series].series) // 2
 flow_signal.process([current_series], subset, 
                    start_position=0, 
-                   end_position=end_position)
+                   end_position=end_position,
+                   rank_based=True)
 
 # Update to the newly created series name
 current_series = list(flow_signal.time_series.keys())[-1]
@@ -486,46 +362,8 @@ for name in flow_signal.time_series.keys():
     print(f"  - {name}")
 ```
 
-**Output:**
-```
-Iterative processing example:
-Starting with: Temperature#1_RAW#1
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpl093fdwf.py", line 232, in <module>
-    flow_signal.process([current_series], subset, 
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/src/meteaudata/types.py", line 1157, in process
-    outputs = transform_function(input_series, *args, **kwargs)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/src/meteaudata/processing_steps/univariate/subset.py", line 55, in subset
-    new_col = col.loc[start_position:end_position]
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1191, in __getitem__
-    return self._getitem_axis(maybe_callable, axis=axis)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1411, in _getitem_axis
-    return self._get_slice_axis(key, axis=axis)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1443, in _get_slice_axis
-    indexer = labels.slice_indexer(slice_obj.start, slice_obj.stop, slice_obj.step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimes.py", line 682, in slice_indexer
-    return Index.slice_indexer(self, start, end, step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6708, in slice_indexer
-    start_slice, end_slice = self.slice_locs(start, end, step=step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6934, in slice_locs
-    start_slice = self.get_slice_bound(start, "left")
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6849, in get_slice_bound
-    label = self._maybe_cast_slice_bound(label, side)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimes.py", line 642, in _maybe_cast_slice_bound
-    label = super()._maybe_cast_slice_bound(label, side)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimelike.py", line 378, in _maybe_cast_slice_bound
-    self._raise_invalid_indexer("slice", label)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 4308, in _raise_invalid_indexer
-    raise TypeError(msg)
-TypeError: cannot do slice indexing on DatetimeIndex with these indexers [0] of type int
-```
-
 ### Branching Processing
-```python
+```python exec="continue"
 # Create multiple processing branches from the same raw data
 print("\nBranching processing example:")
 raw_series = "Temperature#1_RAW#1"
@@ -548,42 +386,8 @@ for name in flow_signal.time_series.keys():
         print(f"  - {name}: {len(series.series)} points")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpdxcmykjb.py", line 229, in <module>
-    flow_signal.process([current_series], subset, 
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/src/meteaudata/types.py", line 1157, in process
-    outputs = transform_function(input_series, *args, **kwargs)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/src/meteaudata/processing_steps/univariate/subset.py", line 55, in subset
-    new_col = col.loc[start_position:end_position]
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1191, in __getitem__
-    return self._getitem_axis(maybe_callable, axis=axis)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1411, in _getitem_axis
-    return self._get_slice_axis(key, axis=axis)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1443, in _get_slice_axis
-    indexer = labels.slice_indexer(slice_obj.start, slice_obj.stop, slice_obj.step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimes.py", line 682, in slice_indexer
-    return Index.slice_indexer(self, start, end, step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6708, in slice_indexer
-    start_slice, end_slice = self.slice_locs(start, end, step=step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6934, in slice_locs
-    start_slice = self.get_slice_bound(start, "left")
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6849, in get_slice_bound
-    label = self._maybe_cast_slice_bound(label, side)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimes.py", line 642, in _maybe_cast_slice_bound
-    label = super()._maybe_cast_slice_bound(label, side)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimelike.py", line 378, in _maybe_cast_slice_bound
-    self._raise_invalid_indexer("slice", label)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 4308, in _raise_invalid_indexer
-    raise TypeError(msg)
-TypeError: cannot do slice indexing on DatetimeIndex with these indexers [0] of type int
-```
-
 ### Cross-Signal Processing
-```python
+```python exec="continue"
 # Process multiple signals together
 from meteaudata import average_signals
 
@@ -591,8 +395,8 @@ print("\nCross-signal processing example:")
 print(f"Original dataset signals: {list(dataset.signals.keys())}")
 
 # Find raw time series for temperature and pH signals
-temp_raw = list(dataset.signals["temperature"].time_series.keys())[0]
-ph_raw = list(dataset.signals["ph"].time_series.keys())[0]
+temp_raw = list(dataset.signals["Temperature#1"].time_series.keys())[0]
+ph_raw = list(dataset.signals["pH#1"].time_series.keys())[0]
 
 print(f"Processing together: {temp_raw} and {ph_raw}")
 
@@ -609,131 +413,10 @@ except Exception as e:
     print("In practice, only average signals with compatible units and meanings!")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpwu7t5w29.py", line 229, in <module>
-    flow_signal.process([current_series], subset, 
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/src/meteaudata/types.py", line 1157, in process
-    outputs = transform_function(input_series, *args, **kwargs)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/src/meteaudata/processing_steps/univariate/subset.py", line 55, in subset
-    new_col = col.loc[start_position:end_position]
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1191, in __getitem__
-    return self._getitem_axis(maybe_callable, axis=axis)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1411, in _getitem_axis
-    return self._get_slice_axis(key, axis=axis)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexing.py", line 1443, in _get_slice_axis
-    indexer = labels.slice_indexer(slice_obj.start, slice_obj.stop, slice_obj.step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimes.py", line 682, in slice_indexer
-    return Index.slice_indexer(self, start, end, step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6708, in slice_indexer
-    start_slice, end_slice = self.slice_locs(start, end, step=step)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6934, in slice_locs
-    start_slice = self.get_slice_bound(start, "left")
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 6849, in get_slice_bound
-    label = self._maybe_cast_slice_bound(label, side)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimes.py", line 642, in _maybe_cast_slice_bound
-    label = super()._maybe_cast_slice_bound(label, side)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/datetimelike.py", line 378, in _maybe_cast_slice_bound
-    self._raise_invalid_indexer("slice", label)
-  File "/Users/jeandavidt/Developer/modelEAU/meteaudata/.venv/lib/python3.9/site-packages/pandas/core/indexes/base.py", line 4308, in _raise_invalid_indexer
-    raise TypeError(msg)
-TypeError: cannot do slice indexing on DatetimeIndex with these indexers [0] of type int
-```
-
-## Advanced Context Usage
-
-### Working with Multiple Contexts
-Sometimes you need to build complex environments step by step:
-
-```python
-# This context provides: dataset, signals dict, simple signal, and all data
-print("Full environment available:")
-print(f"- Dataset '{dataset.name}' with {len(dataset.signals)} signals")
-print(f"- Individual signals dict with {len(signals)} signals")
-print(f"- Simple signal '{signal.name}' for individual examples")
-print(f"- All underlying data: temp_data, ph_data, do_data, simple_data")
-
-# You can now work with any combination
-print(f"\nDataset signals: {list(dataset.signals.keys())}")
-print(f"Individual signals: {list(signals.keys())}")
-print(f"Simple signal available: {signal.name}")
-```
-
-**Output:**
-```
-Full environment available:
-- Dataset 'reactor_monitoring' with 3 signals
-- Individual signals dict with 3 signals
-- Simple signal 'SimpleTemperature#1' for individual examples
-- All underlying data: temp_data, ph_data, do_data, simple_data
-
-Dataset signals: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
-Individual signals: ['temperature', 'ph', 'dissolved_oxygen']
-Simple signal available: SimpleTemperature#1
-```
-
-### Building Custom Environments
-```python
-# You can extend the environment as needed
-print("Building custom processing environment:")
-
-# Process the simple signal
-signal.process(["SimpleTemperature#1_RAW#1"], resample, frequency="2H")
-print(f"Simple signal now has: {list(signal.time_series.keys())}")
-
-# Process one of the dataset signals
-dataset.signals["temperature"].process(["Temperature#1_RAW#1"], linear_interpolation)
-print(f"Dataset temperature signal now has: {list(dataset.signals['temperature'].time_series.keys())}")
-
-# Create a new signal from scratch
-import datetime
-new_provenance = DataProvenance(
-    source_repository="Custom System",
-    project="Advanced Example",
-    location="Lab Bench",
-    equipment="Custom Sensor",
-    parameter="Pressure",
-    purpose="Demonstrate flexibility",
-    metadata_id="custom_001"
-)
-
-pressure_data = pd.Series(
-    101.3 + np.random.normal(0, 0.1, 30),
-    index=pd.date_range('2024-01-01', periods=30, freq='2H'),
-    name="RAW"
-)
-
-pressure_signal = Signal(
-    input_data=pressure_data,
-    name="Pressure",
-    provenance=new_provenance,
-    units="kPa"
-)
-
-print(f"Created new pressure signal: {pressure_signal.name}")
-print(f"Available for further processing: {list(pressure_signal.time_series.keys())}")
-```
-
-**Output:**
-```
-Building custom processing environment:
-Simple signal now has: ['SimpleTemperature#1_RAW#1', 'SimpleTemperature#1_RESAMPLED#1']
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpnxvkd6ci.py", line 322, in <module>
-    dataset.signals["temperature"].process(["Temperature#1_RAW#1"], linear_interpolation)
-KeyError: 'temperature'
-```
 
 ## Next Steps
 
-Now that you understand the core concepts and how to work with composable contexts:
+Now that you understand the core concepts and how to work with met*EAU*data:
 
 - Try the [Quick Start](quickstart.md) guide for hands-on experience
 - Learn about [Working with Signals](../user-guide/signals.md)

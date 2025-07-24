@@ -14,7 +14,7 @@ You have temperature data from a reactor sensor with some data quality issues:
 
 ### Implementation
 
-```python
+```python exec="setup:processing"
 from datetime import datetime
 from meteaudata import replace_ranges, subset
 
@@ -80,44 +80,11 @@ for i, step in enumerate(processing_steps, 1):
     print(f"   Function: {step.function_info.name} v{step.function_info.version}")
 ```
 
-**Output:**
-```
-Signal created with 144 data points
-Missing values: 10
-Applied quality control filters
-Resampled to 5-minute intervals
-Applied gap filling
-Extracted business hours data
-
-Final processed data:
-Time range: 2024-01-01 08:00:00 to 2024-01-01 18:00:00
-Data points: 121
-Mean temperature: 19.92°C
-Temperature range: 15.10°C to 44.12°C
-
-Processing history for Temperature#1_SLICE#1:
-1. A function for replacing ranges of values with another (fixed) value.
-   Function: replace_ranges v0.1
-2. A simple processing function that resamples a series to a given frequency
-   Function: resample v0.1
-3. A simple processing function that linearly interpolates a series
-   Function: linear interpolation v0.1
-4. A simple processing function that slices a series to given indices.
-   Function: subset v0.1
-```
-
-```python
+```python exec="continue"    
 # Step 8: Visualization
 print(f"\nGenerating visualization...")
 signal.display(format='html', depth=2)
 ```
-
-**Output:**
-```
-Generating visualization...
-```
-
-<iframe src="../../assets/generated/display_content_49782481_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ---
 
@@ -134,7 +101,7 @@ You're monitoring a water treatment process with multiple sensors:
 
 ### Implementation
 
-```python
+```python exec="setup:dataset"
 # Explore the pre-created dataset
 print(f"Created dataset with {len(dataset.signals)} signals")
 
@@ -197,54 +164,11 @@ if final_series_names:
     print("Created dataset plot with synchronized time series")
 ```
 
-**Output:**
-```
-Created dataset with 2 signals
-
-Individual signal statistics:
-
-Temperature#1:
-  Series name: Temperature#1_RAW#1
-  Mean: 20.02 °C
-  Std: 3.58 °C
-  Range: 14.46 to 25.79 °C
-  Data points: 100
-
-pH#1:
-  Series name: pH#1_RAW#1
-  Mean: 7.20 pH units
-  Std: 0.24 pH units
-  Range: 6.80 to 7.74 pH units
-  Data points: 100
-
-Synchronizing all signals to 5-minute intervals...
-  Processed Temperature#1
-  Processed pH#1
-
-Generating multi-signal visualization...
-Created dataset plot with synchronized time series
-```
-
-<iframe src="../../assets/generated/meteaudata_dataset_plot_d00f3439.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_d00f3439.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-```python
+```python exec="continue"
 # Step 4: Display dataset metadata
 print("\nDataset metadata overview:")
 dataset.display(format='html', depth=2)
 ```
-
-**Output:**
-```
-Dataset metadata overview:
-```
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_c01032b5.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_dataset_plot_c01032b5.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_c01032b5_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Key Takeaways
 

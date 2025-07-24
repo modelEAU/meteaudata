@@ -16,7 +16,7 @@ Every processing operation in meteaudata creates a `ProcessingStep` object that 
 
 ### Basic Processing Step Inspection
 
-```python
+```python exec="simple_signal"
 from meteaudata import resample, linear_interpolation
 
 # Apply processing and examine the step
@@ -39,23 +39,13 @@ if processing_step.parameters:
     print(f"Parameters: {params}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpxx2nmth0.py", line 154, in <module>
-    original_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ## ProcessingStep Structure
 
 ### Core Components
 
 A `ProcessingStep` contains several key components:
 
-```python
+```python exec="simple_signal"
 # Get any processing step from our signal
 processed_series = [k for k in signal.time_series.keys() if len(signal.time_series[k].processing_steps) > 1]
 if processed_series:
@@ -89,21 +79,11 @@ else:
     print("No processed series found with multiple processing steps")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpqf2pdkkr.py", line 152, in <module>
-    processed_series = [k for k in signal.time_series.keys() if len(signal.time_series[k].processing_steps) > 1]
-NameError: name 'signal' is not defined
-```
-
 ### Processing Types
 
 meteaudata categorizes processing operations into different types:
 
-```python
+```python exec="simple_signal"
 from meteaudata.types import ProcessingType
 
 # Apply different types of processing
@@ -134,21 +114,11 @@ for ptype in ProcessingType:
     print(f"- {ptype.name}: {ptype.value}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpqk871y06.py", line 154, in <module>
-    original_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### Function Information
 
 Each processing step records detailed function metadata:
 
-```python
+```python exec="base"
 # Create examples of function information
 from meteaudata.types import FunctionInfo
 
@@ -173,28 +143,13 @@ print("- Who developed/maintained it")
 print("- Where to find documentation")
 ```
 
-**Output:**
-```
-Function Information Structure:
-Name: Enhanced Data Processing Function
-Version: 2.1.0
-Author: meteaudata Development Team
-Reference: https://github.com/modelEAU/meteaudata/docs/processing
-
-Function info provides complete traceability:
-- What function was used
-- Which version of the function
-- Who developed/maintained it
-- Where to find documentation
-```
-
 ## Processing Step Analysis
 
 ### Step-by-Step Processing History
 
 Examine the complete processing chain:
 
-```python
+```python exec="simple_signal"
 # Apply a processing pipeline to demonstrate history
 from meteaudata import subset
 
@@ -236,21 +191,11 @@ else:
     print("Processing chain demonstration - subset step not found")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmprfbsfy1s.py", line 154, in <module>
-    original_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### Processing Step Comparison
 
 Compare processing steps between different time series:
 
-```python
+```python exec="simple_signal"
 def compare_processing_steps(signal, series1_name, series2_name):
     """Compare processing steps between two time series"""
     
@@ -302,21 +247,11 @@ else:
     print("Not enough time series for comparison")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp3tzzkl97.py", line 185, in <module>
-    original_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### Processing Performance Analysis
 
 Analyze processing performance and efficiency:
 
-```python
+```python exec="simple_signal"
 def analyze_processing_performance(signal):
     """Analyze processing performance across all time series"""
     
@@ -381,23 +316,13 @@ def analyze_processing_performance(signal):
 perf_data = analyze_processing_performance(signal)
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpkdiuxjhd.py", line 212, in <module>
-    perf_data = analyze_processing_performance(signal)
-NameError: name 'signal' is not defined
-```
-
 ## Data Quality Tracking
 
 ### Quality Impact Assessment
 
 Track how processing affects data quality:
 
-```python
+```python exec="simple_signal"
 def assess_quality_impact(signal, series_name):
     """Assess quality impact of each processing step"""
     
@@ -469,21 +394,11 @@ else:
     assess_quality_impact(signal, first_series)
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp8h3tlgn5.py", line 213, in <module>
-    processed_series = [k for k in signal.time_series.keys() if len(signal.time_series[k].processing_steps) > 1]
-NameError: name 'signal' is not defined
-```
-
 ### Quality Flags and Annotations
 
 Add quality annotations to processing steps:
 
-```python
+```python exec="base"
 from meteaudata.types import ProcessingStep, ProcessingType, FunctionInfo, Parameters
 from meteaudata import Signal, DataProvenance
 import datetime
@@ -564,27 +479,13 @@ if quality_step.parameters:
         print(f"  {key}: {value}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp2ln_02dy.py", line 214, in <module>
-    quality_step = create_quality_annotated_step(
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp2ln_02dy.py", line 179, in create_quality_annotated_step
-    type=ProcessingType.QUALITY_CONTROL,
-  File "/Users/jeandavidt/.local/share/uv/python/cpython-3.9.18-macos-aarch64-none/lib/python3.9/enum.py", line 429, in __getattr__
-    raise AttributeError(name) from None
-AttributeError: QUALITY_CONTROL
-```
-
 ## Advanced Processing Step Features
 
 ### Custom Processing Steps
 
 Create processing steps with custom metadata:
 
-```python
+```python exec="base"
 def create_custom_processing_step(
     processing_type, 
     function_name, 
@@ -659,21 +560,11 @@ if custom_step.parameters:
     print(f"Parameters: {params}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpx_y2iee1.py", line 200, in <module>
-    processing_type=ProcessingType.FEATURE_ENGINEERING,
-NameError: name 'ProcessingType' is not defined
-```
-
 ### Processing Step Validation
 
 Validate processing step integrity:
 
-```python
+```python exec="simple_signal"
 def validate_processing_step(step):
     """Validate processing step completeness and consistency"""
     
@@ -742,24 +633,11 @@ if not validation_found:
     print("All processing steps passed validation ✓")
 ```
 
-**Output:**
-```
-Processing Step Validation Results:
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpgsdekatf.py", line 200, in <module>
-    for ts_name, ts in signal.time_series.items():
-NameError: name 'signal' is not defined
-```
-
 ### Processing Step Export
 
 Export processing steps for documentation or reuse:
 
-```python
+```python exec="simple_signal"
 import json
 from datetime import datetime
 
@@ -846,23 +724,13 @@ if exported_steps['time_series']:
         print(f"  Parameters: {first_step['parameters']}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpcl0g86nd.py", line 214, in <module>
-    exported_steps = export_processing_steps(signal)
-NameError: name 'signal' is not defined
-```
-
 ## Processing Step Best Practices
 
 ### 1. Document Processing Intent
 
 Always include clear descriptions:
 
-```python
+```python exec="base"
 from meteaudata.types import ProcessingStep, ProcessingType, FunctionInfo
 
 # Good: Clear, specific description
@@ -908,21 +776,11 @@ print(f"  Description: {better_step.description}")
 print(f"  Includes business context and regulatory reference")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp9e5pjv9c.py", line 163, in <module>
-    run_datetime=datetime.datetime.now(),
-NameError: name 'datetime' is not defined
-```
-
 ### 2. Track Parameter Decisions
 
 Record why specific parameters were chosen:
 
-```python
+```python exec="base"
 # Example of parameter rationale documentation
 parameters_with_rationale = Parameters(
     method="linear",
@@ -961,21 +819,11 @@ if rationale_step.parameters:
     print(f"Validation criteria: {params.get('validation_criteria', {})}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpenpch66g.py", line 152, in <module>
-    parameters_with_rationale = Parameters(
-NameError: name 'Parameters' is not defined
-```
-
 ### 3. Quality Assurance Integration
 
 Integrate quality checks into processing:
 
-```python
+```python exec="base"
 def quality_aware_processing_step(input_data, processing_func, **kwargs):
     """Create processing step with integrated quality assessment"""
     
@@ -1037,23 +885,13 @@ if qa_step.parameters:
     print(f"Post-processing quality: {qa_info.get('post_processing', {})}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpm4cyo5oy.py", line 201, in <module>
-    sample_data = pd.Series(np.random.randn(100), name="sample")
-NameError: name 'pd' is not defined
-```
-
 ## Troubleshooting Processing Steps
 
 ### Common Issues
 
 Check for typical processing step problems:
 
-```python
+```python exec="simple_signal"
 print("Processing Step Troubleshooting:")
 
 # Check if processing steps are preserved
@@ -1094,21 +932,6 @@ if timing_issues == 0:
     print("   ✓ Processing step timestamps are consistent")
 
 print(f"\nTroubleshooting complete. Issues found: {param_issues + timing_issues}")
-```
-
-**Output:**
-```
-Processing Step Troubleshooting:
-
-1. Checking processing history preservation:
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp8o1fh8bv.py", line 155, in <module>
-    for ts_name, ts in signal.time_series.items():
-NameError: name 'signal' is not defined
 ```
 
 ## Next Steps

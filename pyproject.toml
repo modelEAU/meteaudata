@@ -62,6 +62,7 @@ docs = [
     "nbconvert>=7.0.0",
     "pillow>=10.0.0",
     "cairosvg>=2.7.0",
+    "matplotlib>=3.9.4",
 ]
 
 # Combined environment for full development

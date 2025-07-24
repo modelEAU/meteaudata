@@ -106,8 +106,10 @@ plugins:
             
   - gen-files:
       scripts:
+        - docs/scripts/process_templates.py
         - docs/scripts/gen_metadata_dict.py
         - docs/scripts/gen_visualization_api.py
+        - docs/scripts/copy_assets.py
 
 markdown_extensions:
   - admonition

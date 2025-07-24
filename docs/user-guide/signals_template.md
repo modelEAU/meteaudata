@@ -6,7 +6,7 @@ Signals are the fundamental building blocks of meteaudata. They represent a sing
 
 ### Basic Signal Creation
 
-```python
+```python exec="setup:base"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance
@@ -38,14 +38,9 @@ temperature_signal = Signal(
 print(f"Created signal '{temperature_signal.name}' with {len(temperature_signal.time_series)} time series")
 ```
 
-**Output:**
-```
-Created signal 'ReactorTemp#1' with 1 time series
-```
-
 ### From Different Data Sources
 
-```python
+```python exec="continue"
 # Example patterns for different data sources
 
 # From CSV file (example pattern)
@@ -67,21 +62,13 @@ flow_signal = Signal(
 print(f"Created flow signal: {flow_signal.name}")
 ```
 
-**Output:**
-```
-Example: Loading from CSV
-data = pd.read_csv('sensor_data.csv', index_col=0, parse_dates=True)
-signal = Signal(input_data=data['temperature'].rename('RAW'), ...)
-Created flow signal: FlowRate#1
-```
-
 ## Understanding Signal Structure
 
 ### Time Series Organization
 
 After creation, your signal contains one TimeSeries object:
 
-```python
+```python exec="continue"
 print("Time series keys:", list(temperature_signal.time_series.keys()))
 
 # Access the raw time series
@@ -91,16 +78,9 @@ print(f"Data points: {len(raw_series.series)}")
 print(f"Processing steps: {len(raw_series.processing_steps)}")
 ```
 
-**Output:**
-```
-Time series keys: ['ReactorTemp#1_RAW#1']
-Data points: 100
-Processing steps: 0
-```
-
 ### Signal Metadata
 
-```python
+```python exec="continue"
 # Access signal-level information
 print(f"Signal name: {temperature_signal.name}")
 print(f"Units: {temperature_signal.units}")
@@ -113,20 +93,11 @@ for ts_name in temperature_signal.time_series.keys():
     print(f"{ts_name}: {len(ts.series)} points, {len(ts.processing_steps)} steps")
 ```
 
-**Output:**
-```
-Signal name: ReactorTemp#1
-Units: °C
-Equipment: Thermocouple TC-101
-Location: Reactor 1 outlet
-ReactorTemp#1_RAW#1: 100 points, 0 steps
-```
-
 ## Processing Signals
 
 ### Basic Processing Operations
 
-```python
+```python exec="continue"
 from meteaudata import resample, linear_interpolation
 
 # Get the raw series name
@@ -152,17 +123,9 @@ for name in temperature_signal.time_series.keys():
     print(f"  {name}")
 ```
 
-**Output:**
-```
-Available time series after processing:
-  ReactorTemp#1_RAW#1
-  ReactorTemp#1_RESAMPLED#1
-  ReactorTemp#1_LIN-INT#1
-```
-
 ### Chaining Processing Steps
 
-```python
+```python exec="continue"
 # Create a fresh signal for chaining example
 chain_data = pd.Series(np.random.normal(25, 3, 200), 
                       index=pd.date_range('2024-01-01', periods=200, freq='30min'),
@@ -191,16 +154,9 @@ for func, params in processing_chain:
     print(f"Applied {func.__name__}, now have: {current_series}")
 ```
 
-**Output:**
-```
-Starting with: ChainExample#1_RAW#1
-Applied resample, now have: ChainExample#1_RESAMPLED#1
-Applied linear_interpolation, now have: ChainExample#1_LIN-INT#1
-```
-
 ### Available Processing Functions
 
-```python
+```python exec="continue"
 from meteaudata import (
     resample,           # Change sampling frequency
     linear_interpolation, # Fill gaps with linear interpolation
@@ -249,20 +205,11 @@ final_name = list(proc_signal.time_series.keys())[-1]
 print(f"Final processed series: {final_name}")
 ```
 
-**Output:**
-```
-Created resampled series:
-  30min: ProcessingExample#1_RESAMPLED#1
-  1H: ProcessingExample#1_RESAMPLED#2
-Created subset: ProcessingExample#1_SLICE#1
-Final processed series: ProcessingExample#1_LIN-INT#1
-```
-
 ## Working with Multiple Time Series
 
 ### Accessing Different Processing Stages
 
-```python
+```python exec="continue"
 # A signal can contain multiple processed versions of the data
 signal_keys = list(proc_signal.time_series.keys())
 print("Available time series:")
@@ -279,23 +226,9 @@ print(f"Raw data: {len(raw_data)} points")
 print(f"First processed: {len(processed_data)} points")
 ```
 
-**Output:**
-```
-Available time series:
-  ProcessingExample#1_RAW#1: 144 points
-  ProcessingExample#1_RESAMPLED#1: 48 points
-  ProcessingExample#1_RESAMPLED#2: 24 points
-  ProcessingExample#1_SLICE#1: 48 points
-  ProcessingExample#1_LIN-INT#1: 48 points
-
-Data comparison:
-Raw data: 144 points
-First processed: 48 points
-```
-
 ### Processing History
 
-```python
+```python exec="continue"
 # View complete processing history
 def show_processing_history(signal, series_name):
     ts = signal.time_series[series_name]
@@ -312,24 +245,11 @@ latest_series = list(proc_signal.time_series.keys())[-1]
 show_processing_history(proc_signal, latest_series)
 ```
 
-**Output:**
-```
-Processing history for ProcessingExample#1_LIN-INT#1:
-  1. A simple processing function that slices a series to given indices.
-     Function: subset v0.1
-     When: 2025-07-24 10:30:05.411596
-     Parameters: start_position=48 end_position=96 rank_based=True
-  2. A simple processing function that linearly interpolates a series
-     Function: linear interpolation v0.1
-     When: 2025-07-24 10:30:05.412091
-     Parameters:
-```
-
 ## Visualization and Display
 
 ### Built-in Display Methods
 
-```python
+```python exec="continue"
 # Rich display shows metadata + structure
 temperature_signal.display()
 
@@ -345,21 +265,9 @@ if len(series_names) > 1:
     print(f"Generated comparison plot for: {series_names}")
 ```
 
-**Output:**
-```
-Generated plot for all time series
-Generated comparison plot for: ['ReactorTemp#1_RAW#1', 'ReactorTemp#1_RESAMPLED#1']
-```
-
---8<-- "assets/generated/meteaudata_signal_plot_c21c8776.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_c21c8776.html"
-
---8<-- "assets/generated/display_content_c21c8776_1.html"
-
 ### Custom Visualization
 
-```python
+```python exec="continue"
 import matplotlib.pyplot as plt
 
 # Extract data for custom plotting
@@ -381,27 +289,11 @@ plt.grid(True, alpha=0.3)
 plt.show()
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmplvl7jxg2.py", line 385, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/display_content_d892cc6b_1.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_d892cc6b.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_d892cc6b.html"
-
 ## Saving and Loading Signals
 
 ### Save Signal to Disk
 
-```python
+```python exec="continue"
 import tempfile
 import os
 
@@ -420,25 +312,9 @@ if os.path.exists(save_path):
         print(f"  {file}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpmd9wvj9b.py", line 382, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/display_content_70d1000c_1.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_70d1000c.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_70d1000c.html"
-
 ### Load Signal from Disk
 
-```python
+```python exec="continue"
 # Load signal back from directory
 zip_files = [f for f in os.listdir(save_path) if f.endswith('.zip')]
 if zip_files:
@@ -453,29 +329,13 @@ else:
     print("No zip file found for loading example")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp8rol2qi3.py", line 382, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/display_content_cab080e1_1.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_cab080e1.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_cab080e1.html"
-
 ## Advanced Signal Operations
 
 ### Branching Processing
 
 Create multiple processing branches from the same raw data:
 
-```python
+```python exec="continue"
 # Create a signal for branching example
 branch_data = pd.Series(np.random.normal(18, 2, 288), 
                        index=pd.date_range('2024-01-01', periods=288, freq='5min'),
@@ -512,22 +372,6 @@ for name in branch_signal.time_series.keys():
     ts = branch_signal.time_series[name]
     print(f"  {name}: {len(ts.series)} points")
 ```
-
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpmhxz9j6r.py", line 382, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/meteaudata_timeseries_plot_87044375.html"
-
---8<-- "assets/generated/display_content_87044375_1.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_87044375.html"
 
 ## Best Practices
 

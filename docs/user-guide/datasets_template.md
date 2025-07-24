@@ -13,7 +13,7 @@ A Dataset is a container for multiple Signal objects that share common character
 
 ### Basic Dataset Creation
 
-```python
+```python exec="setup:base"
 import numpy as np
 import pandas as pd
 from meteaudata import Dataset, Signal, DataProvenance
@@ -73,16 +73,11 @@ reactor_dataset = Dataset(
 print(f"Created dataset '{reactor_dataset.name}' with {len(reactor_dataset.signals)} signals")
 ```
 
-**Output:**
-```
-Created dataset 'reactor_monitoring' with 2 signals
-```
-
 ## Dataset Structure and Access
 
 ### Accessing Signals
 
-```python
+```python exec="continue"
 # First, let's see what signal keys are actually available
 print("Available signal keys:", list(reactor_dataset.signals.keys()))
 
@@ -100,17 +95,9 @@ for name, signal in reactor_dataset.signals.items():
     print(f"{name}: {signal.units}, {len(signal.time_series)} time series")
 ```
 
-**Output:**
-```
-Available signal keys: ['Temperature#1', 'pH#1']
-Accessed signals: Temperature#1 and pH#1
-Temperature#1: °C, 1 time series
-pH#1: pH units, 1 time series
-```
-
 ### Dataset Metadata
 
-```python
+```python exec="continue"
 # View dataset-level information
 print(f"Dataset name: {reactor_dataset.name}")
 print(f"Description: {reactor_dataset.description}")
@@ -120,23 +107,13 @@ print(f"Purpose: {reactor_dataset.purpose}")
 print(f"Number of signals: {len(reactor_dataset.signals)}")
 ```
 
-**Output:**
-```
-Dataset name: reactor_monitoring
-Description: Primary reactor monitoring dataset with temperature and pH measurements
-Owner: Process Engineer
-Project: Process Monitoring
-Purpose: Monitor reactor conditions for process optimization
-Number of signals: 2
-```
-
 ## Processing Datasets
 
 ### Individual Signal Processing
 
 Process signals within the dataset independently:
 
-```python
+```python exec="continue"
 from meteaudata import resample, linear_interpolation
 
 # Process each signal individually
@@ -154,17 +131,11 @@ for signal_name, signal in reactor_dataset.signals.items():
     print(f"Processed {signal_name}: {len(signal.time_series)} time series")
 ```
 
-**Output:**
-```
-Processed Temperature#1: 2 time series
-Processed pH#1: 2 time series
-```
-
 ### Multivariate Processing
 
 Process multiple signals together using dataset-level operations:
 
-```python
+```python exec="continue"
 # Check if multivariate processing functions are available
 try:
     from meteaudata import average_signals
@@ -196,20 +167,11 @@ except ImportError:
     print("Processing signals individually instead")
 ```
 
-**Output:**
-```
-Multivariate processing functions available
-Available signals in dataset: ['Temperature#1', 'pH#1']
-Temperature#1 series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
-pH#1 series: ['pH#1_RAW#1', 'pH#1_RESAMPLED#1']
-Dataset multivariate processing would use these series names
-```
-
 ## Visualization
 
 ### Dataset Overview Plots
 
-```python
+```python exec="continue"
 # Plot signals from the dataset
 # Display each signal individually since they have different units
 
@@ -232,28 +194,11 @@ for i, signal_name in enumerate(signal_names):
         print()  # Add spacing between signals
 ```
 
-**Output:**
-```
-=== Temperature#1 Signal ===
-Generated plot for Temperature#1 with series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
-
-=== pH#1 Signal ===
-Generated plot for pH#1 with series: ['pH#1_RAW#1', 'pH#1_RESAMPLED#1']
-```
-
-<iframe src="../../assets/generated/display_content_d6193649_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_d6193649.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_d6193649.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_d6193649_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
 ## Saving and Loading Datasets
 
 ### Save Dataset
 
-```python
+```python exec="continue"
 import tempfile
 import os
 
@@ -272,24 +217,9 @@ if os.path.exists(save_path):
         print(f"  {file}")
 ```
 
-**Output:**
-```
-Dataset saved to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp6zofs53o/reactor_monitoring_dataset
-Created files:
-  reactor_monitoring.zip
-```
-
-<iframe src="../../assets/generated/display_content_f7f90a40_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_f7f90a40.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_f7f90a40_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_f7f90a40.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
 ### Load Dataset
 
-```python
+```python exec="continue"
 # Load complete dataset
 zip_files = [f for f in os.listdir(save_path) if f.endswith('.zip')]
 if zip_files:
@@ -310,31 +240,11 @@ else:
     print("No zip file found for loading demonstration")
 ```
 
-**Output:**
-```
-Loaded dataset: reactor_monitoring
-Signals: ['Temperature#1', 'pH#1']
-Temperature#1: 2 time series
-  Temperature#1_RAW#1: 100 points
-  Temperature#1_RESAMPLED#1: 199 points
-pH#1: 2 time series
-  pH#1_RAW#1: 100 points
-  pH#1_RESAMPLED#1: 199 points
-```
-
-<iframe src="../../assets/generated/display_content_bd18f69a_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_bd18f69a.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_bd18f69a_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_bd18f69a.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
 ## Dataset Analysis Examples
 
 ### Comparing Signals
 
-```python
+```python exec="continue"
 # Extract and compare data from different signals
 signal_names = list(reactor_dataset.signals.keys())
 if len(signal_names) >= 2:
@@ -358,29 +268,9 @@ else:
     print("Not enough signals for comparison")
 ```
 
-**Output:**
-```
-Data comparison:
-Temperature#1: 100 points, range 14.8 to 23.7 °C
-pH#1: 100 points, range 6.62 to 8.02 pH units
-
-Time range comparison:
-Temperature#1: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
-pH#1: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
-Signals are time-aligned: True
-```
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_1dcbd3f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_1dcbd3f4_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_1dcbd3f4_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_1dcbd3f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
 ### Processing History Overview
 
-```python
+```python exec="continue"
 # Review processing applied to all signals in the dataset
 print("=== Dataset Processing Summary ===")
 for signal_name, signal in reactor_dataset.signals.items():
@@ -390,29 +280,6 @@ for signal_name, signal in reactor_dataset.signals.items():
         for i, step in enumerate(ts.processing_steps, 1):
             print(f"    {i}. {step.description}")
 ```
-
-**Output:**
-```
-=== Dataset Processing Summary ===
-
-Temperature#1 Signal:
-  Temperature#1_RAW#1: 0 processing steps
-  Temperature#1_RESAMPLED#1: 1 processing steps
-    1. A simple processing function that resamples a series to a given frequency
-
-pH#1 Signal:
-  pH#1_RAW#1: 0 processing steps
-  pH#1_RESAMPLED#1: 1 processing steps
-    1. A simple processing function that resamples a series to a given frequency
-```
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_144b721f.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_144b721f_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_144b721f_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_144b721f.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Best Practices
 

@@ -17,7 +17,7 @@ All meteaudata objects inherit from `DisplayableBase`, providing consistent visu
 
 ### Basic Display Methods
 
-```python
+```python exec="simple_signal"
 # Display methods demonstration
 print("=== Basic Display Methods ===")
 
@@ -34,25 +34,11 @@ print("\n3. Detailed view:")
 signal.show_details()
 ```
 
-**Output:**
-```
-=== Basic Display Methods ===
-1. String representation:
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmph19uxzk7.py", line 156, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ### Display Formats
 
 The display system supports multiple formats:
 
-```python
+```python exec="continue"
 print("=== Display Format Options ===")
 
 # Text format - for console/terminal use
@@ -67,21 +53,11 @@ print("   Use: signal.display(format='graph', max_depth=4)")
 print("   Features: SVG-based hierarchical visualization")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp812i3nkc.py", line 165, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ### Interactive Graph Visualization
 
 The SVG graph format provides an interactive, hierarchical view:
 
-```python
+```python exec="continue"
 print("=== Interactive Graph Visualization ===")
 
 # Show interactive graph capabilities
@@ -100,23 +76,13 @@ print(f"- Time series count: {len(signal.time_series)}")
 print(f"- Processing steps across all series: {sum(len(ts.processing_steps) for ts in signal.time_series.values())}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpum2uwlcn.py", line 165, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ## Processing Dependencies
 
 ### Dependency Graph Visualization
 
 Visualize the processing relationships between time series within a signal:
 
-```python
+```python exec="continue"
 from meteaudata import resample, linear_interpolation
 
 print("=== Processing Dependencies ===")
@@ -150,19 +116,9 @@ for i, ts_name in enumerate(signal.time_series.keys(), 1):
     print(f"  {i}. {ts_name} ({len(ts.processing_steps)} steps)")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmppljj5zza.py", line 165, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ### Understanding Dependency Graphs
 
-```python
+```python exec="continue"
 # Build dependency information programmatically
 final_series = list(signal.time_series.keys())[-1]  # Get most processed series
 print(f"=== Dependency Analysis for {final_series} ===")
@@ -187,23 +143,13 @@ print("- Returns list of dependency information dictionaries")
 print("- Each entry contains: step, type, origin, destination")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp4k94yd0l.py", line 165, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ## Processing History Exploration
 
 ### Time Series Processing Steps
 
 Each `TimeSeries` object maintains complete processing history:
 
-```python
+```python exec="continue"
 print("=== Processing History Exploration ===")
 
 # Get a processed time series
@@ -230,21 +176,11 @@ else:
     print("No multi-step processed series found")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpeq7c6pcr.py", line 165, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ### Processing Step Details
 
 Access detailed information about each processing step:
 
-```python
+```python exec="continue"
 print("=== Processing Step Details ===")
 
 # Get any processing step for detailed examination
@@ -289,23 +225,13 @@ else:
     print("No processing steps found in time series")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpij914c1n.py", line 165, in <module>
-    print(f"   {signal}")
-NameError: name 'signal' is not defined
-```
-
 ## Dataset-Level Visualization
 
 ### Dataset Structure
 
 Explore the overall dataset structure:
 
-```python
+```python exec="dataset"
 print("=== Dataset Structure Visualization ===")
 
 # Display dataset structure
@@ -331,25 +257,11 @@ print("- dataset.show_graph() for hierarchical view")
 print("- Best for exploring complex multi-signal relationships")
 ```
 
-**Output:**
-```
-=== Dataset Structure Visualization ===
-1. Dataset summary:
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp8zl4qsnw.py", line 155, in <module>
-    dataset.show_summary()
-NameError: name 'dataset' is not defined
-```
-
 ### Signal Relationships
 
 Understanding relationships between signals in a dataset:
 
-```python
+```python exec="continue"
 print("=== Signal Relationships ===")
 
 # Examine relationships between signals
@@ -374,23 +286,13 @@ print("- Creates new signals with cross-signal dependencies")
 print("- Example: average_signals, correlation_analysis, etc.")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp8e5_ncof.py", line 164, in <module>
-    dataset.show_summary()
-NameError: name 'dataset' is not defined
-```
-
 ## Advanced Metadata Exploration
 
 ### Index Metadata
 
 Understanding time series index information:
 
-```python
+```python exec="simple_signal"
 print("=== Index Metadata Exploration ===")
 
 # Access index metadata from any time series
@@ -419,24 +321,11 @@ if hasattr(ts.series.index, 'freq'):
     print(f"  Frequency: {ts.series.index.freq}")
 ```
 
-**Output:**
-```
-=== Index Metadata Exploration ===
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpvm6maota.py", line 154, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### Data Provenance
 
 Explore data provenance information:
 
-```python
+```python exec="continue"
 print("=== Data Provenance Exploration ===")
 
 # Signal-level provenance
@@ -461,21 +350,11 @@ print("- Supports regulatory compliance and auditing")
 print("- Enables data lineage tracking across systems")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpooaiec2d.py", line 163, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### Processing Function Information
 
 Examine the functions used in processing:
 
-```python
+```python exec="continue"
 print("=== Processing Function Analysis ===")
 
 # Get all unique functions used in a signal
@@ -506,23 +385,13 @@ print("- Author attribution and responsibility")
 print("- Reference documentation linking")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpwte320sf.py", line 163, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ## Programmatic Metadata Access
 
 ### Building Custom Visualizations
 
 Access metadata programmatically for custom analysis:
 
-```python
+```python exec="continue"
 def analyze_processing_complexity(signal):
     """Analyze the complexity of processing applied to a signal."""
     
@@ -565,21 +434,11 @@ print(f"  Total unique functions: {sum(all_functions)}")
 print(f"  Most complex series: {max(complexity.keys(), key=lambda k: complexity[k]['processing_steps'])}")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp0fwf64_l.py", line 163, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### Metadata Export
 
 Export metadata for external analysis:
 
-```python
+```python exec="continue"
 print("=== Metadata Export ===")
 
 # Export signal metadata to dictionary
@@ -619,21 +478,11 @@ print("- Programmatic analysis and reporting")
 print("- Integration with external metadata systems")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpnsb8wnif.py", line 163, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ## Best Practices
 
 ### 1. Start with Overview, Drill Down
 
-```python
+```python exec="continue"
 print("=== Best Practice: Hierarchical Exploration ===")
 
 # Begin with high-level view
@@ -662,19 +511,9 @@ print("- Focuses attention on relevant details")
 print("- Enables efficient debugging and analysis")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpf_yanwsj.py", line 163, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### 2. Use Interactive Graphs for Complex Structures
 
-```python
+```python exec="continue"
 print("=== Best Practice: Interactive Visualization ===")
 
 signal_count = len(dataset.signals)
@@ -700,19 +539,9 @@ else:
     print("  - Better for smaller, simpler structures")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpxpj92ciu.py", line 163, in <module>
-    ts_name = list(signal.time_series.keys())[0]
-NameError: name 'signal' is not defined
-```
-
 ### 3. Combine Multiple Visualization Methods
 
-```python
+```python exec="simple_signal"
 print("=== Best Practice: Multi-Method Visualization ===")
 
 # 1. Processing overview
@@ -752,25 +581,11 @@ print("- Different perspectives on same data")
 print("- Validates findings across methods")
 ```
 
-**Output:**
-```
-=== Best Practice: Multi-Method Visualization ===
-Step 1: Processing overview
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpcnd2ltm3.py", line 155, in <module>
-    signal.show_details(depth=2)
-NameError: name 'signal' is not defined
-```
-
 ## Troubleshooting
 
 ### Display Issues in Different Environments
 
-```python
+```python exec="continue"
 print("=== Troubleshooting: Environment-Specific Display ===")
 
 # Environment detection and recommendations
@@ -800,19 +615,9 @@ print("   - Custom processing and visualization")
 print("   - Integration with external tools")
 ```
 
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpeia_9bgl.py", line 164, in <module>
-    signal.show_details(depth=2)
-NameError: name 'signal' is not defined
-```
-
 ### Large Object Visualization
 
-```python
+```python exec="dataset"
 print("=== Troubleshooting: Large Object Handling ===")
 
 # Assess dataset size
@@ -845,19 +650,6 @@ print("- Use text format for very large objects")
 print("- Limit visualization depth")
 print("- Focus on specific components of interest")
 print("- Export to files for external analysis")
-```
-
-**Output:**
-```
-=== Troubleshooting: Large Object Handling ===
-```
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp0taqef4z.py", line 154, in <module>
-    total_time_series = sum(len(s.time_series) for s in dataset.signals.values())
-NameError: name 'dataset' is not defined
 ```
 
 ## See Also
