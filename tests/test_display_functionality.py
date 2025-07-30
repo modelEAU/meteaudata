@@ -84,7 +84,7 @@ class TestSignalDisplay:
         assert isinstance(attrs['provenance'], DataProvenance)
     
     def test_signal_display_attributes_expose_timeseries(self, sample_signal):
-        """Test that signal exposes time series objects through the time_series collection."""
+        """Test that signal exposes actual TimeSeries objects through timeseries_ attributes."""
         attrs = sample_signal._get_display_attributes()
         
         # Should not have time_series collection
@@ -93,16 +93,19 @@ class TestSignalDisplay:
         timeseries_attrs = [key for key in attrs.keys() if key.startswith('timeseries_')]
         assert len(timeseries_attrs) == 1
         
-        # Get a time series object from the collection
+        # Get the actual TimeSeries object (not attributes dict)
         ts_name = timeseries_attrs[0]
-        ts_attrs = attrs[ts_name]
-        assert isinstance(ts_attrs, dict)
+        ts_obj = attrs[ts_name]
+        # Should now be actual TimeSeries object, not dict
+        from meteaudata.types import TimeSeries
+        assert isinstance(ts_obj, TimeSeries)
 
-        # Should be able to get attributes from the time series
+        # Should be able to get attributes from the time series object
+        ts_attrs = ts_obj._get_display_attributes()
         assert 'series_name' in ts_attrs
     
     def test_signal_html_display_uses_timeseries_attributes(self, sample_signal):
-        """Test that HTML display uses timeseries_ attributes instead of time_series collection."""
+        """Test that HTML display uses actual TimeSeries objects instead of time_series collection."""
         # Get display attributes used for HTML rendering
         attrs = sample_signal._get_display_attributes()
         
@@ -113,10 +116,13 @@ class TestSignalDisplay:
         timeseries_attrs_keys = [key for key in attrs.keys() if key.startswith('timeseries_')]
         assert len(timeseries_attrs_keys) >= 1
         
-        # Each timeseries attribute should contain display data (dict)
+        # Each timeseries attribute should contain actual TimeSeries object
+        from meteaudata.types import TimeSeries
         for ts_key in timeseries_attrs_keys:
-            ts_display_attrs = attrs[ts_key]
-            assert isinstance(ts_display_attrs, dict)
+            ts_obj = attrs[ts_key]
+            assert isinstance(ts_obj, TimeSeries)
+            # Verify we can get display attributes from the object
+            ts_display_attrs = ts_obj._get_display_attributes()
             assert 'series_name' in ts_display_attrs or 'series_length' in ts_display_attrs
     
     def test_signal_text_display(self, sample_signal, capsys):
@@ -171,7 +177,7 @@ class TestDatasetDisplay:
         assert attrs['signals_count'] == 1
     
     def test_dataset_display_attributes_expose_signals(self, sample_dataset):
-        """Test that dataset exposes signals through signal_[signal_name] attributes."""
+        """Test that dataset exposes actual Signal objects through signal_[signal_name] attributes."""
         attrs = sample_dataset._get_display_attributes()
         
         # Should NOT have a signals collection
@@ -181,12 +187,14 @@ class TestDatasetDisplay:
         signal_attrs = [key for key in attrs.keys() if key.startswith('signal_')]
         assert len(signal_attrs) == 1
         
-        # The signal attribute should contain the signal's display attributes
+        # The signal attribute should contain the actual Signal object
         signal_key = signal_attrs[0]
-        signal_display_attrs = attrs[signal_key]
-        assert isinstance(signal_display_attrs, dict)
+        signal_obj = attrs[signal_key]
+        from meteaudata.types import Signal
+        assert isinstance(signal_obj, Signal)
         
-        # Should contain signal display information
+        # Should be able to get display attributes from the Signal object
+        signal_display_attrs = signal_obj._get_display_attributes()
         assert 'name' in signal_display_attrs
         assert 'units' in signal_display_attrs
         assert 'time_series_count' in signal_display_attrs
@@ -544,24 +552,25 @@ class TestDisplayIntegrationEnhanced:
         signal_attrs_keys = [key for key in dataset_attrs.keys() if key.startswith('signal_')]
         assert len(signal_attrs_keys) == 1
         
-        # Get the signal display attributes from the dataset
+        # Get the actual Signal object from the dataset
         signal_key = signal_attrs_keys[0]
-        signal_display_attrs = dataset_attrs[signal_key]
-        assert isinstance(signal_display_attrs, dict)
+        signal_obj = dataset_attrs[signal_key]
+        # Signal is already imported at the top of the file
+        assert isinstance(signal_obj, Signal)
         
-        # The signal display attributes should contain timeseries_[name] attributes instead of time_series collection
+        # The signal object should contain timeseries_[name] attributes instead of time_series collection
+        signal_display_attrs = signal_obj._get_display_attributes()
         timeseries_attrs_keys = [key for key in signal_display_attrs.keys() if key.startswith('timeseries_')]
         assert len(timeseries_attrs_keys) == 1
         
-        # Get the TimeSeries display attributes from the signal
+        # Get the actual TimeSeries object from the signal
         ts_key = timeseries_attrs_keys[0]
-        ts_display_attrs = signal_display_attrs[ts_key]
-        assert isinstance(ts_display_attrs, dict)
+        ts_obj = signal_display_attrs[ts_key]
+        # TimeSeries is already imported at the top of the file
+        assert isinstance(ts_obj, TimeSeries)
         
-        # To access the actual TimeSeries object for drill-down, we need to get it from the signal
-        actual_signal = dataset.signals["temp#1"]  # Assuming numbered naming
-        ts_name = list(actual_signal.time_series.keys())[0]
-        drill_ts = actual_signal.time_series[ts_name]
+        # Now we have direct access to the TimeSeries object for drill-down
+        drill_ts = ts_obj
         assert isinstance(drill_ts, TimeSeries)
         
         # TimeSeries → ProcessingStep (through processing_steps list) 
@@ -630,10 +639,12 @@ class TestDisplayIntegrationEnhanced:
 
         # Verify we can drill down to processing steps
         first_signal_name = signal_attrs_keys[0]
-        signal_attrs = attrs[first_signal_name]
-        ts_attrs_keys = [key for key in signal_attrs.keys() if key.startswith('timeseries_')]
+        signal_obj = attrs[first_signal_name]
+        signal_display_attrs = signal_obj._get_display_attributes()
+        ts_attrs_keys = [key for key in signal_display_attrs.keys() if key.startswith('timeseries_')]
         
-        first_ts_attrs = signal_attrs[ts_attrs_keys[0]]
+        first_ts_obj = signal_display_attrs[ts_attrs_keys[0]]
+        first_ts_attrs = first_ts_obj._get_display_attributes()
         assert 'processing_steps' in first_ts_attrs
         assert len(first_ts_attrs['processing_steps']) == 3
 
@@ -743,20 +754,24 @@ class TestHTMLRenderingAndStyling:
         assert "<summary class='meteaudata-summary'>" in html_content
         assert "class='meteaudata-nested'" in html_content
         
-        # Check that signals are grouped properly
-        assert "Signals:" in html_content
+        # Check that signals are grouped properly (new format shows count)
+        assert "signals (1 items)" in html_content
     
     def test_html_escaping_and_formatting(self, sample_signal_for_html):
         """Test that HTML content is properly escaped and formatted."""
         html_content = sample_signal_for_html._build_html_content(depth=1)
         
-        # Check that string values are properly quoted in HTML
-        assert "'temperature#1'" in html_content
-        assert "'°C'" in html_content
+        # Check that content values are present (without expecting old quote formatting)
+        assert "temperature#1" in html_content  # The actual value should be displayed
+        assert "°C" in html_content  # Special characters should be displayed
         
         # Check HTML structure is well-formed
         assert html_content.count("<div") == html_content.count("</div>")
         assert html_content.count("<span") == html_content.count("</span>")
+        
+        # Check for proper HTML class structure
+        assert "meteaudata-attr-name" in html_content
+        assert "meteaudata-attr-value" in html_content
     
     def test_graph_html_generation(self, sample_signal_for_html):
         """Test that SVG graph HTML generation works."""
@@ -1073,16 +1088,16 @@ class TestDatasetSignalDrillDownBug:
         dataset_html = dataset._build_html_content(depth=3)
         
         # The dataset HTML should contain time series information for its signals
-        # Check that time series information is present in dataset display
-        assert "Time Series:" in dataset_html, "Dataset HTML should include Time Series sections for its signals"
+        # Check that time series information is present in dataset display (new format)
+        assert "time_series (" in dataset_html, "Dataset HTML should include time_series sections for its signals"
         
         # More specifically, check for time series attributes that should be drilled down
         assert "series_name" in dataset_html, "Dataset HTML should show time series series_name"
         assert "series_length" in dataset_html, "Dataset HTML should show time series series_length"
         
         # The time series info should be nested within the signal's section
-        # Look for the pattern where signals contain time series
-        assert "Signal:" in dataset_html and "TimeSeries:" in dataset_html, \
+        # Look for the pattern where signals contain time series (updated for new header format)
+        assert "Signal" in dataset_html and "TimeSeries" in dataset_html, \
             "Dataset should show both Signal headers and TimeSeries headers in nested structure"
     
     def test_dataset_vs_signal_html_consistency(self, dataset_with_signal_and_timeseries):
@@ -1109,14 +1124,14 @@ class TestDatasetSignalDrillDownBug:
         
         dataset_html = dataset._build_html_content(depth=3)
         
-        # Should have nested collapsible structure: Dataset > Signals > TimeSeries
-        assert "Signals:" in dataset_html, "Dataset should have Signals collapsible section"
+        # Should have nested collapsible structure: Dataset > Signals > TimeSeries (new format)
+        assert "signals (" in dataset_html, "Dataset should have signals collapsible section"
         
         # Within the dataset structure, there should be time series sections
         # This tests the specific bug where time series were being skipped in dataset display
         timeseries_section_exists = (
-            "Time Series:" in dataset_html or 
-            "TimeSeries:" in dataset_html
+            "time_series (" in dataset_html or 
+            "TimeSeries" in dataset_html
         )
         assert timeseries_section_exists, \
             "Dataset HTML should include TimeSeries sections within Signal sections"
@@ -1132,9 +1147,12 @@ class TestDatasetSignalDrillDownBug:
         signal_attrs = {k: v for k, v in dataset_attrs.items() if k.startswith('signal_')}
         assert len(signal_attrs) == 1, "Dataset should have one signal"
         
-        # Get the signal's attributes from the dataset context
+        # Get the signal object from the dataset context
         signal_key = list(signal_attrs.keys())[0]
-        signal_data = signal_attrs[signal_key]
+        signal_obj = signal_attrs[signal_key]
+        
+        # Get the signal's display attributes
+        signal_data = signal_obj._get_display_attributes()
         
         # The signal data should include timeseries_ prefixed attributes
         timeseries_keys = [k for k in signal_data.keys() if k.startswith('timeseries_')]
@@ -1143,9 +1161,11 @@ class TestDatasetSignalDrillDownBug:
         
         # Check that these timeseries attributes contain the expected data
         for ts_key in timeseries_keys:
-            ts_data = signal_data[ts_key]
-            assert isinstance(ts_data, dict), "TimeSeries attributes should be dictionaries"
-            assert 'series_name' in ts_data or 'series_length' in ts_data, \
+            ts_obj = signal_data[ts_key]
+            # TimeSeries is now an actual object, not a dict
+            assert hasattr(ts_obj, '_get_display_attributes'), "TimeSeries should be displayable objects"
+            ts_attrs = ts_obj._get_display_attributes()
+            assert 'series_name' in ts_attrs or 'series_length' in ts_attrs, \
                 "TimeSeries attributes should contain series metadata"
 
 

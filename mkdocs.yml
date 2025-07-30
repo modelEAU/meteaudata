@@ -109,6 +109,10 @@ plugins:
         - docs/scripts/gen_visualization_api.py
         - docs/scripts/copy_assets.py
 
+exclude_docs: |
+  README.md
+  README_template.md
+
 markdown_extensions:
   - admonition
   - pymdownx.details

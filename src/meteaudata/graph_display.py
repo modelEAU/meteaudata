@@ -6,6 +6,7 @@ Uses D3.js with SVG rendering for better performance and interaction capabilitie
 import json
 from typing import Dict, List, Tuple, Any, Optional
 import uuid
+from meteaudata.tree_builder import TreeBuilder, TreeNode
 
 
 class SVGGraphNode:
@@ -208,7 +209,11 @@ class SVGGraphNode:
     
     def _get_display_name(self) -> str:
         """Get a clean display name for the box label."""
-        # For TimeSeries objects, use the actual series name part, not the signal prefix
+        # For Container objects (collections), use the CollectionContainer display name
+        if self.obj_type == 'Container' and hasattr(self.obj, '_get_display_name'):
+            return self.obj._get_display_name()
+        
+        # For TimeSeries objects, show "TimeSeries: <name>" format
         if self.obj_type == 'TimeSeries':
             series_name = getattr(self.obj.series, 'name', 'unnamed')
             if '_' in series_name:
@@ -219,13 +224,23 @@ class SVGGraphNode:
                     # Remove numbering if present
                     if '#' in name:
                         name = name.split('#')[0]
-                    return name
+                    return f"TimeSeries: {name}"
             
             # Fallback to full name if no underscore pattern
             name = series_name
             if '#' in name:
                 name = name.split('#')[0]
-            return name
+            return f"TimeSeries: {name}"
+        
+        # For DataProvenance, extract clean parameter name
+        if self.obj_type == 'DataProvenance':
+            if hasattr(self.obj, 'parameter') and self.obj.parameter:
+                return self.obj.parameter
+            # Fallback to extracting from identifier
+            if '=' in self.identifier:
+                name = self.identifier.split('=', 1)[1].strip().strip("'\"")
+                if name:
+                    return name
         
         # For other object types, use existing logic
         if hasattr(self.obj, 'name') and self.obj.name:
@@ -247,19 +262,24 @@ class SVGGraphNode:
 
 
 class SVGGraphBuilder:
-    """Builds graph data optimized for SVG rendering."""
+    """Builds graph data optimized for SVG rendering using shared TreeBuilder."""
     
     def __init__(self):
         self.nodes: Dict[str, SVGGraphNode] = {}
         self.edges: List[Tuple[str, str, str]] = []
+        self.tree_builder = TreeBuilder()
     
     def build_graph(self, root_obj: Any, max_depth: int = 4) -> Dict[str, Any]:
-        """Build graph data for SVG rendering."""
+        """Build graph data for SVG rendering using TreeBuilder."""
         self.nodes.clear()
         self.edges.clear()
         
+        # Use TreeBuilder to get the object structure
+        tree = self.tree_builder.build_tree(root_obj, max_depth)
+        
+        # Convert TreeNode structure to SVG graph structure
         root_id = str(uuid.uuid4())
-        self._add_object_recursive(root_obj, root_id, None, max_depth)
+        self._convert_tree_to_graph(tree, root_id, None)
         
         # Build hierarchy structure
         hierarchy = self._build_hierarchy_structure()
@@ -270,212 +290,27 @@ class SVGGraphBuilder:
             'layout_type': 'svg_nested_boxes'
         }
     
-    def _add_object_recursive(self, obj: Any, node_id: str, parent_id: Optional[str], 
-                        remaining_depth: int, relationship: str = "contains"):
-        """Recursively add objects to the graph with container organization."""
-        if remaining_depth <= 0:
-            return
+    def _convert_tree_to_graph(self, tree_node: TreeNode, node_id: str, parent_id: Optional[str]):
+        """Convert TreeNode structure to SVG graph nodes and edges."""
+        # Create SVG node from TreeNode - but override the type for collection nodes
+        svg_node = SVGGraphNode(tree_node.obj, node_id, parent_id, tree_node.relationship)
         
-        # Create node
-        self.nodes[node_id] = SVGGraphNode(obj, node_id, parent_id, relationship)
+        # For collection nodes, use 'Container' as the type (for backwards compatibility with tests)
+        if tree_node.node_type == 'collection':
+            svg_node.obj_type = 'Container'
         
+        self.nodes[node_id] = svg_node
+        
+        # Add edge to parent if exists
         if parent_id:
-            self.edges.append((parent_id, node_id, relationship))
+            self.edges.append((parent_id, node_id, tree_node.relationship))
         
-        # Add child objects with container organization
-        if hasattr(obj, '_get_display_attributes'):
-            attrs = obj._get_display_attributes()
-            structural_attrs = self._get_structural_attributes(attrs)
-            
-            # Handle Dataset signals (signal_* keys) - only at Dataset level
-            signal_attrs = {k: v for k, v in structural_attrs.items() if k.startswith('signal_')}
-            if signal_attrs and obj.__class__.__name__ == 'Dataset':
-                # Create container box for signals
-                container_id = str(uuid.uuid4())
-                signal_names = [k.replace('signal_', '') for k in signal_attrs.keys()]
-                container_node = self._create_container_node(
-                    container_id, node_id, 'signals', signal_names
-                )
-                self.nodes[container_id] = container_node
-                self.edges.append((node_id, container_id, 'signals'))
-                
-                # Add individual signals under the container
-                for signal_attr_name, signal_data in signal_attrs.items():
-                    if isinstance(signal_data, dict) and self._is_signal_data(signal_data):
-                        # Create a mock signal object from the display attributes
-                        signal_obj = self._create_signal_from_display_attrs(signal_data)
-                        child_id = str(uuid.uuid4())
-                        self._add_object_recursive(
-                            signal_obj, child_id, container_id,
-                            remaining_depth - 1, signal_attr_name.replace('signal_', '')
-                        )
-            
-            # Handle Signal time series (timeseries_* keys) - only at Signal level
-            elif obj.__class__.__name__ in ['Signal', 'MockSignal']:
-                timeseries_attrs = {k: v for k, v in structural_attrs.items() if k.startswith('timeseries_')}
-                if timeseries_attrs:
-                    # Create container box for time series
-                    container_id = str(uuid.uuid4())
-                    ts_names = [k.replace('timeseries_', '') for k in timeseries_attrs.keys()]
-                    container_node = self._create_container_node(
-                        container_id, node_id, 'time_series', ts_names
-                    )
-                    self.nodes[container_id] = container_node
-                    self.edges.append((node_id, container_id, 'time_series'))
-                    
-                    # Add individual time series under the container
-                    for ts_attr_name, ts_data in timeseries_attrs.items():
-                        if isinstance(ts_data, dict) and self._is_timeseries_data(ts_data):
-                            # Create a mock TimeSeries object from the display attributes
-                            ts_obj = self._create_timeseries_from_display_attrs(ts_data, ts_attr_name.replace('timeseries_', ''))
-                            child_id = str(uuid.uuid4())
-                            self._add_object_recursive(
-                                ts_obj, child_id, container_id,
-                                remaining_depth - 1, ts_attr_name.replace('timeseries_', '')
-                            )
-            
-            # Handle other structural attributes (excluding signal_* and timeseries_*)
-            filtered_attrs = {k: v for k, v in structural_attrs.items() 
-                            if not k.startswith('signal_') and not k.startswith('timeseries_')}
-            
-            for attr_name, attr_value in filtered_attrs.items():
-                # Handle processing steps collection
-                if isinstance(attr_value, list) and attr_name == 'processing_steps':
-                    # Create container for processing steps if there are any
-                    displayable_steps = [step for step in attr_value if self._is_displayable_object(step)]
-                    
-                    if displayable_steps:  # Only create container if there are displayable steps
-                        container_id = str(uuid.uuid4())
-                        step_names = [f"Step {i+1}" for i in range(len(displayable_steps))]
-                        container_node = self._create_container_node(
-                            container_id, node_id, 'processing_steps', step_names
-                        )
-                        self.nodes[container_id] = container_node
-                        self.edges.append((node_id, container_id, 'processing_steps'))
-                        
-                        # Add individual processing steps
-                        for i, step in enumerate(displayable_steps):
-                            child_id = str(uuid.uuid4())
-                            self._add_object_recursive(
-                                step, child_id, container_id,
-                                remaining_depth - 1, f"step_{i+1}"
-                            )
-                
-                elif self._is_displayable_object(attr_value):
-                    # Direct child object (not in a collection)
-                    child_id = str(uuid.uuid4())
-                    self._add_object_recursive(
-                        attr_value, child_id, node_id, 
-                        remaining_depth - 1, attr_name
-                    )
-        
+        # Process children
+        for child in tree_node.children:
+            child_id = str(uuid.uuid4())
+            self._convert_tree_to_graph(child, child_id, node_id)
+    
 
-    def _is_signal_data(self, data: dict) -> bool:
-        """Check if the data represents signal display attributes."""
-        signal_indicators = ['name', 'units', 'provenance', 'time_series_count', 'created_on']
-        return any(key in data for key in signal_indicators)
-    
-    def _is_timeseries_data(self, data: dict) -> bool:
-        """Check if the data represents time series display attributes."""
-        ts_indicators = ['series_name', 'series_length', 'values_dtype', 'processing_steps_count']
-        return any(key in data for key in ts_indicators)
-    
-    def _create_signal_from_display_attrs(self, attrs: dict):
-        """Create a mock Signal object from display attributes."""
-        class MockSignal:
-            def __init__(self, attrs):
-                self.attrs = attrs
-                self.__class__.__name__ = 'Signal'
-                self.name = attrs.get('name', 'Unknown Signal')
-            
-            def _get_identifier(self):
-                return f"name='{self.name}'"
-            
-            def _get_display_attributes(self):
-                return self.attrs
-        
-        return MockSignal(attrs)
-    
-    def _create_timeseries_from_display_attrs(self, attrs: dict, name: str):
-        """Create a mock TimeSeries object from display attributes."""
-        class MockTimeSeries:
-            def __init__(self, attrs, name):
-                self.attrs = attrs
-                self.name = name
-                self.__class__.__name__ = 'TimeSeries'
-                # Create mock series with name
-                self.series = type('MockSeries', (), {'name': name})()
-            
-            def _get_identifier(self):
-                return f"series='{self.name}'"
-            
-            def _get_display_attributes(self):
-                return self.attrs
-        
-        return MockTimeSeries(attrs, name)
-    def _create_container_node(self, container_id: str, parent_id: str, 
-                              container_type: str, item_names: List[str]) -> SVGGraphNode:
-        """Create a container node for organizing collections."""
-        
-        # Create a mock object for the container
-        class ContainerObject:
-            def __init__(self, container_type: str, item_names: List[str]):
-                self.container_type = container_type
-                self.item_names = item_names
-                self.__class__.__name__ = 'Container'
-            
-            def _get_identifier(self) -> str:
-                type_map = {
-                    'signals': 'Signals',
-                    'time_series': 'Time Series', 
-                    'processing_steps': 'Processing Steps'
-                }
-                return type_map.get(self.container_type, self.container_type.title())
-            
-            def _get_display_attributes(self) -> Dict[str, Any]:
-                return {
-                    'Container Type': self.container_type.replace('_', ' ').title(),
-                    'Item Count': len(self.item_names),
-                    'Items': ', '.join(self.item_names[:3]) + 
-                            (f' and {len(self.item_names)-3} more' if len(self.item_names) > 3 else '')
-                }
-        
-        container_obj = ContainerObject(container_type, item_names)
-        return SVGGraphNode(container_obj, container_id, parent_id, container_type)
-    
-    def _get_structural_attributes(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
-        """Get attributes that represent structural relationships."""
-        # Prioritize containment relationships, exclude individual parameters, function info, and provenance
-        priority_attrs = ['signals', 'time_series', 'processing_steps', 'provenance']
-        
-        structural = {}
-        
-        # Add priority attributes first
-        for attr_name in priority_attrs:
-            if attr_name in attrs:
-                structural[attr_name] = attrs[attr_name]
-        
-        # Add other complex attributes, but skip Parameters, FunctionInfo, DataProvenance, and IndexMetadata
-        excluded_types = ['Parameters', 'FunctionInfo', 'DataProvenance', 'IndexMetadata']
-        excluded_attrs = ['parameters', 'function_info', 'provenance', 'index_metadata']
-        
-        for attr_name, attr_value in attrs.items():
-            if attr_name not in priority_attrs and attr_name not in excluded_attrs:
-                # Skip if it's a type we want to exclude from the graph
-                if hasattr(attr_value, '__class__'):
-                    class_name = attr_value.__class__.__name__
-                    if any(excluded_type in class_name for excluded_type in excluded_types):
-                        continue
-                
-                if (self._is_displayable_object(attr_value) or 
-                    isinstance(attr_value, dict)):
-                    structural[attr_name] = attr_value
-        
-        return structural
-    
-    def _is_displayable_object(self, obj: Any) -> bool:
-        """Check if object should be displayed as a node."""
-        return hasattr(obj, '_get_display_attributes') and hasattr(obj, '_get_identifier')
     
     def _build_hierarchy_structure(self) -> Dict[str, Any]:
         """Build nested hierarchy structure for the frontend."""

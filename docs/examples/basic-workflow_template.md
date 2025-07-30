@@ -127,7 +127,7 @@ for i, step in enumerate(processing_steps, 1):
 ```python exec="continue"    
 # Step 8: Visualization
 print(f"\nGenerating visualization...")
-signal.display(format='html', depth=2)
+signal.display(format='html', depth=4)
 ```
 
 ---

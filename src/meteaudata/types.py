@@ -1671,8 +1671,9 @@ class Signal(BaseModel, DisplayableBase):
             'last_updated': self.last_updated,
             'time_series_count': len(self.time_series),
         }
+        # Return actual TimeSeries objects, not their attributes
         for timeseries_name, timeseries in self.time_series.items():
-            attrs[f"timeseries_{timeseries_name}"] = timeseries._get_display_attributes()
+            attrs[f"timeseries_{timeseries_name}"] = timeseries
         return attrs
 
     
@@ -2075,7 +2076,8 @@ class Dataset(BaseModel, DisplayableBase):
             'signals_count': len(self.signals),
         }
 
+        # Return actual Signal objects, not their attributes
         for signal_name, signal in self.signals.items():
-            attrs[f"signal_{signal_name}"] = signal._get_display_attributes()
+            attrs[f"signal_{signal_name}"] = signal
 
         return attrs
