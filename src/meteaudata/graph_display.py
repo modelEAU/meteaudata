@@ -271,7 +271,7 @@ class SVGGraphBuilder:
         }
     
     def _add_object_recursive(self, obj: Any, node_id: str, parent_id: Optional[str], 
-                            remaining_depth: int, relationship: str = "contains"):
+                        remaining_depth: int, relationship: str = "contains"):
         """Recursively add objects to the graph with container organization."""
         if remaining_depth <= 0:
             return
@@ -287,27 +287,60 @@ class SVGGraphBuilder:
             attrs = obj._get_display_attributes()
             structural_attrs = self._get_structural_attributes(attrs)
             
-            # Handle collections with container boxes
-            for attr_name, attr_value in structural_attrs.items():
-                if isinstance(attr_value, dict) and attr_name in ['signals', 'time_series']:
-                    # Create container box for collections
+            # Handle Dataset signals (signal_* keys) - only at Dataset level
+            signal_attrs = {k: v for k, v in structural_attrs.items() if k.startswith('signal_')}
+            if signal_attrs and obj.__class__.__name__ == 'Dataset':
+                # Create container box for signals
+                container_id = str(uuid.uuid4())
+                signal_names = [k.replace('signal_', '') for k in signal_attrs.keys()]
+                container_node = self._create_container_node(
+                    container_id, node_id, 'signals', signal_names
+                )
+                self.nodes[container_id] = container_node
+                self.edges.append((node_id, container_id, 'signals'))
+                
+                # Add individual signals under the container
+                for signal_attr_name, signal_data in signal_attrs.items():
+                    if isinstance(signal_data, dict) and self._is_signal_data(signal_data):
+                        # Create a mock signal object from the display attributes
+                        signal_obj = self._create_signal_from_display_attrs(signal_data)
+                        child_id = str(uuid.uuid4())
+                        self._add_object_recursive(
+                            signal_obj, child_id, container_id,
+                            remaining_depth - 1, signal_attr_name.replace('signal_', '')
+                        )
+            
+            # Handle Signal time series (timeseries_* keys) - only at Signal level
+            elif obj.__class__.__name__ in ['Signal', 'MockSignal']:
+                timeseries_attrs = {k: v for k, v in structural_attrs.items() if k.startswith('timeseries_')}
+                if timeseries_attrs:
+                    # Create container box for time series
                     container_id = str(uuid.uuid4())
+                    ts_names = [k.replace('timeseries_', '') for k in timeseries_attrs.keys()]
                     container_node = self._create_container_node(
-                        container_id, node_id, attr_name, list(attr_value.keys())
+                        container_id, node_id, 'time_series', ts_names
                     )
                     self.nodes[container_id] = container_node
-                    self.edges.append((node_id, container_id, attr_name))
+                    self.edges.append((node_id, container_id, 'time_series'))
                     
-                    # Add individual items under the container
-                    for key, value in attr_value.items():
-                        if self._is_displayable_object(value):
+                    # Add individual time series under the container
+                    for ts_attr_name, ts_data in timeseries_attrs.items():
+                        if isinstance(ts_data, dict) and self._is_timeseries_data(ts_data):
+                            # Create a mock TimeSeries object from the display attributes
+                            ts_obj = self._create_timeseries_from_display_attrs(ts_data, ts_attr_name.replace('timeseries_', ''))
                             child_id = str(uuid.uuid4())
                             self._add_object_recursive(
-                                value, child_id, container_id,
-                                remaining_depth - 1, key
+                                ts_obj, child_id, container_id,
+                                remaining_depth - 1, ts_attr_name.replace('timeseries_', '')
                             )
-                
-                elif isinstance(attr_value, list) and attr_name == 'processing_steps':
+            
+            # Handle other structural attributes (excluding signal_* and timeseries_*)
+            filtered_attrs = {k: v for k, v in structural_attrs.items() 
+                            if not k.startswith('signal_') and not k.startswith('timeseries_')}
+            
+            for attr_name, attr_value in filtered_attrs.items():
+                # Handle processing steps collection
+                if isinstance(attr_value, list) and attr_name == 'processing_steps':
                     # Create container for processing steps if there are any
                     displayable_steps = [step for step in attr_value if self._is_displayable_object(step)]
                     
@@ -335,7 +368,51 @@ class SVGGraphBuilder:
                         attr_value, child_id, node_id, 
                         remaining_depth - 1, attr_name
                     )
+        
+
+    def _is_signal_data(self, data: dict) -> bool:
+        """Check if the data represents signal display attributes."""
+        signal_indicators = ['name', 'units', 'provenance', 'time_series_count', 'created_on']
+        return any(key in data for key in signal_indicators)
     
+    def _is_timeseries_data(self, data: dict) -> bool:
+        """Check if the data represents time series display attributes."""
+        ts_indicators = ['series_name', 'series_length', 'values_dtype', 'processing_steps_count']
+        return any(key in data for key in ts_indicators)
+    
+    def _create_signal_from_display_attrs(self, attrs: dict):
+        """Create a mock Signal object from display attributes."""
+        class MockSignal:
+            def __init__(self, attrs):
+                self.attrs = attrs
+                self.__class__.__name__ = 'Signal'
+                self.name = attrs.get('name', 'Unknown Signal')
+            
+            def _get_identifier(self):
+                return f"name='{self.name}'"
+            
+            def _get_display_attributes(self):
+                return self.attrs
+        
+        return MockSignal(attrs)
+    
+    def _create_timeseries_from_display_attrs(self, attrs: dict, name: str):
+        """Create a mock TimeSeries object from display attributes."""
+        class MockTimeSeries:
+            def __init__(self, attrs, name):
+                self.attrs = attrs
+                self.name = name
+                self.__class__.__name__ = 'TimeSeries'
+                # Create mock series with name
+                self.series = type('MockSeries', (), {'name': name})()
+            
+            def _get_identifier(self):
+                return f"series='{self.name}'"
+            
+            def _get_display_attributes(self):
+                return self.attrs
+        
+        return MockTimeSeries(attrs, name)
     def _create_container_node(self, container_id: str, parent_id: str, 
                               container_type: str, item_names: List[str]) -> SVGGraphNode:
         """Create a container node for organizing collections."""

@@ -177,3 +177,4 @@ uv.lock
 
 # Ignore mkdocs build artifacts
 docs/assets/generated
+demo_saves/

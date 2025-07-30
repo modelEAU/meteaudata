@@ -199,7 +199,7 @@ if final_series_names:
 
 **Output:**
 ```
-Created dataset with 2 signals
+Created dataset with 3 signals
 
 Individual signal statistics:
 
@@ -217,9 +217,17 @@ pH#1:
   Range: 6.80 to 7.74 pH units
   Data points: 100
 
+DissolvedOxygen#1:
+  Series name: DissolvedOxygen#1_RAW#1
+  Mean: 8.51 mg/L
+  Std: 0.38 mg/L
+  Range: 7.64 to 9.33 mg/L
+  Data points: 100
+
 Synchronizing all signals to 5-minute intervals...
   Processed Temperature#1
   Processed pH#1
+  Processed DissolvedOxygen#1
 
 Generating multi-signal visualization...
 Created dataset plot with synchronized time series

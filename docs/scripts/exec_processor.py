@@ -221,19 +221,32 @@ try:
     def display_capture_wrapper(self, format="html", depth=2, max_depth=4, width=1200, height=800):
         """Wrapper for display method that captures HTML content."""
         if format == "html":
-            # Get the HTML content directly using _build_html_content
+            # Get the complete HTML content with CSS styles
             try:
+                # Import the HTML_STYLE constant to get the CSS
+                from meteaudata.displayable import HTML_STYLE
+                
+                # Get the HTML content structure
                 html_content = self._build_html_content(depth=depth)
+                
                 if html_content and isinstance(html_content, str):
-                    # Save the HTML content to a file
-                    html_filename = OUTPUT_DIR / f"display_content_{code_hash[:8]}_{{len(captured_html_files) + 1}}.html"
+                    # Extract CSS content from HTML_STYLE constant (remove <style> tags)
+                    css_content = HTML_STYLE.replace('<style>', '').replace('</style>', '').strip()
+                    
+                    # Create complete HTML document with styles
+                    complete_html = "<html>\\n<head>\\n<style type=\\"text/css\\">\\n" + css_content + "\\n</style>\\n</head>\\n<body>\\n<div class=\\"meteaudata-display\\">\\n" + html_content + "\\n</div>\\n</body>\\n</html>"
+                    
+                    # Save the complete HTML content to a file
+                    file_count = len(captured_html_files) + 1
+                    filename = f"display_content_{code_hash[:8]}_" + str(file_count) + ".html"
+                    html_filename = OUTPUT_DIR / filename
                     with open(html_filename, 'w', encoding='utf-8') as f:
-                        f.write(html_content)
+                        f.write(complete_html)
                     captured_html_files.append(str(html_filename))
-                    print(f"[GENERATED_FILE]{{html_filename}}")
-                    print(f"Captured HTML display: {{html_filename}}")
+                    print(f"[GENERATED_FILE]" + str(html_filename))
+                    print(f"Captured HTML display: " + str(html_filename))
             except Exception as e:
-                print(f"HTML capture failed: {{e}}")
+                print(f"HTML capture failed: " + str(e))
         
         # Call the original display method for normal behavior
         return original_display(self, format, depth, max_depth, width, height)

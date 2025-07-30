@@ -53,23 +53,25 @@ from meteaudata.types import TimeSeries, ProcessingStep, ProcessingType, Functio
 
 # The pandas Series contains your actual data
 demo_data = pd.Series([1.2, 1.5, 1.8], 
-                     index=pd.date_range('2024-01-01', periods=3, freq='1H'),
+                     index=pd.date_range('2024-01-01', periods=3, freq='1h'),
                      name='Temperature_RAW_1')
 
 # Create a simple processing step for demonstration
 processing_step = ProcessingStep(
-    type=ProcessingType.OTHER,
-    description="Raw data from sensor",
+    type=ProcessingType.SMOOTHING,
+    description="Data smoothed using a moving average",
     function_info=FunctionInfo(
-        name="data_import",
+        name="moving_average",
         version="1.0",
-        author="Data Engineer",
-        reference="Sensor manual v2.1"
+        author="Guy Person",
+        reference="github.com/guyperson.moving_average"
     ),
     run_datetime=datetime.datetime.now(),
     requires_calibration=False,
-    parameters=None,
-    suffix="RAW"
+    parameters={
+        "window_size": 5
+    },
+    suffix="MOVAVG"
 )
 
 # TimeSeries wraps the data with processing metadata
@@ -95,21 +97,7 @@ print(f"Data values: {time_series.series.values}")
 ProcessingStep objects document each transformation applied to time series data:
 
 ```python exec="continue"
-step = ProcessingStep(
-    type=ProcessingType.FILTERING,
-    description="Applied 3-point moving average filter",
-    function_info=FunctionInfo(
-        name="moving_average",
-        version="1.0",
-        author="Plant Engineer",
-        reference="https://plant-docs.com/filtering"
-    ),
-    run_datetime=datetime.datetime.now(),
-    requires_calibration=False,
-    parameters=None,  # Could contain Parameters object if needed
-    suffix="MA3"  # Added to time series name
-)
-
+step = processing_step
 print("ProcessingStep details:")
 print(f"- Type: {step.type}")
 print(f"- Description: {step.description}")
@@ -141,7 +129,7 @@ print(f"Available time series: {list(signal.time_series.keys())}")
 ```python exec="continue"
 # Apply some processing to demonstrate multiple time series
 from meteaudata import resample
-signal.process(["Temperature#1_RAW#1"], resample, frequency="2H")
+signal.process(["Temperature#1_RAW#1"], resample, frequency="2h")
 
 print(f"\nAfter processing:")
 print(f"Number of time series: {len(signal.time_series)}")
@@ -186,7 +174,7 @@ for name, signal_obj in dataset.signals.items():
 meteaudata uses a structured naming convention for time series:
 
 ```
-{SignalName}#{SignalVersion}_{ProcessingSuffix}#{StepNumber}
+{SignalName}#{SignalVersion}_{ProcessingSuffix}#{NumberOfTimesTheProcessingFunctionWasApplied}
 ```
 
 ```python exec="continue"
@@ -195,7 +183,7 @@ from meteaudata import linear_interpolation
 
 # Apply multiple processing steps to our dataset signals
 temp_signal = dataset.signals["Temperature#1"]
-temp_signal.process(["Temperature#1_RAW#1"], resample, frequency="2H")
+temp_signal.process(["Temperature#1_RAW#1"], resample, frequency="2h")
 temp_signal.process(["Temperature#1_RESAMPLED#1"], linear_interpolation)
 
 print("Time series naming examples:")
@@ -400,17 +388,15 @@ ph_raw = list(dataset.signals["pH#1"].time_series.keys())[0]
 
 print(f"Processing together: {temp_raw} and {ph_raw}")
 
-# Note: This is just for demonstration - normally you wouldn't average temperature and pH!
-# In practice, you'd average signals with the same units and meaning
-try:
-    dataset.process([temp_raw, ph_raw], average_signals, output_signal_name="averaged_demo")
-    print(f"New signals after cross-processing: {list(dataset.signals.keys())}")
-    if "averaged_demo" in dataset.signals:
-        avg_signal = dataset.signals["averaged_demo"]
-        print(f"Averaged signal has {len(avg_signal.time_series)} time series")
-except Exception as e:
-    print(f"Cross-processing demo failed (expected - different units): {e}")
-    print("In practice, only average signals with compatible units and meanings!")
+
+dataset.process(
+    [temp_raw, ph_raw], 
+    average_signals, 
+    check_units=False, # unit checking is disabled for the demo. 
+    # You should never average signals that don't have matching units!
+)
+print(f"New signals after cross-processing: {list(dataset.signals.keys())}")
+
 ```
 
 
@@ -434,4 +420,4 @@ The examples above use several predefined contexts. Here are the key ones:
 - `full_environment`: Everything you need for complex examples
 - `continue`: Build on previous code blocks progressively
 
-For a complete list of available contexts and their contents, see the [Context Reference](../reference/contexts.md).
+For a complete list of available contexts and their contents, see the [Executable Docs Reference](../development/executable-code-docs.md).

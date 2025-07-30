@@ -1,560 +1,89 @@
 # Working with Signals
 
-Signals are the fundamental building blocks of meteaudata. They represent a single measured parameter (like temperature, pH, or flow rate) along with its complete history and metadata. This guide covers everything you need to know about creating, processing, and managing signals.
+Signals are the core building blocks of meteaudata. They represent a single measured parameter (like temperature or pH) with its data and metadata.
 
-## Creating Signals
-
-### Basic Signal Creation
+## Creating a Signal
 
 ```python
-import numpy as np
-import pandas as pd
-from meteaudata import Signal, DataProvenance
-
-# Create sample time series data
-timestamps = pd.date_range('2024-01-01', periods=100, freq='1H')
-temperature_data = np.random.normal(20, 2, 100)  # Temperature around 20°C
-data_series = pd.Series(temperature_data, index=timestamps, name="RAW")
-
-# Define data provenance
-provenance = DataProvenance(
-    source_repository="Plant SCADA System",
-    project="Energy Optimization Study",
-    location="Reactor 1 outlet",
-    equipment="Thermocouple TC-101",
-    parameter="Temperature",
-    purpose="Monitor reactor temperature for process control",
-    metadata_id="TC101_2024_001"
-)
-
-# Create the signal
-temperature_signal = Signal(
-    input_data=data_series,
-    name="ReactorTemp",
-    provenance=provenance,
-    units="°C"
-)
-
-print(f"Created signal '{temperature_signal.name}' with {len(temperature_signal.time_series)} time series")
+print(f"Created signal: {signal.name}")
+print(f"Units: {signal.units}")
+print(f"Time series count: {len(signal.time_series)}")
+print(f"Data points: {len(signal.time_series['Temperature#1_RAW#1'].series)}")
+print(f"Date range: {signal.time_series['Temperature#1_RAW#1'].series.index.min()} to {signal.time_series['Temperature#1_RAW#1'].series.index.max()}")
 ```
 
 **Output:**
 ```
-Created signal 'ReactorTemp#1' with 1 time series
-```
-
-### From Different Data Sources
-
-```python
-# Example patterns for different data sources
-
-# From CSV file (example pattern)
-print("Example: Loading from CSV")
-print("data = pd.read_csv('sensor_data.csv', index_col=0, parse_dates=True)")
-print("signal = Signal(input_data=data['temperature'].rename('RAW'), ...)")
-
-# From existing pandas Series (working example)
-existing_series = pd.Series(np.random.normal(15, 1, 50), 
-                          index=pd.date_range('2024-01-02', periods=50, freq='2H'),
-                          name="RAW")
-flow_signal = Signal(
-    input_data=existing_series,
-    name="FlowRate",
-    provenance=provenance,
-    units="L/min"
-)
-
-print(f"Created flow signal: {flow_signal.name}")
-```
-
-**Output:**
-```
-Example: Loading from CSV
-data = pd.read_csv('sensor_data.csv', index_col=0, parse_dates=True)
-signal = Signal(input_data=data['temperature'].rename('RAW'), ...)
-Created flow signal: FlowRate#1
-```
-
-## Understanding Signal Structure
-
-### Time Series Organization
-
-After creation, your signal contains one TimeSeries object:
-
-```python
-print("Time series keys:", list(temperature_signal.time_series.keys()))
-
-# Access the raw time series
-ts_name = list(temperature_signal.time_series.keys())[0]
-raw_series = temperature_signal.time_series[ts_name]
-print(f"Data points: {len(raw_series.series)}")
-print(f"Processing steps: {len(raw_series.processing_steps)}")
-```
-
-**Output:**
-```
-Time series keys: ['ReactorTemp#1_RAW#1']
-Data points: 100
-Processing steps: 0
-```
-
-### Signal Metadata
-
-```python
-# Access signal-level information
-print(f"Signal name: {temperature_signal.name}")
-print(f"Units: {temperature_signal.units}")
-print(f"Equipment: {temperature_signal.provenance.equipment}")
-print(f"Location: {temperature_signal.provenance.location}")
-
-# View all available time series
-for ts_name in temperature_signal.time_series.keys():
-    ts = temperature_signal.time_series[ts_name]
-    print(f"{ts_name}: {len(ts.series)} points, {len(ts.processing_steps)} steps")
-```
-
-**Output:**
-```
-Signal name: ReactorTemp#1
+Created signal: Temperature#1
 Units: °C
-Equipment: Thermocouple TC-101
-Location: Reactor 1 outlet
-ReactorTemp#1_RAW#1: 100 points, 0 steps
+Time series count: 1
+Data points: 100
+Date range: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
 ```
 
-## Processing Signals
-
-### Basic Processing Operations
+## Adding Processing Steps
 
 ```python
-from meteaudata import resample, linear_interpolation
+# Apply linear interpolation
+from meteaudata import linear_interpolation
+signal.process(["Temperature#1_RAW#1"], linear_interpolation)
 
-# Get the raw series name
-raw_series_name = list(temperature_signal.time_series.keys())[0]
-
-# Resample to hourly data
-temperature_signal.process(
-    input_time_series_names=[raw_series_name],
-    transform_function=resample,
-    frequency="1H"
-)
-
-# Fill gaps with linear interpolation  
-resampled_name = list(temperature_signal.time_series.keys())[-1]
-temperature_signal.process(
-    input_time_series_names=[resampled_name],
-    transform_function=linear_interpolation
-)
-
-# Check what time series we now have
-print("Available time series after processing:")
-for name in temperature_signal.time_series.keys():
-    print(f"  {name}")
+print(f"After processing: {len(signal.time_series)} time series")
+print(f"Available time series: {list(signal.time_series.keys())}")
 ```
 
 **Output:**
 ```
-Available time series after processing:
-  ReactorTemp#1_RAW#1
-  ReactorTemp#1_RESAMPLED#1
-  ReactorTemp#1_LIN-INT#1
+After processing: 2 time series
+Available time series: ['Temperature#1_RAW#1', 'Temperature#1_LIN-INT#1']
 ```
 
-### Chaining Processing Steps
+## Accessing Time Series Data
 
 ```python
-# Create a fresh signal for chaining example
-chain_data = pd.Series(np.random.normal(25, 3, 200), 
-                      index=pd.date_range('2024-01-01', periods=200, freq='30min'),
-                      name="RAW")
-chain_signal = Signal(
-    input_data=chain_data,
-    name="ChainExample",
-    provenance=provenance,
-    units="°C"
-)
+# Get the processed time series
+processed_ts = signal.time_series["Temperature#1_LIN-INT#1"]
+print(f"Processed series name: {processed_ts.series.name}")
+print(f"Processing steps: {len(processed_ts.processing_steps)}")
+print(f"Last processing step: {processed_ts.processing_steps[-1].type}")
 
-# Start with raw data
-current_series = list(chain_signal.time_series.keys())[0]
-print(f"Starting with: {current_series}")
-
-# Chain multiple processing steps
-processing_chain = [
-    (resample, {"frequency": "1H"}),
-    (linear_interpolation, {}),
-]
-
-for func, params in processing_chain:
-    chain_signal.process([current_series], func, **params)
-    # Get the name of the newly created series
-    current_series = list(chain_signal.time_series.keys())[-1]
-    print(f"Applied {func.__name__}, now have: {current_series}")
+# Access the actual data
+data = processed_ts.series
+print(f"Data shape: {data.shape}")
+print(f"Sample values: {data.head(3).values}")
 ```
 
 **Output:**
 ```
-Starting with: ChainExample#1_RAW#1
-Applied resample, now have: ChainExample#1_RESAMPLED#1
-Applied linear_interpolation, now have: ChainExample#1_LIN-INT#1
+Processed series name: Temperature#1_LIN-INT#1
+Processing steps: 1
+Last processing step: ProcessingType.GAP_FILLING
+Data shape: (100,)
+Sample values: [24.96714153 18.61735699 26.47688538]
 ```
 
-### Available Processing Functions
+## Signal Attributes
 
 ```python
-from meteaudata import (
-    resample,           # Change sampling frequency
-    linear_interpolation, # Fill gaps with linear interpolation
-    subset,             # Extract time ranges
-    # replace_ranges      # Replace values in specific ranges - check if available
-)
-
-# Create a signal for processing examples
-proc_data = pd.Series(np.random.normal(22, 2, 144), 
-                     index=pd.date_range('2024-01-01', periods=144, freq='10min'),
-                     name="RAW")
-proc_signal = Signal(
-    input_data=proc_data,
-    name="ProcessingExample",
-    provenance=provenance,
-    units="°C"
-)
-
-raw_name = list(proc_signal.time_series.keys())[0]
-
-# Resample to different frequencies
-proc_signal.process([raw_name], resample, frequency="30min")
-resample_30min = list(proc_signal.time_series.keys())[-1]
-
-proc_signal.process([raw_name], resample, frequency="1H")
-resample_1h = list(proc_signal.time_series.keys())[-1]
-
-print("Created resampled series:")
-print(f"  30min: {resample_30min}")
-print(f"  1H: {resample_1h}")
-
-# Extract a specific time period (using rank-based subset for integer positions)
-proc_signal.process(
-    [raw_name], 
-    subset,
-    start_position=48,  # Start at position 48 (integer index)
-    end_position=96,    # End at position 96 (integer index)
-    rank_based=True     # Use integer positions, not datetime index values
-)
-subset_name = list(proc_signal.time_series.keys())[-1]
-print(f"Created subset: {subset_name}")
-
-# Fill gaps in data
-proc_signal.process([subset_name], linear_interpolation)
-final_name = list(proc_signal.time_series.keys())[-1]
-print(f"Final processed series: {final_name}")
+# Explore signal metadata
+print(f"Signal name: {signal.name}")
+print(f"Units: {signal.units}")
+print(f"Created on: {signal.created_on}")
+print(f"Provenance: {signal.provenance.parameter}")
+print(f"Equipment: {signal.provenance.equipment}")
 ```
 
 **Output:**
 ```
-Created resampled series:
-  30min: ProcessingExample#1_RESAMPLED#1
-  1H: ProcessingExample#1_RESAMPLED#2
-Created subset: ProcessingExample#1_SLICE#1
-Final processed series: ProcessingExample#1_LIN-INT#1
+Signal name: Temperature#1
+Units: °C
+Created on: 2025-07-29 21:42:33.788950
+Provenance: Temperature
+Equipment: Temperature Sensor v2.1
 ```
 
-## Working with Multiple Time Series
-
-### Accessing Different Processing Stages
-
-```python
-# A signal can contain multiple processed versions of the data
-signal_keys = list(proc_signal.time_series.keys())
-print("Available time series:")
-for key in signal_keys:
-    ts = proc_signal.time_series[key]
-    print(f"  {key}: {len(ts.series)} points")
-    
-# Compare raw vs processed data
-raw_data = proc_signal.time_series[signal_keys[0]].series
-processed_data = proc_signal.time_series[signal_keys[1]].series
-
-print(f"\nData comparison:")
-print(f"Raw data: {len(raw_data)} points")
-print(f"First processed: {len(processed_data)} points")
-```
-
-**Output:**
-```
-Available time series:
-  ProcessingExample#1_RAW#1: 144 points
-  ProcessingExample#1_RESAMPLED#1: 48 points
-  ProcessingExample#1_RESAMPLED#2: 24 points
-  ProcessingExample#1_SLICE#1: 48 points
-  ProcessingExample#1_LIN-INT#1: 48 points
-
-Data comparison:
-Raw data: 144 points
-First processed: 48 points
-```
-
-### Processing History
-
-```python
-# View complete processing history
-def show_processing_history(signal, series_name):
-    ts = signal.time_series[series_name]
-    print(f"\nProcessing history for {series_name}:")
-    for i, step in enumerate(ts.processing_steps, 1):
-        print(f"  {i}. {step.description}")
-        print(f"     Function: {step.function_info.name} v{step.function_info.version}")
-        print(f"     When: {step.run_datetime}")
-        if step.parameters:
-            print(f"     Parameters: {step.parameters}")
-
-# Show history for the most processed series
-latest_series = list(proc_signal.time_series.keys())[-1]
-show_processing_history(proc_signal, latest_series)
-```
-
-**Output:**
-```
-Processing history for ProcessingExample#1_LIN-INT#1:
-  1. A simple processing function that slices a series to given indices.
-     Function: subset v0.1
-     When: 2025-07-24 10:30:05.411596
-     Parameters: start_position=48 end_position=96 rank_based=True
-  2. A simple processing function that linearly interpolates a series
-     Function: linear interpolation v0.1
-     When: 2025-07-24 10:30:05.412091
-     Parameters:
-```
-
-## Visualization and Display
-
-### Built-in Display Methods
-
-```python
-# Rich display shows metadata + structure
-temperature_signal.display()
-
-# Plot time series data - need to specify which series to plot
-all_series_names = list(temperature_signal.time_series.keys())
-fig = temperature_signal.plot(ts_names=all_series_names)  # Plot all time series in the signal
-print("Generated plot for all time series")
-
-# Plot specific time series
-series_names = list(temperature_signal.time_series.keys())[:2]  # First 2 series
-if len(series_names) > 1:
-    fig2 = temperature_signal.plot(ts_names=series_names)
-    print(f"Generated comparison plot for: {series_names}")
-```
-
-**Output:**
-```
-Generated plot for all time series
-Generated comparison plot for: ['ReactorTemp#1_RAW#1', 'ReactorTemp#1_RESAMPLED#1']
-```
-
---8<-- "assets/generated/meteaudata_signal_plot_c21c8776.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_c21c8776.html"
-
---8<-- "assets/generated/display_content_c21c8776_1.html"
-
-### Custom Visualization
-
-```python
-import matplotlib.pyplot as plt
-
-# Extract data for custom plotting
-series_names = list(temperature_signal.time_series.keys())
-raw_series = temperature_signal.time_series[series_names[0]].series
-
-plt.figure(figsize=(12, 6))
-plt.plot(raw_series.index, raw_series.values, label="Raw", alpha=0.7)
-
-if len(series_names) > 1:
-    processed_series = temperature_signal.time_series[series_names[-1]].series
-    plt.plot(processed_series.index, processed_series.values, label="Processed", linewidth=2)
-
-plt.xlabel("Time")
-plt.ylabel(f"Temperature ({temperature_signal.units})")
-plt.title(f"{temperature_signal.name} - Data Overview")
-plt.legend()
-plt.grid(True, alpha=0.3)
-plt.show()
-```
-
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmplvl7jxg2.py", line 385, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/display_content_d892cc6b_1.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_d892cc6b.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_d892cc6b.html"
-
-## Saving and Loading Signals
-
-### Save Signal to Disk
-
-```python
-import tempfile
-import os
-
-# Save signal to a temporary directory for demonstration
-temp_dir = tempfile.mkdtemp()
-save_path = os.path.join(temp_dir, "reactor_temperature_data")
-
-temperature_signal.save(save_path)
-print(f"Signal saved to: {save_path}")
-
-# List what was created
-if os.path.exists(save_path):
-    files = os.listdir(save_path)
-    print("Created files:")
-    for file in files:
-        print(f"  {file}")
-```
-
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpmd9wvj9b.py", line 382, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/display_content_70d1000c_1.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_70d1000c.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_70d1000c.html"
-
-### Load Signal from Disk
-
-```python
-# Load signal back from directory
-zip_files = [f for f in os.listdir(save_path) if f.endswith('.zip')]
-if zip_files:
-    zip_path = os.path.join(save_path, zip_files[0])
-    loaded_signal = Signal.load_from_directory(zip_path, "ReactorTemp")
-    
-    # Verify it loaded correctly
-    print(f"Loaded signal: {loaded_signal.name}")
-    print(f"Time series: {list(loaded_signal.time_series.keys())}")
-    print(f"Units: {loaded_signal.units}")
-else:
-    print("No zip file found for loading example")
-```
-
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp8rol2qi3.py", line 382, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/display_content_cab080e1_1.html"
-
---8<-- "assets/generated/meteaudata_timeseries_plot_cab080e1.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_cab080e1.html"
-
-## Advanced Signal Operations
-
-### Branching Processing
-
-Create multiple processing branches from the same raw data:
-
-```python
-# Create a signal for branching example
-branch_data = pd.Series(np.random.normal(18, 2, 288), 
-                       index=pd.date_range('2024-01-01', periods=288, freq='5min'),
-                       name="RAW")
-branch_signal = Signal(
-    input_data=branch_data,
-    name="BranchExample",
-    provenance=provenance,
-    units="°C"
-)
-
-raw_series = list(branch_signal.time_series.keys())[0]
-
-# Branch 1: High-frequency analysis
-branch_signal.process([raw_series], resample, frequency="1min")
-high_freq_series = list(branch_signal.time_series.keys())[-1]
-
-# Branch 2: Daily trends  
-branch_signal.process([raw_series], resample, frequency="1H")
-hourly_series = list(branch_signal.time_series.keys())[-1]
-
-# Branch 3: Quality control subset (first 100 data points)
-branch_signal.process([raw_series], subset, start_position=0, end_position=100, rank_based=True)
-qc_series = list(branch_signal.time_series.keys())[-1]
-
-print("Processing branches created:")
-print(f"  High frequency: {high_freq_series}")
-print(f"  Hourly trends: {hourly_series}")
-print(f"  Quality control: {qc_series}")
-
-# Show final signal structure
-print(f"\nFinal signal has {len(branch_signal.time_series)} time series:")
-for name in branch_signal.time_series.keys():
-    ts = branch_signal.time_series[name]
-    print(f"  {name}: {len(ts.series)} points")
-```
-
-**Output:**
-
-**Errors:**
-```
-Traceback (most recent call last):
-  File "/var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpmhxz9j6r.py", line 382, in <module>
-    import matplotlib.pyplot as plt
-ModuleNotFoundError: No module named 'matplotlib'
-```
-
---8<-- "assets/generated/meteaudata_timeseries_plot_87044375.html"
-
---8<-- "assets/generated/display_content_87044375_1.html"
-
---8<-- "assets/generated/meteaudata_signal_plot_87044375.html"
-
-## Best Practices
-
-### Signal Naming
-- Use descriptive names: `"ReactorTemp"` not `"T1"`
-- Be consistent across your project
-- Include location/equipment info if helpful: `"Reactor1_Temperature"`
-
-### Metadata Management
-- Always provide complete DataProvenance information
-- Include equipment model numbers and calibration dates
-- Document the physical meaning of your parameters
-
-### Processing Strategy
-- Keep raw data unchanged
-- Apply processing steps incrementally
-- Document the purpose of each processing step
-- Validate data quality after each major processing step
-
-### Performance Considerations
-- Large signals (>1M points) may be slow to process
-- Consider resampling to reduce data size before complex operations
-- Save intermediate results for long processing pipelines
-
-## Next Steps
-
-- Learn about [Managing Datasets](datasets.md) to work with multiple signals
-- Explore [Time Series Processing](time-series.md) for advanced processing techniques
-- Check out [Processing Steps](processing-steps.md) to create custom processing functions
-- See [Visualization](visualization.md) for advanced plotting techniques
+## See Also
+
+- [Managing Datasets](datasets.md) - Combining multiple signals
+- [Time Series Processing](time-series.md) - Working with individual time series
+- [Processing Steps](processing-steps.md) - Available processing functions

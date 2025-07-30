@@ -1,48 +1,29 @@
 # Dataset
 
-!!! abstract "Usage Documentation"
-    [Models](../concepts/models.md)
-
-A base class for creating Pydantic models.
-
-Attributes:
-    __class_vars__: The names of the class variables defined on the model.
-    __private_attributes__: Metadata about the private attributes of the model.
-    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
-
-    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
-    __pydantic_core_schema__: The core schema of the model.
-    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
-    __pydantic_decorators__: Metadata containing the decorators defined on the model.
-        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
-    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
-        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
-    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
-    __pydantic_post_init__: The name of the post-init method for the model, if defined.
-    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
-    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
-    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
-
-    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
-    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
-
-    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
-        is set to `'allow'`.
-    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
-    __pydantic_private__: Values of private attributes set on the model instance.
+Collection of signals representing a complete monitoring dataset.
+    
+    A Dataset groups multiple signals that are collected together as part of
+    a monitoring project or analysis workflow. It provides project-level
+    metadata and enables coordinated processing operations across multiple
+    parameters.
+    
+    Datasets support cross-signal processing operations and maintain consistent
+    naming conventions across all contained signals. They provide the highest
+    level of organization for environmental monitoring data with complete
+    metadata preservation and serialization capabilities.
 
 ## Field Definitions
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `created_on` | `datetime` | ✗ | `2025-07-23 12:24:12.440358` | No description provided |
-| `last_updated` | `datetime` | ✗ | `2025-07-23 12:24:12.440368` | No description provided |
-| `name` | `str` | ✓ | `PydanticUndefined` | No description provided |
-| `description` | `None` | ✗ | `—` | No description provided |
-| `owner` | `None` | ✗ | `—` | No description provided |
-| `signals` | `dict` | ✓ | `PydanticUndefined` | No description provided |
-| `purpose` | `None` | ✗ | `—` | No description provided |
-| `project` | `None` | ✗ | `—` | No description provided |
+| `created_on` | `datetime` | ✗ | `Factory: now()` | Timestamp when this Dataset was created |
+| `last_updated` | `datetime` | ✗ | `Factory: now()` | Timestamp of the most recent modification to this Dataset |
+| `name` | `str` | ✓ | `—` | Name identifying this dataset |
+| `description` | `None` | ✗ | `None` | Detailed description of the dataset contents and purpose |
+| `owner` | `None` | ✗ | `None` | Person or organization responsible for this dataset |
+| `signals` | `dict` | ✓ | `—` | Dictionary mapping signal names to Signal objects in this dataset |
+| `purpose` | `None` | ✗ | `None` | Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research') |
+| `project` | `None` | ✗ | `None` | Project or study name associated with this dataset |
 
 ## Detailed Field Descriptions
 
@@ -50,61 +31,63 @@ Attributes:
 
 **Type:** `datetime`
 **Required:** No
-**Default:** `2025-07-23 12:24:12.440358`
+**Default:** Factory: now()
 
-No description provided
+Timestamp when this Dataset was created
 
 ### last_updated
 
 **Type:** `datetime`
 **Required:** No
-**Default:** `2025-07-23 12:24:12.440368`
+**Default:** Factory: now()
 
-No description provided
+Timestamp of the most recent modification to this Dataset
 
 ### name
 
 **Type:** `str`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Name identifying this dataset
 
 ### description
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Detailed description of the dataset contents and purpose
 
 ### owner
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Person or organization responsible for this dataset
 
 ### signals
 
 **Type:** `dict`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Dictionary mapping signal names to Signal objects in this dataset
 
 ### purpose
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research')
 
 ### project
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Project or study name associated with this dataset
 
 ## Usage Example
 
@@ -112,8 +95,14 @@ No description provided
 from meteaudata.types import Dataset
 
 # Create a Dataset instance
-instance = Dataset(
-    name="example_value",
-    signals={}
+dataset = Dataset(
+    name="river_monitoring_2024",
+    description="Continuous water quality monitoring",
+    owner="Environmental Team",
+    signals={
+        "temperature": temp_signal,
+        "dissolved_oxygen": do_signal
+    },
+    project="water_quality_assessment"
 )
 ```

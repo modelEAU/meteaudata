@@ -966,8 +966,8 @@ class Signal(BaseModel, DisplayableBase):
     """
 
     model_config: dict = {"arbitrary_types_allowed": True}
-    created_on: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp when this Signal was created")
-    last_updated: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp of the most recent modification to this Signal")
+    created_on: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(), description="Timestamp when this Signal was created")
+    last_updated: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(), description="Timestamp of the most recent modification to this Signal")
     input_data: Optional[Union[pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]]] = Field(
         default=None, 
         description="Initial data used to create the Signal (removed after initialization)"
@@ -987,7 +987,7 @@ class Signal(BaseModel, DisplayableBase):
         description="Information about the source and context of this signal's data"
     )
     time_series: dict[str, TimeSeries] = Field(
-        default_factory=dict, 
+        default_factory=lambda: dict(), 
         description="Dictionary mapping time series names to TimeSeries objects for this signal"
     )
 
@@ -1670,9 +1670,9 @@ class Signal(BaseModel, DisplayableBase):
             'created_on': self.created_on,
             'last_updated': self.last_updated,
             'time_series_count': len(self.time_series),
-            'time_series': self.time_series,
         }
-        
+        for timeseries_name, timeseries in self.time_series.items():
+            attrs[f"timeseries_{timeseries_name}"] = timeseries._get_display_attributes()
         return attrs
 
     
@@ -1736,8 +1736,8 @@ class Dataset(BaseModel, DisplayableBase):
     metadata preservation and serialization capabilities.
         
     """
-    created_on: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp when this Dataset was created")
-    last_updated: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp of the most recent modification to this Dataset")
+    created_on: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp when this Dataset was created")
+    last_updated: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the most recent modification to this Dataset")
     name: str = Field(description="Name identifying this dataset")
     description: Optional[str] = Field(default=None, description="Detailed description of the dataset contents and purpose")
     owner: Optional[str] = Field(default=None, description="Person or organization responsible for this dataset")
@@ -2072,11 +2072,10 @@ class Dataset(BaseModel, DisplayableBase):
             'project': self.project,
             'created_on': self.created_on,
             'last_updated': self.last_updated,
-            'signals': self.signals,
             'signals_count': len(self.signals),
         }
 
-        
-        
-        
+        for signal_name, signal in self.signals.items():
+            attrs[f"signal_{signal_name}"] = signal._get_display_attributes()
+
         return attrs

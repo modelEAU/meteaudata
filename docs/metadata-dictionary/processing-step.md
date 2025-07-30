@@ -1,49 +1,30 @@
 # ProcessingStep
 
-!!! abstract "Usage Documentation"
-    [Models](../concepts/models.md)
-
-A base class for creating Pydantic models.
-
-Attributes:
-    __class_vars__: The names of the class variables defined on the model.
-    __private_attributes__: Metadata about the private attributes of the model.
-    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
-
-    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
-    __pydantic_core_schema__: The core schema of the model.
-    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
-    __pydantic_decorators__: Metadata containing the decorators defined on the model.
-        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
-    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
-        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
-    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
-    __pydantic_post_init__: The name of the post-init method for the model, if defined.
-    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
-    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
-    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
-
-    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
-    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
-
-    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
-        is set to `'allow'`.
-    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
-    __pydantic_private__: Values of private attributes set on the model instance.
+Record of a single data processing operation applied to time series.
+    
+    This class documents individual steps in a data processing pipeline, capturing
+    the type of processing performed, when it was executed, the function used,
+    and the parameters applied. Each step maintains a complete audit trail of
+    data transformations.
+    
+    Processing steps are chained together to form a complete processing history,
+    enabling full traceability from raw data to final processed results. The
+    step_distance field tracks temporal shifts introduced by operations like
+    forecasting or lag analysis.
 
 ## Field Definitions
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `type` | `ProcessingType` | ✓ | `PydanticUndefined` | No description provided |
-| `description` | `str` | ✓ | `PydanticUndefined` | No description provided |
-| `run_datetime` | `datetime` | ✓ | `PydanticUndefined` | No description provided |
-| `requires_calibration` | `bool` | ✓ | `PydanticUndefined` | No description provided |
-| `function_info` | `FunctionInfo` | ✓ | `PydanticUndefined` | No description provided |
-| `parameters` | `None` | ✓ | `PydanticUndefined` | No description provided |
-| `step_distance` | `int` | ✗ | `0` | No description provided |
-| `suffix` | `str` | ✓ | `PydanticUndefined` | No description provided |
-| `input_series_names` | `list` | ✗ | `PydanticUndefined` | No description provided |
+| `type` | `ProcessingType` | ✓ | `—` | Category of processing operation performed |
+| `description` | `str` | ✓ | `—` | Human-readable description of what this processing step accomplished |
+| `run_datetime` | `datetime` | ✓ | `—` | Timestamp when this processing step was executed |
+| `requires_calibration` | `bool` | ✓ | `—` | Whether this processing step requires calibration data or parameters |
+| `function_info` | `FunctionInfo` | ✓ | `—` | Information about the function used for processing |
+| `parameters` | `None` | ✗ | `None` | Parameters passed to the processing function |
+| `step_distance` | `int` | ✗ | `0` | Number of time steps shifted (positive for future predictions, negative for lag operations) |
+| `suffix` | `str` | ✓ | `—` | Short identifier appended to time series names (e.g., 'SMOOTH', 'FILT', 'PRED') |
+| `input_series_names` | `list` | ✗ | `Empty list ([])` | Names of input time series used in this processing step |
 
 ## Detailed Field Descriptions
 
@@ -51,70 +32,83 @@ Attributes:
 
 **Type:** `ProcessingType`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Category of processing operation performed
 
 ### description
 
 **Type:** `str`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Human-readable description of what this processing step accomplished
 
 ### run_datetime
 
 **Type:** `datetime`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Timestamp when this processing step was executed
 
 ### requires_calibration
 
 **Type:** `bool`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Whether this processing step requires calibration data or parameters
 
 ### function_info
 
 **Type:** `FunctionInfo`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Information about the function used for processing
 
 ### parameters
 
 **Type:** `None`
-**Required:** Yes
-**Default:** `PydanticUndefined`
+**Required:** No
+**Default:** None
 
-No description provided
+Parameters passed to the processing function
 
 ### step_distance
 
 **Type:** `int`
 **Required:** No
-**Default:** `0`
+**Default:** 0
 
-No description provided
+Number of time steps shifted (positive for future predictions, negative for lag operations)
 
 ### suffix
 
 **Type:** `str`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Short identifier appended to time series names (e.g., 'SMOOTH', 'FILT', 'PRED')
 
 ### input_series_names
 
 **Type:** `list`
 **Required:** No
-**Default:** `PydanticUndefined`
+**Default:** Empty list ([])
 
-No description provided
+Names of input time series used in this processing step
+
+## Usage Example
+
+```python
+from meteaudata.types import ProcessingStep
+
+# Create a ProcessingStep instance
+from datetime import datetime
+
+step = ProcessingStep(
+    type=ProcessingType.SMOOTHING,
+    description="Applied moving average smoothing",
+    run_datetime=datetime.now(),
+    requires_calibration=False,
+    function_info=func_info,
+    suffix="SMOOTH",
+    input_series_names=["temperature#1_RAW#1"]
+)
+```

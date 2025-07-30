@@ -107,7 +107,7 @@ def main():
         print(f"  {template_file}")
     
     print("\nProcessing templates...")
-    template_files = template_files[2:3] # DEBUG
+    
     # Process each template file
     for template_file in template_files:
         output_path = get_output_path(template_file)

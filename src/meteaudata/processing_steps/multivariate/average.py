@@ -16,6 +16,7 @@ def average_signals(
     input_signals: list[Signal],
     input_series_names: list[str],
     final_provenance: Optional[DataProvenance] = None,
+    check_units: bool = True,
     *args,
     **kwargs,
 ) -> list[Signal]:
@@ -40,18 +41,20 @@ def average_signals(
         suffix="RAW",
     )
     units_set = set([signal.units for signal in input_signals])
-    if len(units_set) > 1:
-        raise ValueError(
-            f"Signals have different units: {units_set}. Please provide signals with the same units."
-        )
-    input_series = []
+    if check_units:
+        if len(units_set) > 1:
+            raise ValueError(
+                f"Signals have different units: {units_set}. Please provide signals with the same units."
+            )
+        
+    input_series = {}
     for signal, ts_name in zip(input_signals, input_series_names):
-        input_series.append(signal.time_series[ts_name].series)
+        input_series[ts_name] = signal.time_series[ts_name].series
 
     # Check if the index is a datetime index
-    for col in input_series:
+    for name, col in input_series.items():
         col = col.copy()
-        col_name = col.name
+        col_name = name
         signal, _ = str(col_name).split("_")
         if not isinstance(col.index, (pd.DatetimeIndex, pd.TimedeltaIndex)):
             raise IndexError(
@@ -80,3 +83,4 @@ def average_signals(
         )
     )
     return outputs
+

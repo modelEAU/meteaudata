@@ -1,47 +1,27 @@
 # DataProvenance
 
-!!! abstract "Usage Documentation"
-    [Models](../concepts/models.md)
-
-A base class for creating Pydantic models.
-
-Attributes:
-    __class_vars__: The names of the class variables defined on the model.
-    __private_attributes__: Metadata about the private attributes of the model.
-    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
-
-    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
-    __pydantic_core_schema__: The core schema of the model.
-    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
-    __pydantic_decorators__: Metadata containing the decorators defined on the model.
-        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
-    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
-        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
-    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
-    __pydantic_post_init__: The name of the post-init method for the model, if defined.
-    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
-    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
-    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
-
-    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
-    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
-
-    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
-        is set to `'allow'`.
-    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
-    __pydantic_private__: Values of private attributes set on the model instance.
+Information about the source and context of time series data.
+    
+    This class captures essential metadata about where time series data originated,
+    including the source repository, project context, physical location, equipment
+    used, and the measured parameter. This information is crucial for data
+    traceability and understanding measurement context in environmental monitoring.
+    
+    Provenance information enables users to assess data quality, understand
+    measurement conditions, and make informed decisions about data usage in
+    analysis and modeling workflows.
 
 ## Field Definitions
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `source_repository` | `None` | ✗ | `—` | No description provided |
-| `project` | `None` | ✗ | `—` | No description provided |
-| `location` | `None` | ✗ | `—` | No description provided |
-| `equipment` | `None` | ✗ | `—` | No description provided |
-| `parameter` | `None` | ✗ | `—` | No description provided |
-| `purpose` | `None` | ✗ | `—` | No description provided |
-| `metadata_id` | `None` | ✗ | `—` | No description provided |
+| `source_repository` | `None` | ✗ | `None` | Name or identifier of the data repository or database |
+| `project` | `None` | ✗ | `None` | Project name or identifier under which data was collected |
+| `location` | `None` | ✗ | `None` | Physical location where measurements were taken (e.g., 'Site_A', 'Influent_Tank_1') |
+| `equipment` | `None` | ✗ | `None` | Equipment or instrument used for data collection (e.g., 'pH_probe_001', 'flow_meter') |
+| `parameter` | `None` | ✗ | `None` | Physical/chemical parameter being measured (e.g., 'temperature', 'dissolved_oxygen', 'TSS') |
+| `purpose` | `None` | ✗ | `None` | Purpose or context of the measurement (e.g., 'regulatory_compliance', 'process_optimization') |
+| `metadata_id` | `None` | ✗ | `None` | Unique identifier for linking to external metadata systems |
 
 ## Detailed Field Descriptions
 
@@ -49,50 +29,57 @@ Attributes:
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Name or identifier of the data repository or database
 
 ### project
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Project name or identifier under which data was collected
 
 ### location
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Physical location where measurements were taken (e.g., 'Site_A', 'Influent_Tank_1')
 
 ### equipment
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Equipment or instrument used for data collection (e.g., 'pH_probe_001', 'flow_meter')
 
 ### parameter
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Physical/chemical parameter being measured (e.g., 'temperature', 'dissolved_oxygen', 'TSS')
 
 ### purpose
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Purpose or context of the measurement (e.g., 'regulatory_compliance', 'process_optimization')
 
 ### metadata_id
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Unique identifier for linking to external metadata systems
 
 ## Usage Example
 
@@ -100,6 +87,12 @@ No description provided
 from meteaudata.types import DataProvenance
 
 # Create a DataProvenance instance
-instance = DataProvenance(
+provenance = DataProvenance(
+    source_repository="station_database",
+    project="water_quality_monitoring",
+    location="river_site_A",
+    equipment="multiparameter_probe",
+    parameter="dissolved_oxygen",
+    purpose="compliance_monitoring"
 )
 ```

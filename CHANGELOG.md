@@ -81,3 +81,7 @@
 ## 0.9.0
 
 - The project now contains a documentation website!
+
+## 0.9.2
+
+- Fixed an issue where the HTML representation of meteaudata objects would not render properly. Updated documentation.

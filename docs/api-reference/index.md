@@ -33,8 +33,8 @@ Functions that operate on individual signals:
 - **`resample()`** - Change sampling frequency of time series
 - **`linear_interpolation()`** - Fill gaps using linear interpolation
 - **`subset()`** - Extract specific time ranges
-- **`replace_ranges()`** - Replace values in specified ranges
-- **`prediction()`** - Prediction-related functions
+- **`replace_ranges()`** - Replace values in specified ranges with another
+- **`predict_from_previous_point()`** - Simple proof-of-concept prediction function (not meant for actual use)
 
 ### [Multivariate Processing](processing/multivariate.md)
 Functions that operate across multiple signals:
@@ -138,42 +138,11 @@ dataset.process(
 - `signal.display()` - Rich display with metadata
 - `signal.plot()` - Plot time series data
 - `dataset.plot()` - Plot multiple signals
-- `signal.graph_display()` - Processing history graph
 
 ### Persistence
 - `signal.save()` - Save signal to disk
 - `dataset.save()` - Save dataset to disk
 
-## Type Annotations
-
-meteaudata is fully typed for better IDE support and code reliability:
-
-```python
-from meteaudata.types import (
-    SignalTransformFunctionProtocol,
-    DatasetTransformFunctionProtocol
-)
-from typing import List, Tuple
-import pandas as pd
-
-# Custom processing function signature
-def my_function(
-    input_series: List[pd.Series], 
-    *args, 
-    **kwargs
-) -> List[Tuple[pd.Series, List[ProcessingStep]]]:
-    # Implementation here
-    pass
-```
-
-## Error Handling
-
-Common exceptions you might encounter:
-
-- **`ValueError`** - Invalid parameters or data
-- **`KeyError`** - Accessing non-existent time series or signals
-- **`FileNotFoundError`** - Loading from invalid paths
-- **`AttributeError`** - Using methods incorrectly
 
 ## Best Practices
 
@@ -206,23 +175,6 @@ def my_processing_function(
     # Implementation
 ```
 
-### Type Safety
-Use type hints and validation:
-
-```python
-from typing import Union, Optional
-from meteaudata.types import Signal, Dataset
-
-def process_data(data: Union[Signal, Dataset]) -> None:
-    if isinstance(data, Signal):
-        # Handle signal
-        pass
-    elif isinstance(data, Dataset):
-        # Handle dataset  
-        pass
-    else:
-        raise TypeError(f"Expected Signal or Dataset, got {type(data)}")
-```
 
 ## Migration and Compatibility
 

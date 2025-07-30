@@ -1,436 +1,99 @@
 # Managing Datasets
 
-Datasets in meteaudata group multiple related signals together, enabling you to manage collections of time series data as a cohesive unit. This guide covers creating, managing, and processing datasets effectively.
+Datasets organize multiple signals together, representing a complete data collection (like all sensors from a treatment plant).
 
-## Understanding Datasets
-
-A Dataset is a container for multiple Signal objects that share common characteristics:
-- They're collected from the same location or system
-- They're part of the same research project or monitoring campaign  
-- They need to be processed together for analysis
-
-## Creating Datasets
-
-### Basic Dataset Creation
+## Creating a Dataset
 
 ```python
-import numpy as np
-import pandas as pd
-from meteaudata import Dataset, Signal, DataProvenance
-
-# Create multiple signals for a dataset
-timestamps = pd.date_range('2024-01-01', periods=100, freq='1H')
-
-# Temperature signal
-temp_data = pd.Series(np.random.normal(20, 2, 100), index=timestamps, name="RAW")
-temp_provenance = DataProvenance(
-    source_repository="Plant SCADA",
-    project="Process Monitoring",
-    location="Primary reactor",
-    equipment="Thermocouple TC-101",
-    parameter="Temperature",
-    purpose="Process control and monitoring",
-    metadata_id="TC101_2024"
-)
-temperature_signal = Signal(
-    input_data=temp_data, 
-    name="Temperature", 
-    provenance=temp_provenance, 
-    units="°C"
-)
-
-# pH signal  
-ph_data = pd.Series(np.random.normal(7.2, 0.3, 100), index=timestamps, name="RAW")
-ph_provenance = DataProvenance(
-    source_repository="Plant SCADA",
-    project="Process Monitoring", 
-    location="Primary reactor",
-    equipment="pH probe PH-201",
-    parameter="pH",
-    purpose="Process control and monitoring",
-    metadata_id="PH201_2024"
-)
-ph_signal = Signal(
-    input_data=ph_data, 
-    name="pH", 
-    provenance=ph_provenance, 
-    units="pH units"
-)
-
-# Create the dataset
-reactor_dataset = Dataset(
-    name="reactor_monitoring",
-    description="Primary reactor monitoring dataset with temperature and pH measurements",
-    owner="Process Engineer",
-    purpose="Monitor reactor conditions for process optimization",
-    project="Process Monitoring",
-    signals={
-        "Temperature": temperature_signal,
-        "pH": ph_signal
-    }
-)
-
-print(f"Created dataset '{reactor_dataset.name}' with {len(reactor_dataset.signals)} signals")
+print(f"Dataset: {dataset.name}")
+print(f"Contains {len(dataset.signals)} signals:")
+for name, signal in dataset.signals.items():
+    print(f"  - {name}: {signal.name} ({signal.units})")
 ```
 
 **Output:**
 ```
-Created dataset 'reactor_monitoring' with 2 signals
+Dataset: reactor_monitoring
+Contains 3 signals:
+  - Temperature#1: Temperature#1 (°C)
+  - pH#1: pH#1 (pH units)
+  - DissolvedOxygen#1: DissolvedOxygen#1 (mg/L)
 ```
 
-## Dataset Structure and Access
-
-### Accessing Signals
+## Accessing Signals
 
 ```python
-# First, let's see what signal keys are actually available
-print("Available signal keys:", list(reactor_dataset.signals.keys()))
+# Get a specific signal using the actual key
+signal_keys = list(dataset.signals.keys())
+temp_signal = dataset.signals[signal_keys[0]]  # Get first signal
+print(f"Temperature signal: {temp_signal.name}")
+print(f"Time series: {list(temp_signal.time_series.keys())}")
 
-# Access individual signals using the actual keys
-signal_names = list(reactor_dataset.signals.keys())
-if len(signal_names) >= 2:
-    temp_signal = reactor_dataset.signals[signal_names[0]]
-    ph_signal = reactor_dataset.signals[signal_names[1]]
-    print(f"Accessed signals: {signal_names[0]} and {signal_names[1]}")
-else:
-    print("Not enough signals found")
-
-# Access signal metadata
-for name, signal in reactor_dataset.signals.items():
-    print(f"{name}: {signal.units}, {len(signal.time_series)} time series")
+# Get signal data
+temp_data = temp_signal.time_series["Temperature#1_RAW#1"].series
+print(f"Temperature data points: {len(temp_data)}")
+print(f"Sample values: {temp_data.head(3).values}")
 ```
 
 **Output:**
 ```
-Available signal keys: ['Temperature#1', 'pH#1']
-Accessed signals: Temperature#1 and pH#1
-Temperature#1: °C, 1 time series
-pH#1: pH units, 1 time series
+Temperature signal: Temperature#1
+Time series: ['Temperature#1_RAW#1']
+Temperature data points: 100
+Sample values: [20.24835708 21.22496307 22.82384427]
 ```
 
-### Dataset Metadata
+## Dataset Processing
 
 ```python
-# View dataset-level information
-print(f"Dataset name: {reactor_dataset.name}")
-print(f"Description: {reactor_dataset.description}")
-print(f"Owner: {reactor_dataset.owner}")
-print(f"Project: {reactor_dataset.project}")
-print(f"Purpose: {reactor_dataset.purpose}")
-print(f"Number of signals: {len(reactor_dataset.signals)}")
+# Apply processing to all signals
+from meteaudata import linear_interpolation
+
+# Process temperature signal
+temp_signal.process(["Temperature#1_RAW#1"], linear_interpolation)
+print(f"Processed temperature signal")
+print(f"Temperature now has {len(temp_signal.time_series)} time series")
+
+# Check what's available
+print("Available time series:")
+for signal_name, signal in dataset.signals.items():
+    ts_names = list(signal.time_series.keys())
+    print(f"  {signal_name}: {ts_names}")
+```
+
+**Output:**
+```
+Processed temperature signal
+Temperature now has 2 time series
+Available time series:
+  Temperature#1: ['Temperature#1_RAW#1', 'Temperature#1_LIN-INT#1']
+  pH#1: ['pH#1_RAW#1']
+  DissolvedOxygen#1: ['DissolvedOxygen#1_RAW#1']
+```
+
+## Dataset Attributes
+
+```python
+print(f"Dataset name: {dataset.name}")
+print(f"Description: {dataset.description}")
+print(f"Owner: {dataset.owner}")
+print(f"Project: {dataset.project}")
+print(f"Created: {dataset.created_on}")
+print(f"Signal count: {len(dataset.signals)}")
 ```
 
 **Output:**
 ```
 Dataset name: reactor_monitoring
-Description: Primary reactor monitoring dataset with temperature and pH measurements
+Description: Multi-parameter monitoring of reactor R-101
 Owner: Process Engineer
-Project: Process Monitoring
-Purpose: Monitor reactor conditions for process optimization
-Number of signals: 2
+Project: Process Monitoring Study
+Created: 2025-07-29 21:42:26.037581
+Signal count: 3
 ```
 
-## Processing Datasets
+## See Also
 
-### Individual Signal Processing
-
-Process signals within the dataset independently:
-
-```python
-from meteaudata import resample, linear_interpolation
-
-# Process each signal individually
-for signal_name, signal in reactor_dataset.signals.items():
-    # Get the raw time series name
-    raw_series_name = list(signal.time_series.keys())[0]
-    
-    # Apply resampling with correct API
-    signal.process(
-        input_time_series_names=[raw_series_name], 
-        transform_function=resample, 
-        frequency="30min"
-    )
-    
-    print(f"Processed {signal_name}: {len(signal.time_series)} time series")
-```
-
-**Output:**
-```
-Processed Temperature#1: 2 time series
-Processed pH#1: 2 time series
-```
-
-### Multivariate Processing
-
-Process multiple signals together using dataset-level operations:
-
-```python
-# Check if multivariate processing functions are available
-try:
-    from meteaudata import average_signals
-    print("Multivariate processing functions available")
-    
-    # First check what signals are available
-    print("Available signals in dataset:", list(reactor_dataset.signals.keys()))
-    
-    # Get signal names safely
-    signal_names = list(reactor_dataset.signals.keys())
-    if len(signal_names) >= 2:
-        # Get the series names from each signal dynamically
-        first_signal_name = signal_names[0]
-        second_signal_name = signal_names[1]
-        
-        first_series_names = list(reactor_dataset.signals[first_signal_name].time_series.keys())
-        second_series_names = list(reactor_dataset.signals[second_signal_name].time_series.keys())
-        
-        print(f"{first_signal_name} series:", first_series_names)
-        print(f"{second_signal_name} series:", second_series_names)
-        
-        # Note: Dataset-level multivariate processing may need specific setup
-        print("Dataset multivariate processing would use these series names")
-    else:
-        print("Not enough signals available for multivariate processing")
-    
-except ImportError:
-    print("Multivariate processing functions not available in current version")
-    print("Processing signals individually instead")
-```
-
-**Output:**
-```
-Multivariate processing functions available
-Available signals in dataset: ['Temperature#1', 'pH#1']
-Temperature#1 series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
-pH#1 series: ['pH#1_RAW#1', 'pH#1_RESAMPLED#1']
-Dataset multivariate processing would use these series names
-```
-
-## Visualization
-
-### Dataset Overview Plots
-
-```python
-# Plot signals from the dataset
-# Display each signal individually since they have different units
-
-signal_names = list(reactor_dataset.signals.keys())
-for i, signal_name in enumerate(signal_names):
-    signal = reactor_dataset.signals[signal_name]
-    
-    print(f"=== {signal_name} Signal ===")
-    signal.display()
-    
-    # Plot the signal's time series
-    series_names = list(signal.time_series.keys())
-    if series_names:
-        fig = signal.plot(ts_names=series_names)
-        print(f"Generated plot for {signal_name} with series: {series_names}")
-    else:
-        print(f"No time series found for {signal_name}")
-    
-    if i < len(signal_names) - 1:
-        print()  # Add spacing between signals
-```
-
-**Output:**
-```
-=== Temperature#1 Signal ===
-Generated plot for Temperature#1 with series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
-
-=== pH#1 Signal ===
-Generated plot for pH#1 with series: ['pH#1_RAW#1', 'pH#1_RESAMPLED#1']
-```
-
-<iframe src="../../assets/generated/display_content_d6193649_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_d6193649.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_d6193649.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_d6193649_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-## Saving and Loading Datasets
-
-### Save Dataset
-
-```python
-import tempfile
-import os
-
-# Save entire dataset to a temporary location for demonstration
-temp_dir = tempfile.mkdtemp()
-save_path = os.path.join(temp_dir, "reactor_monitoring_dataset")
-
-reactor_dataset.save(save_path)
-print(f"Dataset saved to: {save_path}")
-
-# List what was created
-if os.path.exists(save_path):
-    files = os.listdir(save_path)
-    print("Created files:")
-    for file in files:
-        print(f"  {file}")
-```
-
-**Output:**
-```
-Dataset saved to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp6zofs53o/reactor_monitoring_dataset
-Created files:
-  reactor_monitoring.zip
-```
-
-<iframe src="../../assets/generated/display_content_f7f90a40_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_f7f90a40.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_f7f90a40_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_f7f90a40.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-### Load Dataset
-
-```python
-# Load complete dataset
-zip_files = [f for f in os.listdir(save_path) if f.endswith('.zip')]
-if zip_files:
-    zip_path = os.path.join(save_path, zip_files[0])
-    loaded_dataset = Dataset.load(zip_path, "reactor_monitoring")
-    
-    # Verify loaded correctly
-    print(f"Loaded dataset: {loaded_dataset.name}")
-    print(f"Signals: {list(loaded_dataset.signals.keys())}")
-    
-    # Check that signals and their time series were preserved
-    for signal_name, signal in loaded_dataset.signals.items():
-        print(f"{signal_name}: {len(signal.time_series)} time series")
-        for ts_name in signal.time_series.keys():
-            ts = signal.time_series[ts_name]
-            print(f"  {ts_name}: {len(ts.series)} points")
-else:
-    print("No zip file found for loading demonstration")
-```
-
-**Output:**
-```
-Loaded dataset: reactor_monitoring
-Signals: ['Temperature#1', 'pH#1']
-Temperature#1: 2 time series
-  Temperature#1_RAW#1: 100 points
-  Temperature#1_RESAMPLED#1: 199 points
-pH#1: 2 time series
-  pH#1_RAW#1: 100 points
-  pH#1_RESAMPLED#1: 199 points
-```
-
-<iframe src="../../assets/generated/display_content_bd18f69a_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_bd18f69a.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_bd18f69a_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_bd18f69a.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-## Dataset Analysis Examples
-
-### Comparing Signals
-
-```python
-# Extract and compare data from different signals
-signal_names = list(reactor_dataset.signals.keys())
-if len(signal_names) >= 2:
-    signal1 = reactor_dataset.signals[signal_names[0]]
-    signal2 = reactor_dataset.signals[signal_names[1]]
-    
-    # Get the first time series from each signal
-    signal1_series = signal1.time_series[list(signal1.time_series.keys())[0]].series
-    signal2_series = signal2.time_series[list(signal2.time_series.keys())[0]].series
-    
-    print("Data comparison:")
-    print(f"{signal_names[0]}: {len(signal1_series)} points, range {signal1_series.min():.1f} to {signal1_series.max():.1f} {signal1.units}")
-    print(f"{signal_names[1]}: {len(signal2_series)} points, range {signal2_series.min():.2f} to {signal2_series.max():.2f} {signal2.units}")
-    
-    # Check temporal alignment
-    print(f"\nTime range comparison:")
-    print(f"{signal_names[0]}: {signal1_series.index[0]} to {signal1_series.index[-1]}")
-    print(f"{signal_names[1]}: {signal2_series.index[0]} to {signal2_series.index[-1]}")
-    print(f"Signals are time-aligned: {signal1_series.index.equals(signal2_series.index)}")
-else:
-    print("Not enough signals for comparison")
-```
-
-**Output:**
-```
-Data comparison:
-Temperature#1: 100 points, range 14.8 to 23.7 °C
-pH#1: 100 points, range 6.62 to 8.02 pH units
-
-Time range comparison:
-Temperature#1: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
-pH#1: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
-Signals are time-aligned: True
-```
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_1dcbd3f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_1dcbd3f4_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_1dcbd3f4_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_1dcbd3f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-### Processing History Overview
-
-```python
-# Review processing applied to all signals in the dataset
-print("=== Dataset Processing Summary ===")
-for signal_name, signal in reactor_dataset.signals.items():
-    print(f"\n{signal_name} Signal:")
-    for ts_name, ts in signal.time_series.items():
-        print(f"  {ts_name}: {len(ts.processing_steps)} processing steps")
-        for i, step in enumerate(ts.processing_steps, 1):
-            print(f"    {i}. {step.description}")
-```
-
-**Output:**
-```
-=== Dataset Processing Summary ===
-
-Temperature#1 Signal:
-  Temperature#1_RAW#1: 0 processing steps
-  Temperature#1_RESAMPLED#1: 1 processing steps
-    1. A simple processing function that resamples a series to a given frequency
-
-pH#1 Signal:
-  pH#1_RAW#1: 0 processing steps
-  pH#1_RESAMPLED#1: 1 processing steps
-    1. A simple processing function that resamples a series to a given frequency
-```
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_144b721f.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_144b721f_2.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_144b721f_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_144b721f.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-## Best Practices
-
-### Dataset Design
-- Group related signals that share temporal and spatial context
-- Use consistent naming conventions across signals
-- Include complete metadata for reproducibility
-- Document the purpose and scope of your dataset
-
-### Processing Strategy
-- Synchronize time indices before multivariate analysis
-- Apply quality control checks across all signals
-- Process signals individually before combined operations  
-- Save intermediate results for complex processing chains
-
-## Next Steps
-
-- Learn about [Time Series Processing](time-series.md) for advanced analysis techniques
-- Explore [Processing Steps](processing-steps.md) to create custom multivariate functions
-- Check out [Visualization](visualization.md) for advanced dataset plotting
-- See [Basic Workflow Examples](../examples/basic-workflow.md) for complete analysis pipelines
+- [Working with Signals](signals.md) - Understanding individual signals
+- [Visualization](visualization.md) - Plotting datasets and signals
+- [Saving and Loading](saving-loading.md) - Persisting datasets

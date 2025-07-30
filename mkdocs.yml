@@ -46,7 +46,6 @@ nav:
     - Time Series Processing: user-guide/time-series.md
     - Processing Steps: user-guide/processing-steps.md
     - Visualization: user-guide/visualization.md
-    - Metadata Visualization: user-guide/metadata-visualization.md
     - Saving and Loading: user-guide/saving-loading.md
   - Metadata Dictionary:
     - Overview: metadata-dictionary/index.md
@@ -80,7 +79,6 @@ nav:
   - Development:
     - Contributing: development/contributing.md
     - Architecture: development/architecture.md
-    - Extending metEAUdata: development/extending.md
 
 plugins:
   - search

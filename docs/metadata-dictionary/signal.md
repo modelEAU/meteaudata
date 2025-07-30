@@ -1,36 +1,29 @@
 # Signal
 
-Represents a signal with associated time series data and processing steps.
-
-Attributes:
-    name (str): The name of the signal.
-    units (str): The units of the signal.
-    provenance (DataProvenance): Information about the data source and purpose.
-    last_updated (datetime.datetime): The timestamp of the last update.
-    created_on (datetime.datetime): The timestamp of the creation.
-    time_series (dict[str, TimeSeries]): Dictionary of time series associated with the signal.
-
-Methods:
-    new_ts_name(self, old_name: str) -> str: Generates a new name for a time series based on the signal name.
-    __init__(self, data: Union[pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]],
-             name: str, units: str, provenance: DataProvenance): Initializes the Signal object.
-    add(self, ts: TimeSeries) -> None: Adds a new time series to the signal.
-    process(self, input_time_series_names: list[str], transform_function: TransformFunctionProtocol, *args, **kwargs) -> Signal:
-        Processes the signal data using a transformation function.
-    all_time_series: Property that returns a list of all time series names associated with the signal.
-    __setattr__(self, name, value): Custom implementation to update 'last_updated' timestamp when attributes are set.
+Collection of related time series representing a measured parameter.
+    
+    A Signal groups multiple time series that represent the same physical
+    parameter (e.g., temperature) at different processing stages or from
+    different processing paths. This enables comparison between raw and
+    processed data, evaluation of different processing methods, and
+    maintenance of data lineage.
+    
+    Signals handle the naming conventions for time series, ensuring consistent
+    identification across processing workflows. They support processing
+    operations that can take multiple input time series and produce new
+    processed versions with complete metadata preservation.
 
 ## Field Definitions
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `created_on` | `datetime` | ✗ | `2025-07-23 12:24:12.439763` | No description provided |
-| `last_updated` | `datetime` | ✗ | `2025-07-23 12:24:12.439777` | No description provided |
-| `input_data` | `None` | ✗ | `—` | No description provided |
-| `name` | `str` | ✗ | `signal` | No description provided |
-| `units` | `str` | ✗ | `unit` | No description provided |
-| `provenance` | `DataProvenance` | ✗ | `PydanticUndefined` | No description provided |
-| `time_series` | `dict` | ✗ | `PydanticUndefined` | No description provided |
+| `created_on` | `datetime` | ✗ | `Factory: datetime()` | Timestamp when this Signal was created |
+| `last_updated` | `datetime` | ✗ | `Factory: datetime()` | Timestamp of the most recent modification to this Signal |
+| `input_data` | `None` | ✗ | `None` | Initial data used to create the Signal (removed after initialization) |
+| `name` | `str` | ✗ | `signal` | Name identifying this signal with automatic numbering (e.g., 'temperature#1') |
+| `units` | `str` | ✗ | `unit` | Units of measurement for this parameter (e.g., '°C', 'mg/L', 'NTU') |
+| `provenance` | `DataProvenance` | ✗ | `Factory: DataProvenance(...)` | Information about the source and context of this signal's data |
+| `time_series` | `dict` | ✗ | `Empty dictionary ({})` | Dictionary mapping time series names to TimeSeries objects for this signal |
 
 ## Detailed Field Descriptions
 
@@ -38,56 +31,57 @@ Methods:
 
 **Type:** `datetime`
 **Required:** No
-**Default:** `2025-07-23 12:24:12.439763`
+**Default:** Factory: datetime()
 
-No description provided
+Timestamp when this Signal was created
 
 ### last_updated
 
 **Type:** `datetime`
 **Required:** No
-**Default:** `2025-07-23 12:24:12.439777`
+**Default:** Factory: datetime()
 
-No description provided
+Timestamp of the most recent modification to this Signal
 
 ### input_data
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Initial data used to create the Signal (removed after initialization)
 
 ### name
 
 **Type:** `str`
 **Required:** No
-**Default:** `signal`
+**Default:** signal
 
-No description provided
+Name identifying this signal with automatic numbering (e.g., 'temperature#1')
 
 ### units
 
 **Type:** `str`
 **Required:** No
-**Default:** `unit`
+**Default:** unit
 
-No description provided
+Units of measurement for this parameter (e.g., '°C', 'mg/L', 'NTU')
 
 ### provenance
 
 **Type:** `DataProvenance`
 **Required:** No
-**Default:** `PydanticUndefined`
+**Default:** Factory: DataProvenance(...)
 
-No description provided
+Information about the source and context of this signal's data
 
 ### time_series
 
 **Type:** `dict`
 **Required:** No
-**Default:** `PydanticUndefined`
+**Default:** Empty dictionary ({})
 
-No description provided
+Dictionary mapping time series names to TimeSeries objects for this signal
 
 ## Usage Example
 
@@ -95,6 +89,10 @@ No description provided
 from meteaudata.types import Signal
 
 # Create a Signal instance
-instance = Signal(
+signal = Signal(
+    input_data=temperature_series,
+    name="temperature",
+    units="°C",
+    provenance=provenance
 )
 ```
