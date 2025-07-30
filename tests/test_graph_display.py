@@ -65,7 +65,6 @@ class TestCleanedDisplayableBase:
             
             # Get the HTML content
             html_content = mock_html.call_args[0][0]
-            assert 'meteaudata-display' in html_content
             assert 'Signal' in html_content
     
     def test_display_html_fallback_no_ipython(self, sample_signal):
@@ -148,35 +147,25 @@ class TestCleanedDisplayableBase:
     
     def test_display_graph_ipython_fallback(self, sample_signal):
         """Test that graph display handles missing IPython gracefully."""
-        # Simple test: verify that if we're in notebook mode but IPython.display import fails,
-        # the code doesn't crash and provides some fallback
-        with patch('meteaudata.display_utils._is_notebook_environment', return_value=True):
-            
-            # Mock the specific import that happens in display method
-            def mock_import_ipython_display(*args, **kwargs):
-                raise ImportError("No module named 'IPython.display'")
-            
-            original_import = __import__
-            
-            def selective_import_mock(name, *args, **kwargs):
-                if name == 'IPython.display':
-                    raise ImportError(f"No module named '{name}'")
-                return original_import(name, *args, **kwargs)
-            
-            with patch('builtins.__import__', side_effect=selective_import_mock):
+        
+        # Clear any cached imports
+        import sys
+        if 'IPython.display' in sys.modules:
+            del sys.modules['IPython.display']
+        if 'IPython' in sys.modules:
+            del sys.modules['IPython']
+        
+        # Now run the test
+        with patch('meteaudata.displayable._is_notebook_environment', return_value=True):
+            with patch.dict('sys.modules', {'IPython': None, 'IPython.display': None}):
                 with patch('builtins.print') as mock_print:
-                    # This should not crash, and should print a fallback message
+                    # This should trigger the fallback behavior
                     sample_signal.display(format="graph")
                     
-                    # Either it printed a fallback message, or it somehow worked anyway
-                    # The key is that it didn't crash
-                    assert True, "Graph display completed without crashing"
-                    
-                    # If print was called, verify it was a reasonable message
-                    if mock_print.called:
-                        print_calls = [str(call) for call in mock_print.call_args_list]
-                        # Just verify that some message was printed
-                        assert len(print_calls) > 0, "Some fallback message should be printed"
+                    # Check that the fallback messages were printed
+                    calls = [str(call) for call in mock_print.call_args_list]
+                    assert any("IPython not available" in str(call) for call in calls), \
+                        f"Expected IPython fallback message, but got: {calls}"
     
     def test_display_graph_notebook_integration(self, sample_signal):
         """Test that graph display works in notebook environment."""

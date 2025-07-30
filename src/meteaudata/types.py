@@ -7,7 +7,7 @@ import tempfile
 import zipfile
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol, Union
+from typing import Any, Dict, List, Optional, Protocol, Union
 
 import numpy as np
 import pandas as pd
@@ -761,9 +761,26 @@ class TimeSeries(BaseModel, DisplayableBase):
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
         legend_name: Optional[str] = None,
-        start=None,
-        end=None,
+        start: Optional[Union[str, datetime.datetime, pd.Timestamp]] = None,
+        end: Optional[Union[str, datetime.datetime, pd.Timestamp]] = None,
     ) -> go.Figure:
+        """
+        Create an interactive Plotly plot of the time series data.
+        
+        The plot styling is automatically determined by the processing type of the time series.
+        For prediction data, temporal shifting is applied to show future timestamps.
+        
+        Args:
+            title: Plot title. If None, uses the time series name.
+            y_axis: Y-axis label. If None, uses the time series name.
+            x_axis: X-axis label. If None, uses "Time".
+            legend_name: Legend entry name. If None, uses the time series name.
+            start: Start date for filtering data (datetime string or object).
+            end: End date for filtering data (datetime string or object).
+            
+        Returns:
+            Plotly Figure object with the time series plot.
+        """
         processing_type_to_marker = {
             ProcessingType.SORTING: "circle",
             ProcessingType.REMOVE_DUPLICATES: "circle",
@@ -915,37 +932,20 @@ class SignalTransformFunctionProtocol(Protocol):
     The protocol ensures consistent interfaces across different processing
     functions while maintaining complete audit trails of all transformations
     applied to environmental monitoring data.
-    
-    Parameters:
-        input_series (list[pd.Series]): List of pandas Series objects containing
-            the input time series data to be processed. Each series should have
-            proper datetime indexing and consistent data types.
-        *args: Additional positional arguments specific to the processing function.
-            Common examples include window sizes, filter parameters, or model settings.
-        **kwargs: Additional keyword arguments for function configuration.
-            Typical parameters include method selection, tolerance settings,
-            or processing options.
-    
-    Returns:
-        list[tuple[pd.Series, list[ProcessingStep]]]: List of tuples where each
-            tuple contains:
-            - A transformed pandas Series with the same index structure as inputs
-            - A list of ProcessingStep objects documenting the transformations applied
-    
     """
 
     def __call__(
-        self, input_series: list[pd.Series], *args, **kwargs
+        self, input_series: list[pd.Series], *args: Any, **kwargs: Any
     ) -> list[tuple[pd.Series, list[ProcessingStep]]]: 
         """Process input time series and return results with processing metadata.
                 
                 Args:
-                    input_series: List of pandas Series to be processed
+                    input_series (list[pd.Series]): List of pandas Series to be processed
                     *args: Function-specific positional arguments
                     **kwargs: Function-specific keyword arguments
                     
                 Returns:
-                    List of (processed_series, processing_steps) tuples
+                    list[tuple[pd.Series, list[ProcessingStep]]]: List of (processed_series, processing_steps) tuples
                 """
         ...
 
@@ -966,8 +966,8 @@ class Signal(BaseModel, DisplayableBase):
     """
 
     model_config: dict = {"arbitrary_types_allowed": True}
-    created_on: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp when this Signal was created")
-    last_updated: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp of the most recent modification to this Signal")
+    created_on: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(), description="Timestamp when this Signal was created")
+    last_updated: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(), description="Timestamp of the most recent modification to this Signal")
     input_data: Optional[Union[pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]]] = Field(
         default=None, 
         description="Initial data used to create the Signal (removed after initialization)"
@@ -987,7 +987,7 @@ class Signal(BaseModel, DisplayableBase):
         description="Information about the source and context of this signal's data"
     )
     time_series: dict[str, TimeSeries] = Field(
-        default_factory=dict, 
+        default_factory=lambda: dict(), 
         description="Dictionary mapping time series names to TimeSeries objects for this signal"
     )
 
@@ -1129,15 +1129,15 @@ class Signal(BaseModel, DisplayableBase):
         self,
         input_time_series_names: list[str],
         transform_function: SignalTransformFunctionProtocol,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> "Signal":
         """
         Processes the signal data using a transformation function.
 
         Args:
             input_time_series_names (list[str]): List of names of the input time series to be processed.
-            transform_function (TransformFunctionProtocol): The transformation function to be applied.
+            transform_function (SignalTransformFunctionProtocol): The transformation function to be applied.
             *args: Additional positional arguments to be passed to the transformation function.
             **kwargs: Additional keyword arguments to be passed to the transformation function.
 
@@ -1349,13 +1349,30 @@ class Signal(BaseModel, DisplayableBase):
 
     def plot(
         self,
-        ts_names: list[str],
+        ts_names: List[str],
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
-        start=None,
-        end=None,
+        start: Optional[Union[str, datetime.datetime, pd.Timestamp]] = None,
+        end: Optional[Union[str, datetime.datetime, pd.Timestamp]] = None,
     ) -> go.Figure:
+        """
+        Create an interactive Plotly plot with multiple time series from this signal.
+        
+        Each time series is plotted with different colors and appropriate styling based
+        on their processing types. Temporal shifting is applied automatically for prediction data.
+        
+        Args:
+            ts_names: List of time series names to plot. Must exist in this signal.
+            title: Plot title. If None, uses "Time series plot of {signal_name}".
+            y_axis: Y-axis label. If None, uses "{signal_name} ({units})".
+            x_axis: X-axis label. If None, uses "Time".
+            start: Start date for filtering data (datetime string or object).
+            end: End date for filtering data (datetime string or object).
+            
+        Returns:
+            Plotly Figure object with multiple time series traces.
+        """
         if not title:
             title = f"Time series plot of {self.name}"
         if not y_axis:
@@ -1377,7 +1394,7 @@ class Signal(BaseModel, DisplayableBase):
         )
         return fig
 
-    def build_dependency_graph(self, ts_name: str) -> list[dict[str, Any]]:
+    def build_dependency_graph(self, ts_name: str) -> List[Dict[str, Any]]:
         """
         Build a data structure that represents all the processig steps and their dependencies for a given time series.
         """
@@ -1401,6 +1418,18 @@ class Signal(BaseModel, DisplayableBase):
         return dependencies
 
     def plot_dependency_graph(self, ts_name: str) -> go.Figure:
+        """
+        Create a dependency graph visualization showing processing lineage for a time series.
+        
+        The graph displays time series as colored rectangles connected by lines representing
+        processing functions. The flow is temporal from left to right.
+        
+        Args:
+            ts_name: Name of the time series to trace dependencies for.
+            
+        Returns:
+            Plotly Figure object with the dependency graph visualization.
+        """
         dependencies = self.build_dependency_graph(ts_name)
         time_series_in_deps = set(
             [dep["origin"] for dep in dependencies]
@@ -1641,9 +1670,10 @@ class Signal(BaseModel, DisplayableBase):
             'created_on': self.created_on,
             'last_updated': self.last_updated,
             'time_series_count': len(self.time_series),
-            'time_series': self.time_series,
         }
-        
+        # Return actual TimeSeries objects, not their attributes
+        for timeseries_name, timeseries in self.time_series.items():
+            attrs[f"timeseries_{timeseries_name}"] = timeseries
         return attrs
 
     
@@ -1665,46 +1695,30 @@ class DatasetTransformFunctionProtocol(Protocol):
     The protocol ensures that new signals created by dataset processing maintain
     proper metadata inheritance and processing lineage from their input signals.
     
-    Parameters:
-        input_signals (list[Signal]): List of Signal objects containing the input
-            data. Each signal represents a different measured parameter with its
-            complete processing history and metadata.
-        input_series_names (list[str]): List of specific time series names to be
-            used from the input signals. Format: "signal_name_processing_suffix#number"
-            (e.g., "temperature#1_SMOOTH#1", "pH#1_RAW#1").
-        *args: Additional positional arguments specific to the processing function.
-        **kwargs: Additional keyword arguments for function configuration.
-    
-    Returns:
-        list[Signal]: List of new Signal objects created by the processing function.
-            Each signal should have appropriate metadata including provenance,
-            units, and processing history inherited from input signals.
-    
     Note:
         New signals created by dataset processing will have their project property
         automatically updated to match the parent dataset's project. The transform
         function is responsible for setting appropriate signal names, units,
         provenance parameters, and purposes.
-    
     """
 
     def __call__(
         self,
         input_signals: list[Signal],
         input_series_names: list[str],
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> list[Signal]:
         """Process input signals and return new signals with processing metadata.
         
         Args:
-            input_signals: List of Signal objects containing input data
-            input_series_names: Specific time series names to use from input signals
+            input_signals (list[Signal]): List of Signal objects containing input data
+            input_series_names (list[str]): Specific time series names to use from input signals
             *args: Function-specific positional arguments  
             **kwargs: Function-specific keyword arguments
             
         Returns:
-            List of new Signal objects created by processing
+            list[Signal]: List of new Signal objects created by processing
         """
         ...
 
@@ -1723,8 +1737,8 @@ class Dataset(BaseModel, DisplayableBase):
     metadata preservation and serialization capabilities.
         
     """
-    created_on: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp when this Dataset was created")
-    last_updated: datetime.datetime = Field(default=datetime.datetime.now(), description="Timestamp of the most recent modification to this Dataset")
+    created_on: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp when this Dataset was created")
+    last_updated: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the most recent modification to this Dataset")
     name: str = Field(description="Name identifying this dataset")
     description: Optional[str] = Field(default=None, description="Detailed description of the dataset contents and purpose")
     owner: Optional[str] = Field(default=None, description="Person or organization responsible for this dataset")
@@ -1893,15 +1907,15 @@ class Dataset(BaseModel, DisplayableBase):
         self,
         input_time_series_names: list[str],
         transform_function: DatasetTransformFunctionProtocol,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> "Dataset":
         """
         Processes the dataset data using a transformation function.
 
         Args:
-            input_signal_names (list[str]): List of names of the input time series to be processed.
-            transform_function (TransformFunctionProtocol): The transformation function to be applied.
+            input_time_series_names (list[str]): List of names of the input time series to be processed.
+            transform_function (DatasetTransformFunctionProtocol): The transformation function to be applied.
             *args: Additional positional arguments to be passed to the transformation function.
             **kwargs: Additional keyword arguments to be passed to the transformation function.
 
@@ -1956,14 +1970,32 @@ class Dataset(BaseModel, DisplayableBase):
 
     def plot(
         self,
-        signal_names: list[str],
-        ts_names: list[str],
+        signal_names: List[str],
+        ts_names: List[str],
         title: Optional[str] = None,
         y_axis: Optional[str] = None,
         x_axis: Optional[str] = None,
-        start=None,
-        end=None,
+        start: Optional[Union[str, datetime.datetime, pd.Timestamp]] = None,
+        end: Optional[Union[str, datetime.datetime, pd.Timestamp]] = None,
     ) -> go.Figure:
+        """
+        Create a multi-subplot visualization comparing time series across signals.
+        
+        Each signal gets its own subplot with shared x-axis (time). Only time series
+        that exist in each signal are plotted. Individual y-axis labels include units.
+        
+        Args:
+            signal_names: List of signal names to plot. Must exist in this dataset.
+            ts_names: List of time series names to plot from each signal.
+            title: Plot title. If None, uses "Time series plots of dataset {dataset_name}".
+            y_axis: Base Y-axis label. If None, uses "Values".
+            x_axis: X-axis label. If None, uses "Time".
+            start: Start date for filtering data (datetime string or object).
+            end: End date for filtering data (datetime string or object).
+            
+        Returns:
+            Plotly Figure object with subplots for each signal.
+        """
         if not title:
             title = f"Time series plots of dataset {self.name}"
         if not y_axis:
@@ -2041,11 +2073,11 @@ class Dataset(BaseModel, DisplayableBase):
             'project': self.project,
             'created_on': self.created_on,
             'last_updated': self.last_updated,
-            'signals': self.signals,
             'signals_count': len(self.signals),
         }
 
-        
-        
-        
+        # Return actual Signal objects, not their attributes
+        for signal_name, signal in self.signals.items():
+            attrs[f"signal_{signal_name}"] = signal
+
         return attrs

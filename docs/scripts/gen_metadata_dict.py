@@ -8,6 +8,7 @@ This script is run by mkdocs-gen-files during documentation build.
 
 import inspect
 import os
+import datetime
 from pathlib import Path
 from typing import get_type_hints, get_origin, get_args
 import mkdocs_gen_files
@@ -65,11 +66,76 @@ def get_field_info(model_class: type[BaseModel], field_name: str):
     field_type = type_hints.get(field_name, "Unknown")
     
     # Extract field properties
+    default_value = None
+    default_description = None
+    
+    # Import PydanticUndefined for proper comparison
+    try:
+        from pydantic_core import PydanticUndefined
+        undefined_marker = PydanticUndefined
+    except ImportError:
+        # Fallback for older Pydantic versions
+        undefined_marker = ...
+    
+    if field_info.default is not undefined_marker:
+        # Has a direct default value
+        default_value = field_info.default
+        # Check if it's a datetime that was computed at class definition time
+        if isinstance(default_value, datetime.datetime):
+            default_description = "Current timestamp (computed at startup)"
+        else:
+            default_description = str(default_value)
+    elif hasattr(field_info, 'default_factory') and field_info.default_factory is not None:
+        # Has a default factory
+        try:
+            # Try to get a meaningful description of the factory
+            factory = field_info.default_factory
+            
+            # Handle built-in types
+            if factory == dict:
+                default_description = "Empty dictionary ({})"
+            elif factory == list:
+                default_description = "Empty list ([])"
+            elif factory == set:
+                default_description = "Empty set"
+            elif hasattr(factory, '__name__'):
+                if factory.__name__ == '<lambda>':
+                    # For lambda functions, try to call it and see what we get
+                    try:
+                        sample_value = factory()
+                        if hasattr(sample_value, '__class__'):
+                            class_name = sample_value.__class__.__name__
+                            if hasattr(sample_value, '__dict__'):
+                                # For objects, show some key attributes
+                                attrs = sample_value.__dict__
+                                if len(attrs) <= 3 and all(isinstance(v, (str, int, float, bool)) for v in attrs.values()):
+                                    attr_strs = [f"{k}='{v}'" if isinstance(v, str) else f"{k}={v}" for k, v in list(attrs.items())[:3]]
+                                    default_description = f"Factory: {class_name}({', '.join(attr_strs)})"
+                                else:
+                                    default_description = f"Factory: {class_name}(...)"
+                            else:
+                                default_description = f"Factory: {class_name}()"
+                        else:
+                            default_description = f"Factory returns: {str(sample_value)}"
+                    except:
+                        default_description = "Factory function (lambda)"
+                elif factory.__name__ == 'datetime.datetime.now':
+                    default_description = "Current timestamp (datetime.now())"
+                elif 'datetime' in factory.__name__:
+                    default_description = f"Runtime computed ({factory.__name__})"
+                else:
+                    default_description = f"Factory: {factory.__name__}()"
+            else:
+                default_description = "Factory function"
+        except:
+            default_description = "Factory function"
+    
     info = {
         'name': field_name,
         'type': format_type_hint(field_type),
         'required': field_info.is_required(),
-        'default': field_info.default if field_info.default is not ... else None,
+        'default': default_value,
+        'default_description': default_description,
         'description': field_info.description or "No description provided",
         'constraints': {}
     }
@@ -128,9 +194,12 @@ def generate_model_documentation(model_class: type[BaseModel], filename: str):
         field_info = get_field_info(model_class, field_name)
         if field_info:
             required_text = "✓" if field_info['required'] else "✗"
-            default_text = str(field_info['default']) if field_info['default'] is not None else "—"
-            if len(default_text) > 30:
-                default_text = default_text[:27] + "..."
+            if field_info['default_description'] is not None:
+                default_text = field_info['default_description']
+                if len(default_text) > 50:
+                    default_text = default_text[:47] + "..."
+            else:
+                default_text = "—"
             
             content.append(
                 f"| `{field_info['name']}` | {field_info['type']} | {required_text} | `{default_text}` | {field_info['description']} |"
@@ -153,8 +222,8 @@ def generate_model_documentation(model_class: type[BaseModel], filename: str):
                 f"**Required:** {'Yes' if field_info['required'] else 'No'}",
             ])
             
-            if field_info['default'] is not None:
-                content.append(f"**Default:** `{field_info['default']}`")
+            if field_info['default_description'] is not None:
+                content.append(f"**Default:** {field_info['default_description']}")
             
             content.extend([
                 "",
@@ -324,23 +393,17 @@ def generate_enum_documentation(enum_class, filename: str):
     try:
         import inspect
         source_lines = inspect.getsourcelines(enum_class)[0]
-        current_field = None
         for line in source_lines:
             line = line.strip()
             if '=' in line and not line.startswith('#'):
                 # This is an enum field definition
                 field_name = line.split('=')[0].strip()
-                current_field = field_name
                 # Check if there's a comment on the same line
                 if '#' in line:
-                    comment = line.split('#', 1)[1].strip()
-                    if comment.startswith('"') and comment.endswith('"'):
-                        enum_descriptions[field_name] = comment[1:-1]
-            elif line.startswith('#') and current_field:
-                # This might be a description comment
-                comment = line[1:].strip()
-                if comment.startswith('"') and comment.endswith('"'):
-                    enum_descriptions[current_field] = comment[1:-1]
+                    comment_part = line.split('#', 1)[1].strip()
+                    # Handle format: FIELD = "value"  # "Description"
+                    if comment_part.startswith('"') and comment_part.endswith('"'):
+                        enum_descriptions[field_name] = comment_part[1:-1]
     except Exception:
         # If we can't parse source, just continue without descriptions
         pass
@@ -462,9 +525,13 @@ def main():
         print(f"Generating documentation for {model_class.__name__} -> {filename}")
         generate_model_documentation(model_class, filename)
         print(f"✓ Generated {filename}")
-    print("=== COMPLETED METADATA DICTIONARY GENERATION ===")
+    
     # Generate enum documentation
+    print("Generating documentation for ProcessingType -> metadata-dictionary/processing-type.md")
     generate_enum_documentation(ProcessingType, "metadata-dictionary/processing-type.md")
+    print("✓ Generated metadata-dictionary/processing-type.md")
+    
+    print("=== COMPLETED METADATA DICTIONARY GENERATION ===")
     
     # Generate protocol documentation
     protocols = [

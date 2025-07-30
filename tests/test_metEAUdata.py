@@ -220,7 +220,7 @@ def test_plots():
     dataset = sample_dataset()
     # add a prediction step to the dataset
     dataset.signals["A#1"] = dataset.signals["A#1"].process(
-        ["A#1_LIN-INT#1"], prediction.predict_previous_point
+        ["A#1_LIN-INT#1"], prediction.predict_from_previous_point
     )
     fig = dataset.signals["A#1"].time_series["A#1_PREV-PRED#1"].plot()
     assert fig is not None
@@ -254,7 +254,7 @@ def test_processing():
     dataset = sample_dataset()
     signal = dataset.signals["A#1"]
     # add a prediction step to the dataset
-    signal = signal.process(["A#1_LIN-INT#1"], prediction.predict_previous_point)
+    signal = signal.process(["A#1_LIN-INT#1"], prediction.predict_from_previous_point)
     for ts_name in signal.all_time_series:
         ts = signal.time_series[ts_name]
         steps = ts.processing_steps

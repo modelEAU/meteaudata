@@ -28,7 +28,7 @@ test-all: test test-docs ## Run all tests including documentation
 docs-serve: ## Serve documentation locally with auto-reload
 	uv run mkdocs serve
 
-docs-build: ## Build documentation for production
+docs-build: ## Build documentation for production ## TODO: Add strict mode
 	uv run mkdocs build --strict
 
 docs-deploy: ## Deploy documentation to GitHub Pages

@@ -10,7 +10,7 @@ from meteaudata.types import (
 )
 
 
-def predict_previous_point(
+def predict_from_previous_point(
     input_series: list[pd.Series], *args, **kwargs
 ) -> list[tuple[pd.Series, list[ProcessingStep]]]:
     """

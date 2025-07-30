@@ -21,6 +21,11 @@ Each page documents the fields, types, and validation rules for the core data st
 
 - **[ProcessingType](processing-type.md)** - Standardized processing step categories
 
+## Protocols
+
+- **[SignalTransformFunctionProtocol](signal-transform-protocol.md)** - Interface for Signal-level processing functions
+- **[DatasetTransformFunctionProtocol](dataset-transform-protocol.md)** - Interface for Dataset-level processing functions
+
 ## Standards and Conventions
 
 ### Naming Conventions

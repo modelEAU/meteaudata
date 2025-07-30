@@ -36,7 +36,7 @@ jobs:
           
       - name: Build documentation
         run: |
-          uv run mkdocs build 
+          uv run mkdocs build --strict
           
       - name: Upload documentation artifacts
         uses: actions/upload-pages-artifact@v3

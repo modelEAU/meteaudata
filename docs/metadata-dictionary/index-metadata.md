@@ -1,51 +1,30 @@
 # IndexMetadata
 
-!!! abstract "Usage Documentation"
-    [Models](../concepts/models.md)
-
-A base class for creating Pydantic models.
-
-Attributes:
-    __class_vars__: The names of the class variables defined on the model.
-    __private_attributes__: Metadata about the private attributes of the model.
-    __signature__: The synthesized `__init__` [`Signature`][inspect.Signature] of the model.
-
-    __pydantic_complete__: Whether model building is completed, or if there are still undefined fields.
-    __pydantic_core_schema__: The core schema of the model.
-    __pydantic_custom_init__: Whether the model has a custom `__init__` function.
-    __pydantic_decorators__: Metadata containing the decorators defined on the model.
-        This replaces `Model.__validators__` and `Model.__root_validators__` from Pydantic V1.
-    __pydantic_generic_metadata__: Metadata for generic models; contains data used for a similar purpose to
-        __args__, __origin__, __parameters__ in typing-module generics. May eventually be replaced by these.
-    __pydantic_parent_namespace__: Parent namespace of the model, used for automatic rebuilding of models.
-    __pydantic_post_init__: The name of the post-init method for the model, if defined.
-    __pydantic_root_model__: Whether the model is a [`RootModel`][pydantic.root_model.RootModel].
-    __pydantic_serializer__: The `pydantic-core` `SchemaSerializer` used to dump instances of the model.
-    __pydantic_validator__: The `pydantic-core` `SchemaValidator` used to validate instances of the model.
-
-    __pydantic_fields__: A dictionary of field names and their corresponding [`FieldInfo`][pydantic.fields.FieldInfo] objects.
-    __pydantic_computed_fields__: A dictionary of computed field names and their corresponding [`ComputedFieldInfo`][pydantic.fields.ComputedFieldInfo] objects.
-
-    __pydantic_extra__: A dictionary containing extra values, if [`extra`][pydantic.config.ConfigDict.extra]
-        is set to `'allow'`.
-    __pydantic_fields_set__: The names of fields explicitly set during instantiation.
-    __pydantic_private__: Values of private attributes set on the model instance.
+Metadata describing the characteristics of a pandas Index.
+    
+    This class captures essential information about time series indices to enable
+    proper reconstruction after serialization. It handles various pandas Index types
+    including DatetimeIndex, PeriodIndex, RangeIndex, and CategoricalIndex.
+    
+    The metadata preserves critical properties like timezone information for datetime
+    indices, frequency for time-based indices, and categorical ordering, ensuring
+    that reconstructed indices maintain their original behavior and constraints.
 
 ## Field Definitions
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `type` | `str` | ✓ | `PydanticUndefined` | No description provided |
-| `name` | `None` | ✗ | `—` | No description provided |
-| `frequency` | `None` | ✗ | `—` | No description provided |
-| `time_zone` | `None` | ✗ | `—` | No description provided |
-| `closed` | `None` | ✗ | `—` | No description provided |
-| `categories` | `None` | ✗ | `—` | No description provided |
-| `ordered` | `None` | ✗ | `—` | No description provided |
-| `start` | `None` | ✗ | `—` | No description provided |
-| `end` | `None` | ✗ | `—` | No description provided |
-| `step` | `None` | ✗ | `—` | No description provided |
-| `dtype` | `str` | ✓ | `PydanticUndefined` | No description provided |
+| `type` | `str` | ✓ | `—` | Type of pandas Index (e.g., 'DatetimeIndex', 'RangeIndex', 'PeriodIndex') |
+| `name` | `None` | ✗ | `None` | Name assigned to the index, if any |
+| `frequency` | `None` | ✗ | `None` | Frequency string for time-based indices (e.g., 'D', 'H', '15min') |
+| `time_zone` | `None` | ✗ | `None` | Timezone information for datetime indices (e.g., 'UTC', 'America/Toronto') |
+| `closed` | `None` | ✗ | `None` | Which side of intervals are closed for IntervalIndex ('left', 'right', 'both', 'neither') |
+| `categories` | `None` | ✗ | `None` | List of category values for CategoricalIndex |
+| `ordered` | `None` | ✗ | `None` | Whether categories have a meaningful order for CategoricalIndex |
+| `start` | `None` | ✗ | `None` | Start value for RangeIndex |
+| `end` | `None` | ✗ | `None` | End value (exclusive) for RangeIndex |
+| `step` | `None` | ✗ | `None` | Step size for RangeIndex |
+| `dtype` | `str` | ✓ | `—` | Data type of the index values (e.g., 'datetime64[ns]', 'int64') |
 
 ## Detailed Field Descriptions
 
@@ -53,77 +32,84 @@ Attributes:
 
 **Type:** `str`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Type of pandas Index (e.g., 'DatetimeIndex', 'RangeIndex', 'PeriodIndex')
 
 ### name
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Name assigned to the index, if any
 
 ### frequency
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Frequency string for time-based indices (e.g., 'D', 'H', '15min')
 
 ### time_zone
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Timezone information for datetime indices (e.g., 'UTC', 'America/Toronto')
 
 ### closed
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Which side of intervals are closed for IntervalIndex ('left', 'right', 'both', 'neither')
 
 ### categories
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+List of category values for CategoricalIndex
 
 ### ordered
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Whether categories have a meaningful order for CategoricalIndex
 
 ### start
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Start value for RangeIndex
 
 ### end
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+End value (exclusive) for RangeIndex
 
 ### step
 
 **Type:** `None`
 **Required:** No
+**Default:** None
 
-No description provided
+Step size for RangeIndex
 
 ### dtype
 
 **Type:** `str`
 **Required:** Yes
-**Default:** `PydanticUndefined`
 
-No description provided
+Data type of the index values (e.g., 'datetime64[ns]', 'int64')
