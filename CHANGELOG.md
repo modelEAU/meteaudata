@@ -85,3 +85,8 @@
 ## 0.9.2
 
 - Fixed an issue where the HTML representation of meteaudata objects would not render properly. Updated documentation.
+
+## 0.9.3
+
+- Fixed an issue where datetime objects were not represented adequately in YAML exports.
+- Fixed an issue where the test suite would open the web browser to render HTML.
