@@ -134,6 +134,48 @@ Temperature#1_RESAMPLED#1: 2 processing steps
 Temperature#1_SLICE#1: 3 processing steps
 ```
 
+## Custom Output Naming (v0.10.0+)
+
+Give processed time series user-friendly names instead of operation suffixes:
+
+```python
+# Use custom name instead of "RESAMPLED"
+signal.process(
+    ["Temperature#1_RAW#1"],
+    resample,
+    frequency="1D",
+    output_names=["daily"]
+)
+
+# Creates "Temperature#1_daily#1" instead of "Temperature#1_RESAMPLED#1"
+print(f"Created: {list(signal.time_series.keys())[-1]}")
+```
+
+**Note:** Custom names cannot contain underscores (reserved character). Use hyphens or other characters instead.
+
+## Overwrite Mode (v0.10.0+)
+
+Re-run processing without creating new versions:
+
+```python
+# First run creates #1
+signal.process(["Temperature#1_RAW#1"], resample, frequency="1H")
+print(f"First run: {list(signal.time_series.keys())[-1]}")  # Temperature#1_RESAMPLED#1
+
+# Second run creates #2 by default
+signal.process(["Temperature#1_RAW#1"], resample, frequency="1H")
+print(f"Second run: {list(signal.time_series.keys())[-1]}")  # Temperature#1_RESAMPLED#2
+
+# With overwrite=True, replaces #1 instead of creating #2
+signal.process(
+    ["Temperature#1_RAW#1"],
+    resample,
+    frequency="1H",
+    overwrite=True
+)
+print(f"With overwrite: {list(signal.time_series.keys())[-1]}")  # Temperature#1_RESAMPLED#1
+```
+
 ## See Also
 
 - [Time Series Processing](time-series.md) - Working with time series data
