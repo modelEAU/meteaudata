@@ -576,6 +576,15 @@ class ProcessingStep(BaseModel, DisplayableBase):
     suffix: str = Field(description="Short identifier appended to time series names (e.g., 'SMOOTH', 'FILT', 'PRED')")
     input_series_names: list[str] = Field(default_factory=list, description="Names of input time series used in this processing step")
 
+    @field_serializer('run_datetime')
+    def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
+        """Serialize datetime to ISO 8601 string format."""
+        return dt.isoformat()
+
+    @field_serializer('type')
+    def serialize_type(self, t: ProcessingType, _info) -> str:
+        """Serialize ProcessingType enum to its string value."""
+        return t.value
 
     def __str__(self) -> str:
         return f"Processed {self.input_series_names} on {self.run_datetime.strftime('%Y-%m-%d %H:%M:%S')} using function `{self.function_info.name}`. Result has suffix {self.suffix}"
@@ -629,6 +638,11 @@ class TimeSeries(BaseModel, DisplayableBase):
     model_config: dict = {
         "arbitrary_types_allowed": True,
     }
+
+    @field_serializer('created_on')
+    def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
+        """Serialize datetime to ISO 8601 string format."""
+        return dt.isoformat()
     
     def __init__(self, **data):
         super().__init__(**data)
@@ -700,14 +714,8 @@ class TimeSeries(BaseModel, DisplayableBase):
         metadata = {}
         for k, v in self.model_dump().items():
             if k == "processing_steps":
-                steps = []
-                for step in v:
-                    ser_step = step.copy()
-                    for k, v in step.items():
-                        if k == "type":
-                            ser_step[k] = v.value
-                    steps.append(ser_step)
-                metadata["processing_steps"] = steps
+                # Processing steps are already properly serialized by model_dump()
+                metadata["processing_steps"] = v
             elif k == "series":
                 continue
             else:
@@ -987,9 +995,14 @@ class Signal(BaseModel, DisplayableBase):
         description="Information about the source and context of this signal's data"
     )
     time_series: dict[str, TimeSeries] = Field(
-        default_factory=lambda: dict(), 
+        default_factory=lambda: dict(),
         description="Dictionary mapping time series names to TimeSeries objects for this signal"
     )
+
+    @field_serializer('created_on', 'last_updated')
+    def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
+        """Serialize datetime to ISO 8601 string format."""
+        return dt.isoformat()
 
     def __init__(self, **data):
         super().__init__(**data)  # Initialize Pydantic model with given data
@@ -1271,7 +1284,16 @@ class Signal(BaseModel, DisplayableBase):
         self.name = metadata["name"]
         self.units = metadata["units"]
         self.provenance = DataProvenance(**metadata["provenance"])
-        self.created_on = metadata["created_on"]
+        # Parse datetime strings if needed
+        created_on = metadata["created_on"]
+        if isinstance(created_on, str):
+            created_on = datetime.datetime.fromisoformat(created_on)
+        self.created_on = created_on
+        last_updated = metadata["last_updated"]
+        if isinstance(last_updated, str):
+            last_updated = datetime.datetime.fromisoformat(last_updated)
+        self.last_updated = last_updated
+
         for name, ts_meta in metadata["time_series"].items():
             self.time_series[name] = TimeSeries(
                 series=self.time_series[name].series,
@@ -1281,8 +1303,6 @@ class Signal(BaseModel, DisplayableBase):
                 index_metadata=IndexMetadata(**ts_meta["index_metadata"]),
                 values_dtype=ts_meta["values_dtype"],
             )
-
-        self.last_updated = metadata["last_updated"]
         return None
 
     @staticmethod
@@ -1344,7 +1364,6 @@ class Signal(BaseModel, DisplayableBase):
                 )
             ts = TimeSeries.load(data_file_path=data_file, metadata=ts_meta)
             signal.time_series[ts_name] = ts
-        signal.last_updated = metadata["last_updated"]
         return signal
 
     def plot(
@@ -1746,6 +1765,10 @@ class Dataset(BaseModel, DisplayableBase):
     purpose: Optional[str] = Field(default=None, description="Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research')")
     project: Optional[str] = Field(default=None, description="Project or study name associated with this dataset")
 
+    @field_serializer('created_on', 'last_updated')
+    def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
+        """Serialize datetime to ISO 8601 string format."""
+        return dt.isoformat()
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -1898,7 +1921,6 @@ class Dataset(BaseModel, DisplayableBase):
                 f"{source_p}/{dataset_data_dir}/{signal_dir}",
                 metadata["signals"][signal_name],
             )
-        dataset.last_updated = metadata["last_updated"]
         if remove_temp_dir:
             shutil.rmtree(temp_dir)
         return dataset
