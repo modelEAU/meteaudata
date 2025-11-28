@@ -90,6 +90,45 @@ Signals: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
   DissolvedOxygen#1: 1 time series
 ```
 
+## Export Customization (v0.10.0+)
+
+meteaudata provides options to customize CSV exports for compatibility with different computing environments and locales.
+
+### Custom CSV Separator
+
+Use semicolon separator for European Excel:
+
+```python
+# Save with semicolon separator (European locale)
+signal.save(signal_path, separator=";")
+
+# Or with tab separator
+dataset.save(dataset_path, separator="\t")
+```
+
+### Custom Index Names
+
+Set a custom column name for the time index:
+
+```python
+# Name the index column "timestamp"
+signal.save(signal_path, index_name="timestamp")
+
+# Or "datetime" for datasets
+dataset.save(dataset_path, index_name="datetime")
+```
+
+### Combined Customization
+
+```python
+# European format with custom index name
+dataset.save(
+    dataset_path,
+    separator=";",
+    index_name="date"
+)
+```
+
 ## File Format
 
 ```python
@@ -101,7 +140,7 @@ print(f"- Files created: {len(dataset_files)}")
 print(f"- File names: {dataset_files[:3]}...")  # First 3 files
 
 # Directory size
-total_size = sum(os.path.getsize(os.path.join(dataset_path, f)) 
+total_size = sum(os.path.getsize(os.path.join(dataset_path, f))
                 for f in dataset_files if os.path.isfile(os.path.join(dataset_path, f)))
 size_kb = total_size / 1024
 print(f"Total size: {size_kb:.1f} KB")

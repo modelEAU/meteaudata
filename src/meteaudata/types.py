@@ -106,7 +106,7 @@ class IndexMetadata(BaseModel, DisplayableBase):
     categories: Optional[list[Any]] = Field(default=None, description="List of category values for CategoricalIndex")
     ordered: Optional[bool] = Field(default=None, description="Whether categories have a meaningful order for CategoricalIndex")
     start: Optional[int] = Field(default=None, description="Start value for RangeIndex")
-    end: Optional[int] = Field(default=None, description="End value (exclusive) for RangeIndex") 
+    end: Optional[int] = Field(default=None, description="End value (exclusive) for RangeIndex")
     step: Optional[int] = Field(default=None, description="Step size for RangeIndex")
     dtype: str = Field(description="Data type of the index values (e.g., 'datetime64[ns]', 'int64')")
 
@@ -434,6 +434,7 @@ class ProcessingType(Enum):
     FAULT_DETECTION = "fault_detection"  # "Identifying anomalous measurements or sensor malfunctions"
     FAULT_IDENTIFICATION = "fault_identification"  # "Classifying the type or cause of detected faults"
     FAULT_DIAGNOSIS = "fault_diagnosis"  # "Determining root causes and recommending corrective actions for faults"
+    EXPORT_RENAME = "export_rename"  # "Renaming time series for export to different formats"
     OTHER = "other"  # "Custom or specialized processing operations not covered by standard categories"
 
  
@@ -834,6 +835,19 @@ class TimeSeries(BaseModel, DisplayableBase):
             y_axis = f"{signal_name} values"
         if not x_axis:
             x_axis = "Time"
+
+        # Detect unit for normalized indices from processing steps
+        index_unit = None
+        for step in reversed(self.processing_steps):
+            if step.type == ProcessingType.TRANSFORMATION and step.parameters:
+                params_dict = step.parameters.model_dump()
+                if 'unit' in params_dict:
+                    index_unit = params_dict['unit']
+                    break
+
+        if index_unit:
+            x_axis = f"{x_axis} ({index_unit})"
+
         last_step = self.processing_steps[-1] if self.processing_steps else None
         last_type = last_step.type if last_step else ProcessingType.OTHER
         marker = processing_type_to_marker[last_type]
@@ -868,6 +882,8 @@ class TimeSeries(BaseModel, DisplayableBase):
         else:
             distance = self.series.index[1] - self.series.index[0]
             x = filtered_series.index + distance * index_shift
+
+        # No conversion needed - normalized indices are already numeric in the correct unit
         fig = go.Figure(
             go.Scatter(
                 x=x,
@@ -1138,11 +1154,51 @@ class Signal(BaseModel, DisplayableBase):
             else:
                 return f"{signal_name}_{name}#1"
 
+    def replace_operation_suffix(self, ts_name: str, custom_suffix: str) -> str:
+        """
+        Replace the operation suffix in a time series name with a custom suffix.
+
+        Preserves the signal name and hash number (if present), only replacing
+        the middle operation part.
+
+        Args:
+            ts_name: The time series name (e.g., "A#1_RESAMPLED" or "A#1_RESAMPLED#1")
+            custom_suffix: The custom suffix to use (e.g., "daily_avg")
+
+        Returns:
+            The time series name with replaced suffix (e.g., "A#1_daily_avg" or "A#1_daily_avg#1")
+
+        Examples:
+            >>> signal.replace_operation_suffix("A#1_RESAMPLED", "hourly")
+            "A#1_hourly"
+            >>> signal.replace_operation_suffix("A#1_RESAMPLED#2", "hourly")
+            "A#1_hourly#2"
+        """
+        signal_name = self.name
+
+        if "_" not in ts_name:
+            # No underscore, just add the custom suffix
+            return f"{signal_name}_{custom_suffix}"
+
+        # Split on first underscore to separate signal from operation
+        _, operation_part = ts_name.split("_", 1)
+
+        # Check if operation part has a hash number
+        if "#" in operation_part:
+            # Extract hash number and replace operation
+            _, hash_num = operation_part.rsplit("#", 1)
+            return f"{signal_name}_{custom_suffix}#{hash_num}"
+        else:
+            # No hash number, just replace operation
+            return f"{signal_name}_{custom_suffix}"
+
     def process(
         self,
         input_time_series_names: list[str],
         transform_function: SignalTransformFunctionProtocol,
         *args: Any,
+        output_names: Optional[list[str]] = None,
+        overwrite: bool = False,
         **kwargs: Any,
     ) -> "Signal":
         """
@@ -1152,6 +1208,11 @@ class Signal(BaseModel, DisplayableBase):
             input_time_series_names (list[str]): List of names of the input time series to be processed.
             transform_function (SignalTransformFunctionProtocol): The transformation function to be applied.
             *args: Additional positional arguments to be passed to the transformation function.
+            output_names (Optional[list[str]]): Optional list of custom names to replace the operation suffix.
+                Must have the same length as the number of outputs. Example: ["smoothed", "filtered"]
+                will produce names like "A#1_smoothed#1" instead of "A#1_SMOOTH#1".
+            overwrite (bool): If True, keeps the existing hash number instead of incrementing.
+                Default is False (increment hash number).
             **kwargs: Additional keyword arguments to be passed to the transformation function.
 
         Returns:
@@ -1168,7 +1229,23 @@ class Signal(BaseModel, DisplayableBase):
             self.time_series[name].series.copy() for name in input_time_series_names
         ]
         outputs = transform_function(input_series, *args, **kwargs)
-        for out_series, new_steps in outputs:
+
+        # Validate output_names if provided
+        if output_names is not None:
+            if len(output_names) != len(outputs):
+                raise ValueError(
+                    f"output_names must have the same length as the number of outputs. "
+                    f"Expected {len(outputs)}, got {len(output_names)}"
+                )
+            # Check that custom names don't contain underscore (reserved character)
+            for custom_name in output_names:
+                if "_" in custom_name:
+                    raise ValueError(
+                        f"output_names cannot contain underscore '_' character (reserved for name structure). "
+                        f"Got: '{custom_name}'. Use hyphens '-' or other characters instead."
+                    )
+
+        for idx, (out_series, new_steps) in enumerate(outputs):
             all_steps = []
             for input_name in input_time_series_names:
                 input_steps = self.time_series[input_name].processing_steps
@@ -1181,8 +1258,24 @@ class Signal(BaseModel, DisplayableBase):
             new_ts = TimeSeries(series=out_series, processing_steps=all_steps)
             new_ts = new_ts.remove_duplicated_steps()
             new_ts_name = str(new_ts.series.name)
-            new_ts.series.name = self.update_numbered_ts_name(new_ts_name)
-            self.time_series[new_ts.series.name] = new_ts
+
+            # Handle custom output names
+            if output_names is not None:
+                custom_name = output_names[idx]
+                new_ts_name = self.replace_operation_suffix(new_ts_name, custom_name)
+
+            # Handle overwrite vs increment
+            if overwrite:
+                # Keep the hash number as-is, just ensure format is correct
+                if "#" not in new_ts_name:
+                    new_ts_name = f"{new_ts_name}#1"
+                final_name = new_ts_name
+            else:
+                # Use the normal incrementing logic
+                final_name = self.update_numbered_ts_name(new_ts_name)
+
+            new_ts.series.name = final_name
+            self.time_series[final_name] = new_ts
         return self
 
     def update_processing_step_input_series_names(self, step: ProcessingStep):
@@ -1226,15 +1319,169 @@ class Signal(BaseModel, DisplayableBase):
         self.time_series = new_dico
         self.name = new_signal_name
 
-    def _save_data(self, path: str):
-        # combine all time series into a single dataframe
+    def _save_data(
+        self,
+        path: str,
+        separator: str = ",",
+        output_index_name: Optional[Union[str, tuple]] = None,
+        output_value_names: Optional[Dict[str, Union[str, tuple]]] = None
+    ):
+        """
+        Save time series data to CSV files.
+
+        Args:
+            path: Directory path to save data
+            separator: CSV separator character
+            output_index_name: Custom name for index column (string or tuple for multi-line)
+            output_value_names: Dict mapping ts_name -> custom value column name (string or tuple)
+        """
         directory = f"{path}/{self.name}_data"
         if not os.path.exists(directory):
             os.makedirs(directory)
+
+        output_value_names = output_value_names or {}
+
         for ts_name, ts in self.time_series.items():
             file_path = f"{directory}/{ts_name}.csv"
-            ts.series.to_csv(file_path)
+            series_to_save = ts.series.copy()
+
+            # Determine if we need multi-line headers
+            index_is_tuple = isinstance(output_index_name, tuple) and len(output_index_name) > 1
+            value_name = output_value_names.get(ts_name)
+            value_is_tuple = isinstance(value_name, tuple) and len(value_name) > 1
+
+            # Track if renaming occurred for ProcessingStep
+            original_name = series_to_save.name
+            export_name = value_name if value_name is not None else original_name
+
+            if index_is_tuple or value_is_tuple:
+                # Convert Series to DataFrame with MultiIndex columns
+                df = self._create_multiindex_dataframe(
+                    series_to_save,
+                    output_index_name,
+                    value_name or series_to_save.name
+                )
+                df.to_csv(file_path, sep=separator, index=False)
+            else:
+                # Single-line header (backward compatible)
+                if output_index_name is not None and isinstance(output_index_name, str):
+                    series_to_save.index.name = output_index_name
+                if value_name is not None and isinstance(value_name, str):
+                    series_to_save.name = value_name
+                series_to_save.to_csv(file_path, sep=separator)
+
+            # Add ProcessingStep if renaming occurred
+            if export_name != original_name:
+                rename_step = ProcessingStep(
+                    type=ProcessingType.EXPORT_RENAME,
+                    description=f"Renamed for export: '{original_name}' → '{export_name}'",
+                    run_datetime=datetime.datetime.now(),
+                    requires_calibration=False,
+                    function_info=FunctionInfo(
+                        name="export_rename",
+                        version="1.0",
+                        author="meteaudata",
+                        reference="Export operation"
+                    ),
+                    parameters=Parameters(original_name=original_name, export_name=str(export_name)),
+                    suffix="RENAMED",
+                    input_series_names=[original_name]
+                )
+                # Add to TimeSeries processing steps
+                ts.processing_steps.append(rename_step)
+
         return directory
+
+    def _create_multiindex_dataframe(
+        self,
+        series: pd.Series,
+        index_tuple: Optional[Union[str, tuple]],
+        value_tuple: Union[str, tuple]
+    ) -> pd.DataFrame:
+        """
+        Convert a Series to DataFrame with MultiIndex columns for multi-line headers.
+
+        Args:
+            series: The pandas Series to convert
+            index_tuple: Tuple for index column name (e.g., ("Time", "hours")) or string
+            value_tuple: Tuple for value column name (e.g., ("Temperature", "°C")) or string
+
+        Returns:
+            DataFrame with MultiIndex columns
+        """
+        # Normalize to tuples
+        if not isinstance(index_tuple, tuple):
+            index_tuple = (index_tuple,) if index_tuple else (series.index.name or "",)
+        if not isinstance(value_tuple, tuple):
+            value_tuple = (value_tuple,)
+
+        # Convert all elements to strings
+        index_tuple = tuple(str(elem) for elem in index_tuple)
+        value_tuple = tuple(str(elem) for elem in value_tuple)
+
+        # Ensure both have same number of levels (pad with empty strings)
+        max_levels = max(len(index_tuple), len(value_tuple))
+        index_tuple = index_tuple + ("",) * (max_levels - len(index_tuple))
+        value_tuple = value_tuple + ("",) * (max_levels - len(value_tuple))
+
+        # Create DataFrame with MultiIndex columns
+        columns = pd.MultiIndex.from_tuples([index_tuple, value_tuple])
+
+        # Create DataFrame: first column is index, second is values
+        df = pd.DataFrame({
+            columns[0]: series.index,
+            columns[1]: series.values
+        })
+
+        # Reset index so the time index becomes a regular column
+        df = df.reset_index(drop=True)
+
+        return df
+
+    def _process_output_value_names(
+        self,
+        output_value_names: Optional[Union[str, tuple, list, dict]]
+    ) -> Dict[str, Union[str, tuple]]:
+        """
+        Process output_value_names parameter into dict mapping ts_name -> name.
+
+        Args:
+            output_value_names: Can be None, "auto", single str/tuple, list, or dict
+
+        Returns:
+            Dict mapping each time series name to its output column name (str or tuple)
+        """
+        if output_value_names is None:
+            return {}
+
+        # Handle "auto" special value
+        if output_value_names == "auto":
+            result = {}
+            for ts_name in self.time_series.keys():
+                if self.units and self.units != "unit":  # Don't use default "unit"
+                    result[ts_name] = (ts_name, self.units)
+                else:
+                    result[ts_name] = ts_name
+            return result
+
+        # Handle dict
+        if isinstance(output_value_names, dict):
+            return output_value_names
+
+        # Handle single value (apply to all)
+        if isinstance(output_value_names, (str, tuple)):
+            return {ts_name: output_value_names for ts_name in self.time_series.keys()}
+
+        # Handle list
+        if isinstance(output_value_names, list):
+            if len(output_value_names) != len(self.time_series):
+                raise ValueError(
+                    f"output_value_names list must match number of time series. "
+                    f"Expected {len(self.time_series)}, got {len(output_value_names)}"
+                )
+            return dict(zip(self.time_series.keys(), output_value_names))
+
+        raise TypeError(f"Invalid type for output_value_names: {type(output_value_names)}")
 
     def metadata_dict(self):
         metadata = self.model_dump()
@@ -1252,14 +1499,65 @@ class Signal(BaseModel, DisplayableBase):
             yaml.dump(metadata, f)
         return file_path
 
-    def save(self, destination: str, zip: bool = True):
+    def save(
+        self,
+        destination: str,
+        zip: bool = True,
+        separator: str = ",",
+        output_index_name: Optional[Union[str, tuple]] = None,
+        output_value_names: Optional[Union[str, tuple, list, dict]] = None
+    ):
+        """
+        Save signal data and metadata to disk.
+
+        Args:
+            destination: Directory path where files will be saved
+            zip: If True, creates a .zip archive; if False, saves as directory
+            separator: CSV column separator character (e.g., ',', ';', '\\t')
+            output_index_name: Custom name for index column in CSV files
+                - String: Single-line header (e.g., "Time")
+                - Tuple: Multi-line header (e.g., ("Time", "hours"))
+                - None: Uses pandas default (index name from Series)
+            output_value_names: Custom names for value columns in CSV files
+                - String/Tuple: Applies to all time series
+                - Dict: Map time_series_name -> custom_name for per-series control
+                - List: Must match number of time series
+                - "auto": Auto-create tuple (series_name, self.units) if units exist
+
+        Examples:
+            >>> # Single-line headers
+            >>> signal.save("output/", output_index_name="timestamp")
+
+            >>> # Multi-line headers
+            >>> signal.save("output/",
+            ...     output_index_name=("Time", "hours"),
+            ...     output_value_names=("Temperature", "°C"))
+
+            >>> # Auto-populate from units
+            >>> signal.save("output/", output_value_names="auto")
+
+            >>> # Per-series customization
+            >>> signal.save("output/",
+            ...     output_value_names={
+            ...         "A#1_RAW#1": ("Raw Temp", "°C"),
+            ...         "A#1_SMOOTH#1": ("Smoothed Temp", "°C")
+            ...     })
+        """
+        # Process output_value_names
+        value_names_dict = self._process_output_value_names(output_value_names)
+
         if not os.path.exists(destination):
             os.makedirs(destination)
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Step 2: Save metadata file
+            # Save metadata file
             self._save_metadata(temp_dir)
             # Prepare the subdirectory for signal data
-            self._save_data(temp_dir)
+            self._save_data(
+                temp_dir,
+                separator=separator,
+                output_index_name=output_index_name,
+                output_value_names=value_names_dict
+            )
             if not zip:
                 # Move the metadata file to the destination
                 shutil.move(f"{temp_dir}/{self.name}_metadata.yaml", destination)
@@ -1398,19 +1696,92 @@ class Signal(BaseModel, DisplayableBase):
             y_axis = f"{self.name} ({self.units})"
         if not x_axis:
             x_axis = "Time"
-        fig = go.Figure()
-        for ts_name in ts_names:
-            # recover the scatter trace from the plot of the time series
-            ts = self.time_series[ts_name]
-            ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
-            ts_trace = ts_fig.data[0]
-            fig.add_trace(ts_trace)
 
-        fig.update_layout(
-            title=title,
-            xaxis_title=x_axis,
-            yaxis_title=y_axis,
-        )
+        # Helper function to get index group key for a time series
+        def get_index_group_key(ts: "TimeSeries") -> str:
+            """Get grouping key based on index type and transformation unit"""
+            idx_type = type(ts.series.index).__name__
+
+            # For DatetimeIndex, group separately
+            if idx_type == "DatetimeIndex":
+                return "DatetimeIndex"
+
+            # For normalized indices, group by unit from most recent TRANSFORMATION step
+            for step in reversed(ts.processing_steps):
+                if step.type == ProcessingType.TRANSFORMATION and step.parameters:
+                    params_dict = step.parameters.model_dump()
+                    if 'unit' in params_dict:
+                        unit = params_dict['unit']
+                        return f"Normalized({unit})"
+
+            # For other index types, group by type name
+            return idx_type
+
+        # Group time series by index transformation
+        from collections import defaultdict
+        ts_by_group = defaultdict(list)
+        for ts_name in ts_names:
+            ts = self.time_series[ts_name]
+            group_key = get_index_group_key(ts)
+            ts_by_group[group_key].append(ts_name)
+
+        # Determine if we need subplots (multiple groups)
+        needs_subplots = len(ts_by_group) > 1
+
+        if needs_subplots:
+            # Create subplot for each group
+            from plotly.subplots import make_subplots
+
+            n_subplots = len(ts_by_group)
+
+            fig = make_subplots(
+                rows=n_subplots,
+                cols=1,
+                shared_xaxes=False,
+                vertical_spacing=0.15 / n_subplots if n_subplots > 1 else 0.1,
+            )
+
+            for subplot_idx, (group_key, ts_list) in enumerate(ts_by_group.items(), start=1):
+                # Determine x-axis label for this subplot
+                x_label = x_axis
+
+                # If this is a normalized group, add unit to label
+                if group_key.startswith("Normalized("):
+                    # Extract unit from group key: "Normalized(h)" -> "h"
+                    unit = group_key.split("(")[1].rstrip(")")
+                    x_label = f"{x_axis} ({unit})"
+
+                # Add traces for this subplot
+                for ts_name in ts_list:
+                    ts = self.time_series[ts_name]
+                    ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
+                    ts_trace = ts_fig.data[0]
+                    fig.add_trace(ts_trace, row=subplot_idx, col=1)
+
+                # Update axes labels for this subplot
+                fig.update_xaxes(title_text=x_label, row=subplot_idx, col=1)
+                fig.update_yaxes(title_text=y_axis, row=subplot_idx, col=1)
+
+            fig.update_layout(
+                title=title,
+                height=400 * n_subplots,  # Adjust height based on number of subplots
+                showlegend=True,
+            )
+        else:
+            # Single plot - all series have compatible indices
+            fig = go.Figure()
+            for ts_name in ts_names:
+                ts = self.time_series[ts_name]
+                ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
+                ts_trace = ts_fig.data[0]
+                fig.add_trace(ts_trace)
+
+            fig.update_layout(
+                title=title,
+                xaxis_title=x_axis,
+                yaxis_title=y_axis,
+            )
+
         return fig
 
     def build_dependency_graph(self, ts_name: str) -> List[Dict[str, Any]]:
@@ -1819,6 +2190,31 @@ class Dataset(BaseModel, DisplayableBase):
             else:
                 return f"{name}#1"
 
+    def replace_signal_base_name(self, signal_name: str, custom_name: str) -> str:
+        """
+        Replace the base name of a signal while preserving the hash number.
+
+        Args:
+            signal_name: The signal name (e.g., "AVERAGE" or "AVERAGE#2")
+            custom_name: The custom base name to use (e.g., "site_average")
+
+        Returns:
+            The signal name with replaced base (e.g., "site_average" or "site_average#2")
+
+        Examples:
+            >>> dataset.replace_signal_base_name("AVERAGE", "combined")
+            "combined"
+            >>> dataset.replace_signal_base_name("AVERAGE#2", "combined")
+            "combined#2"
+        """
+        if "#" in signal_name:
+            # Extract hash number and replace base name
+            _, hash_num = signal_name.rsplit("#", 1)
+            return f"{custom_name}#{hash_num}"
+        else:
+            # No hash number, just use custom name
+            return custom_name
+
     def add(self, signal: Signal) -> "Dataset":
         signal_name = signal.name
         new_name = self.update_numbered_name(signal_name)
@@ -1853,7 +2249,45 @@ class Dataset(BaseModel, DisplayableBase):
         }
         return metadata
 
-    def save(self, directory: str) -> "Dataset":
+    def save(
+        self,
+        directory: str,
+        separator: str = ",",
+        output_index_name: Optional[Union[str, tuple]] = None,
+        output_value_names: Optional[Union[str, tuple, dict]] = None
+    ) -> "Dataset":
+        """
+        Save dataset data and metadata to disk as a zip archive.
+
+        Args:
+            directory: Directory path where the zip file will be created
+            separator: CSV column separator character
+            output_index_name: Custom name for index column (applies to all signals)
+                - String: Single-line header
+                - Tuple: Multi-line header
+            output_value_names: Custom names for value columns
+                - String/Tuple: Applies to all signals
+                - Dict[signal_name, str/tuple]: Per-signal customization
+                - Dict[signal_name, Dict[ts_name, str/tuple]]: Per-time-series customization
+                - "auto": Auto-populate from each signal's units attribute
+
+        Returns:
+            self: The Dataset object (for method chaining)
+
+        Examples:
+            >>> # Apply to all signals
+            >>> dataset.save("output/", output_index_name=("Time", "days"))
+
+            >>> # Per-signal customization
+            >>> dataset.save("output/",
+            ...     output_value_names={
+            ...         "temp_sensor": ("Temperature", "°C"),
+            ...         "pH_sensor": ("pH", "unitless")
+            ...     })
+
+            >>> # Auto-populate from units
+            >>> dataset.save("output/", output_value_names="auto")
+        """
         name = self.name
         dir_path = Path(directory)
         if not os.path.exists(dir_path):
@@ -1867,13 +2301,41 @@ class Dataset(BaseModel, DisplayableBase):
             yaml.dump(metadata, f)
         dir_name = f"{self.name}_data"
         with NamedTempDirectory(name=dir_name) as temp_dir:
-            for signal in self.signals.values():
-                signal.save(temp_dir, zip=False)
+            for signal_name, signal in self.signals.items():
+                # Determine output_value_names for this signal
+                signal_value_names = self._get_signal_output_value_names(
+                    signal_name, output_value_names
+                )
+                signal.save(
+                    temp_dir,
+                    zip=False,
+                    separator=separator,
+                    output_index_name=output_index_name,
+                    output_value_names=signal_value_names
+                )
             zip_directory(temp_dir, f"{directory}/{name}.zip")
         with zipfile.ZipFile(f"{directory}/{name}.zip", "a") as zf:
             zf.write(dataset_metadata_path, f"{name}_metadata.yaml")
         os.remove(dataset_metadata_path)
         return self
+
+    def _get_signal_output_value_names(
+        self,
+        signal_name: str,
+        dataset_output_value_names: Optional[Union[str, tuple, dict]]
+    ) -> Optional[Union[str, tuple, dict]]:
+        """Extract the output_value_names for a specific signal."""
+        if dataset_output_value_names is None:
+            return None
+
+        if dataset_output_value_names == "auto":
+            return "auto"
+
+        if isinstance(dataset_output_value_names, dict):
+            return dataset_output_value_names.get(signal_name, None)
+
+        # Single value applies to all signals
+        return dataset_output_value_names
 
     def _load_signal(self, dir_path: str, metadata: dict) -> Signal:
         signal = Signal._load_from_data_dir_and_meta_dict(dir_path, metadata)
@@ -1930,6 +2392,9 @@ class Dataset(BaseModel, DisplayableBase):
         input_time_series_names: list[str],
         transform_function: DatasetTransformFunctionProtocol,
         *args: Any,
+        output_signal_names: Optional[list[str]] = None,
+        output_ts_names: Optional[list[str]] = None,
+        overwrite: bool = False,
         **kwargs: Any,
     ) -> "Dataset":
         """
@@ -1939,6 +2404,14 @@ class Dataset(BaseModel, DisplayableBase):
             input_time_series_names (list[str]): List of names of the input time series to be processed.
             transform_function (DatasetTransformFunctionProtocol): The transformation function to be applied.
             *args: Additional positional arguments to be passed to the transformation function.
+            output_signal_names (Optional[list[str]]): Optional list of custom names for output signals.
+                Must have the same length as the number of output signals. Example: ["site_average"]
+                will create a signal named "site_average#1" instead of the default naming.
+            output_ts_names (Optional[list[str]]): Optional list of custom names for time series within output signals.
+                These replace the operation suffix in time series names. Example: ["combined"]
+                will create time series like "site_average#1_combined#1".
+            overwrite (bool): If True, keeps the existing hash number instead of incrementing.
+                Default is False (increment hash number).
             **kwargs: Additional keyword arguments to be passed to the transformation function.
 
         Returns:
@@ -1962,9 +2435,68 @@ class Dataset(BaseModel, DisplayableBase):
         output_signals = transform_function(
             input_signals, input_time_series_names, *args, **kwargs
         )
-        for out_signal in output_signals:
+
+        # Validate output_signal_names if provided
+        if output_signal_names is not None:
+            if len(output_signal_names) != len(output_signals):
+                raise ValueError(
+                    f"output_signal_names must have the same length as the number of output signals. "
+                    f"Expected {len(output_signals)}, got {len(output_signal_names)}"
+                )
+            # Check that custom names don't contain underscore (reserved character)
+            for custom_name in output_signal_names:
+                if "_" in custom_name:
+                    raise ValueError(
+                        f"output_signal_names cannot contain underscore '_' character (reserved for name structure). "
+                        f"Got: '{custom_name}'. Use hyphens '-' or other characters instead."
+                    )
+
+        # Validate output_ts_names if provided
+        if output_ts_names is not None:
+            # Check that custom names don't contain underscore (reserved character)
+            for custom_name in output_ts_names:
+                if "_" in custom_name:
+                    raise ValueError(
+                        f"output_ts_names cannot contain underscore '_' character (reserved for name structure). "
+                        f"Got: '{custom_name}'. Use hyphens '-' or other characters instead."
+                    )
+
+        for idx, out_signal in enumerate(output_signals):
             out_signal_name = out_signal.name
-            new_signal_name = self.update_numbered_name(out_signal_name)
+
+            # Handle custom output signal names
+            if output_signal_names is not None:
+                custom_name = output_signal_names[idx]
+                out_signal_name = self.replace_signal_base_name(out_signal_name, custom_name)
+
+            # Handle overwrite vs increment for signal name
+            if overwrite:
+                # Keep the hash number as-is
+                if "#" not in out_signal_name:
+                    out_signal_name = f"{out_signal_name}#1"
+                new_signal_name = out_signal_name
+            else:
+                # Use the normal incrementing logic
+                new_signal_name = self.update_numbered_name(out_signal_name)
+
+            # Rename signal and time series within it if custom ts names provided
+            if output_ts_names is not None:
+                # Get all time series in this signal
+                ts_list = list(out_signal.time_series.keys())
+                if len(output_ts_names) != len(ts_list):
+                    raise ValueError(
+                        f"output_ts_names must have the same length as the number of time series in each output signal. "
+                        f"Expected {len(ts_list)}, got {len(output_ts_names)}"
+                    )
+                # Create a new dictionary with renamed time series
+                new_ts_dict = {}
+                for ts_idx, (old_ts_name, ts) in enumerate(out_signal.time_series.items()):
+                    # Replace the operation suffix with custom name
+                    new_ts_name = out_signal.replace_operation_suffix(old_ts_name, output_ts_names[ts_idx])
+                    ts.series.name = new_ts_name
+                    new_ts_dict[new_ts_name] = ts
+                out_signal.time_series = new_ts_dict
+
             out_signal.rename(new_signal_name)
             self.signals[new_signal_name] = out_signal
             out_split_names = [x.split("_") for x in out_signal.all_time_series]

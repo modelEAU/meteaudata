@@ -94,3 +94,43 @@
 ## 0.9.4
 
 - Fixed a bug where processing steps for TimeSeries objects were not appearing in the browser SVG graph visualization. The issue was caused by a mismatch between the identifier format expected by the SVG template ("Processing Steps") and the identifier returned by the CollectionContainer ("processing_steps").
+
+## 0.10.0
+
+This release adds export customization features to improve CSV compatibility with different computing environments and locales.
+
+### Customizable CSV Export (Signal.save() and Dataset.save())
+
+- **separator**: Choose any CSV separator character (comma, semicolon, tab, etc.)
+  - Default: "," (backward compatible)
+  - Example: `signal.save(path, separator=";")`  # For European Excel
+- **index_name**: Set custom column name for time index in CSV exports
+  - Default: None (uses pandas default)
+  - Example: `dataset.save(path, index_name="timestamp")`
+
+### Custom Output Naming in Process Functions
+
+- **Signal.process()**: New `output_names` parameter for user-friendly time series names
+  - Replaces operation suffixes (e.g., "RESAMPLED") with custom names
+  - Example: `signal.process(["A#1_RAW#1"], resample, "1D", output_names=["daily"])`
+  - Creates "A#1_daily#1" instead of "A#1_RESAMPLED#1"
+  - Note: Underscores not allowed in custom names (reserved character)
+
+- **Dataset.process()**: New `output_signal_names` and `output_ts_names` parameters
+  - `output_signal_names`: Custom names for output signals
+  - `output_ts_names`: Custom names for time series within those signals
+  - Example: `dataset.process(inputs, average_signals, output_signal_names=["siteaverage"])`
+
+### Overwrite Mode
+
+- **overwrite** parameter in both Signal.process() and Dataset.process()
+  - When True: Keeps existing hash number (e.g., stays at #1)
+  - When False (default): Increments hash number (e.g., #1 → #2)
+  - Useful for re-running processing without creating new versions
+
+### Implementation Notes
+
+- All new parameters are optional with backward-compatible defaults
+- Added helper methods: `Signal.replace_operation_suffix()`, `Dataset.replace_signal_base_name()`
+- Validation ensures custom names don't contain reserved characters
+- Comprehensive test suite with 20 new tests covering all features
