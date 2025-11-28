@@ -163,6 +163,11 @@ class IndexMetadata(BaseModel, DisplayableBase):
                 dummy_series = pd.Series([0] * len(index), index=index)
                 reconstructed_index = dummy_series.asfreq(metadata.frequency).index
 
+        elif metadata.type == "TimedeltaIndex":
+            td_index = pd.to_timedelta(index)
+            reconstructed_index = td_index
+            # Note: TimedeltaIndex with frequency is preserved but asfreq is not applied
+            # as it requires DatetimeIndex. The frequency metadata is kept for reference.
         elif metadata.type == "PeriodIndex":
             reconstructed_index = pd.PeriodIndex(index, freq=metadata.frequency)
         elif metadata.type == "IntervalIndex":
