@@ -106,7 +106,7 @@ class IndexMetadata(BaseModel, DisplayableBase):
     categories: Optional[list[Any]] = Field(default=None, description="List of category values for CategoricalIndex")
     ordered: Optional[bool] = Field(default=None, description="Whether categories have a meaningful order for CategoricalIndex")
     start: Optional[int] = Field(default=None, description="Start value for RangeIndex")
-    end: Optional[int] = Field(default=None, description="End value (exclusive) for RangeIndex") 
+    end: Optional[int] = Field(default=None, description="End value (exclusive) for RangeIndex")
     step: Optional[int] = Field(default=None, description="Step size for RangeIndex")
     dtype: str = Field(description="Data type of the index values (e.g., 'datetime64[ns]', 'int64')")
 
@@ -163,11 +163,6 @@ class IndexMetadata(BaseModel, DisplayableBase):
                 dummy_series = pd.Series([0] * len(index), index=index)
                 reconstructed_index = dummy_series.asfreq(metadata.frequency).index
 
-        elif metadata.type == "TimedeltaIndex":
-            td_index = pd.to_timedelta(index)
-            reconstructed_index = td_index
-            # Note: TimedeltaIndex with frequency is preserved but asfreq is not applied
-            # as it requires DatetimeIndex. The frequency metadata is kept for reference.
         elif metadata.type == "PeriodIndex":
             reconstructed_index = pd.PeriodIndex(index, freq=metadata.frequency)
         elif metadata.type == "IntervalIndex":
@@ -840,6 +835,19 @@ class TimeSeries(BaseModel, DisplayableBase):
             y_axis = f"{signal_name} values"
         if not x_axis:
             x_axis = "Time"
+
+        # Detect unit for normalized indices from processing steps
+        index_unit = None
+        for step in reversed(self.processing_steps):
+            if step.type == ProcessingType.TRANSFORMATION and step.parameters:
+                params_dict = step.parameters.model_dump()
+                if 'unit' in params_dict:
+                    index_unit = params_dict['unit']
+                    break
+
+        if index_unit:
+            x_axis = f"{x_axis} ({index_unit})"
+
         last_step = self.processing_steps[-1] if self.processing_steps else None
         last_type = last_step.type if last_step else ProcessingType.OTHER
         marker = processing_type_to_marker[last_type]
@@ -874,6 +882,8 @@ class TimeSeries(BaseModel, DisplayableBase):
         else:
             distance = self.series.index[1] - self.series.index[0]
             x = filtered_series.index + distance * index_shift
+
+        # No conversion needed - normalized indices are already numeric in the correct unit
         fig = go.Figure(
             go.Scatter(
                 x=x,
@@ -1686,19 +1696,92 @@ class Signal(BaseModel, DisplayableBase):
             y_axis = f"{self.name} ({self.units})"
         if not x_axis:
             x_axis = "Time"
-        fig = go.Figure()
-        for ts_name in ts_names:
-            # recover the scatter trace from the plot of the time series
-            ts = self.time_series[ts_name]
-            ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
-            ts_trace = ts_fig.data[0]
-            fig.add_trace(ts_trace)
 
-        fig.update_layout(
-            title=title,
-            xaxis_title=x_axis,
-            yaxis_title=y_axis,
-        )
+        # Helper function to get index group key for a time series
+        def get_index_group_key(ts: "TimeSeries") -> str:
+            """Get grouping key based on index type and transformation unit"""
+            idx_type = type(ts.series.index).__name__
+
+            # For DatetimeIndex, group separately
+            if idx_type == "DatetimeIndex":
+                return "DatetimeIndex"
+
+            # For normalized indices, group by unit from most recent TRANSFORMATION step
+            for step in reversed(ts.processing_steps):
+                if step.type == ProcessingType.TRANSFORMATION and step.parameters:
+                    params_dict = step.parameters.model_dump()
+                    if 'unit' in params_dict:
+                        unit = params_dict['unit']
+                        return f"Normalized({unit})"
+
+            # For other index types, group by type name
+            return idx_type
+
+        # Group time series by index transformation
+        from collections import defaultdict
+        ts_by_group = defaultdict(list)
+        for ts_name in ts_names:
+            ts = self.time_series[ts_name]
+            group_key = get_index_group_key(ts)
+            ts_by_group[group_key].append(ts_name)
+
+        # Determine if we need subplots (multiple groups)
+        needs_subplots = len(ts_by_group) > 1
+
+        if needs_subplots:
+            # Create subplot for each group
+            from plotly.subplots import make_subplots
+
+            n_subplots = len(ts_by_group)
+
+            fig = make_subplots(
+                rows=n_subplots,
+                cols=1,
+                shared_xaxes=False,
+                vertical_spacing=0.15 / n_subplots if n_subplots > 1 else 0.1,
+            )
+
+            for subplot_idx, (group_key, ts_list) in enumerate(ts_by_group.items(), start=1):
+                # Determine x-axis label for this subplot
+                x_label = x_axis
+
+                # If this is a normalized group, add unit to label
+                if group_key.startswith("Normalized("):
+                    # Extract unit from group key: "Normalized(h)" -> "h"
+                    unit = group_key.split("(")[1].rstrip(")")
+                    x_label = f"{x_axis} ({unit})"
+
+                # Add traces for this subplot
+                for ts_name in ts_list:
+                    ts = self.time_series[ts_name]
+                    ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
+                    ts_trace = ts_fig.data[0]
+                    fig.add_trace(ts_trace, row=subplot_idx, col=1)
+
+                # Update axes labels for this subplot
+                fig.update_xaxes(title_text=x_label, row=subplot_idx, col=1)
+                fig.update_yaxes(title_text=y_axis, row=subplot_idx, col=1)
+
+            fig.update_layout(
+                title=title,
+                height=400 * n_subplots,  # Adjust height based on number of subplots
+                showlegend=True,
+            )
+        else:
+            # Single plot - all series have compatible indices
+            fig = go.Figure()
+            for ts_name in ts_names:
+                ts = self.time_series[ts_name]
+                ts_fig = ts.plot(legend_name=ts_name, start=start, end=end)
+                ts_trace = ts_fig.data[0]
+                fig.add_trace(ts_trace)
+
+            fig.update_layout(
+                title=title,
+                xaxis_title=x_axis,
+                yaxis_title=y_axis,
+            )
+
         return fig
 
     def build_dependency_graph(self, ts_name: str) -> List[Dict[str, Any]]:

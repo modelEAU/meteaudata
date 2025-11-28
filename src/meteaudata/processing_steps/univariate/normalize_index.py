@@ -11,7 +11,7 @@ from meteaudata.types import (
 )
 
 
-def normalize_index_to_timedelta(
+def normalize_index_to_numeric_delta(
     input_series: list[pd.Series],
     unit: str = "s",
     reference_time: Optional[Union[pd.Timestamp, str]] = None,
@@ -19,22 +19,22 @@ def normalize_index_to_timedelta(
     **kwargs
 ) -> list[tuple[pd.Series, list[ProcessingStep]]]:
     """
-    Normalize time series indices to TimedeltaIndex for time-based analysis.
+    Normalize time series indices to numeric values in a specified time unit.
 
     This function transforms various index types (DatetimeIndex, numeric indices)
-    to TimedeltaIndex, enabling consistent time-based operations and normalization
-    to a common time reference.
+    to a float64 Index representing time values in the specified unit, enabling
+    consistent time-based operations and normalization to a common time reference.
 
     Parameters
     ----------
     input_series : list[pd.Series]
         List of pandas Series to process. Each series should have one of:
-        - DatetimeIndex: Will be converted to time elapsed from reference
-        - TimedeltaIndex: Will be preserved (with optional unit conversion)
+        - DatetimeIndex: Will be converted to time elapsed from reference (in specified unit)
         - Numeric index (int/float): Will be interpreted as time values in specified unit
+        - Already normalized index: Will be preserved
 
     unit : str, default "s"
-        Time unit for the output TimedeltaIndex. Valid values:
+        Time unit for the output numeric index. Valid values:
         - "D" or "days": Days
         - "h" or "hours": Hours
         - "min" or "minutes": Minutes
@@ -55,13 +55,13 @@ def normalize_index_to_timedelta(
     -------
     list[tuple[pd.Series, list[ProcessingStep]]]
         List of tuples, each containing:
-        - Transformed series with TimedeltaIndex
+        - Transformed series with float64 Index in specified unit
         - List with single ProcessingStep documenting the transformation
 
     Raises
     ------
     TypeError
-        If index type is not supported (must be DatetimeIndex, TimedeltaIndex, or numeric)
+        If index type is not supported (must be DatetimeIndex or numeric)
     ValueError
         If unit is not a valid time unit string
 
@@ -83,21 +83,21 @@ def normalize_index_to_timedelta(
     ... )
     >>> result = normalize_index_to_timedelta([data], unit="h")
     >>> result[0][0].index
-    TimedeltaIndex(['0 hours', '0.1 hours', '0.2 hours', ...])
+    Index([0.0, 0.1, 0.2, ...])
 
-    Convert numeric index to timedelta:
+    Convert numeric index directly (assumes values already in correct unit):
 
     >>> data = pd.Series([1, 2, 3], index=[0, 60, 120], name="Flow_RAW#1")
     >>> result = normalize_index_to_timedelta([data], unit="min")
     >>> result[0][0].index
-    TimedeltaIndex(['0 min', '60 min', '120 min'])
+    Index([0.0, 60.0, 120.0])
 
     Notes
     -----
     - Original data values are preserved; only the index is transformed
     - Processing creates new series; original series in Signal remain unchanged
-    - NaT (Not a Time) values in DatetimeIndex become NaT in TimedeltaIndex
-    - Negative numeric indices result in negative timedeltas (valid)
+    - The resulting index values match what users see in plots and exports
+    - Negative numeric indices result in negative values (valid for relative time)
     - The function follows the meteaudata TransformFunction protocol
     """
 
@@ -130,11 +130,23 @@ def normalize_index_to_timedelta(
         # Determine reference for DatetimeIndex
         actual_reference = None
 
+        # Unit conversion map for pandas
+        unit_map = {
+            "D": "days", "days": "days",
+            "h": "hours", "hours": "hours",
+            "min": "minutes", "minutes": "minutes",
+            "s": "seconds", "seconds": "seconds",
+            "ms": "milliseconds", "milliseconds": "milliseconds",
+            "us": "microseconds", "microseconds": "microseconds",
+            "ns": "nanoseconds", "nanoseconds": "nanoseconds"
+        }
+        pandas_unit = unit_map.get(unit, "seconds")
+
         # Transform index based on type
         if isinstance(col.index, pd.DatetimeIndex):
-            # CASE 1: DateTime → TimeDelta
+            # CASE 1: DateTime → numeric in specified unit
             if len(col.index) == 0:
-                new_index = pd.TimedeltaIndex([])
+                new_index = pd.Index([], dtype='float64')
             else:
                 # Warn if not monotonic
                 if not col.index.is_monotonic_increasing:
@@ -155,25 +167,24 @@ def normalize_index_to_timedelta(
                 else:
                     actual_reference = col.index[0]
 
-                # Calculate timedeltas
+                # Calculate time elapsed and convert to specified unit
                 timedeltas = col.index - actual_reference
-                new_index = pd.TimedeltaIndex(timedeltas)
-
-        elif isinstance(col.index, pd.TimedeltaIndex):
-            # CASE 2: Already TimeDelta (keep as-is, pandas handles units)
-            new_index = col.index
+                # Convert to numeric values in the specified unit
+                numeric_values = timedeltas.total_seconds() / pd.Timedelta(1, pandas_unit).total_seconds()
+                new_index = pd.Index(numeric_values, dtype='float64')
 
         elif pd.api.types.is_numeric_dtype(col.index):
-            # CASE 3: Numeric → TimeDelta
+            # CASE 2: Numeric → keep as-is (already in user-specified unit)
             if len(col.index) == 0:
-                new_index = pd.TimedeltaIndex([])
+                new_index = pd.Index([], dtype='float64')
             else:
-                new_index = pd.to_timedelta(col.index, unit=unit)
+                # Convert to float64 Index for consistency
+                new_index = pd.Index(col.index.astype('float64'), dtype='float64')
 
         else:
             raise TypeError(
                 f"Unsupported index type for series '{col_name}': {type(col.index).__name__}. "
-                "Supported types: DatetimeIndex, TimedeltaIndex, numeric (int/float)."
+                "Supported types: DatetimeIndex, numeric (int/float)."
             )
 
         # Apply new index
@@ -194,7 +205,7 @@ def normalize_index_to_timedelta(
 
         if actual_reference is not None:
             parameters_dict["reference_time"] = str(actual_reference)
-        elif reference_time is None and isinstance(col.index, pd.TimedeltaIndex):
+        elif reference_time is None and original_index_type == "DatetimeIndex":
             parameters_dict["reference_time"] = "first_index"
 
         parameters = Parameters(**parameters_dict)
@@ -203,11 +214,11 @@ def normalize_index_to_timedelta(
             type=ProcessingType.TRANSFORMATION,
             parameters=parameters,
             function_info=func_info,
-            description=f"Normalized index from {original_index_type} to TimedeltaIndex (unit={unit})",
+            description=f"Normalized index from {original_index_type} to numeric values (unit={unit})",
             run_datetime=datetime.datetime.now(),
             requires_calibration=False,
             input_series_names=[str(col_name)],
-            suffix="TDELTA-NORM",
+            suffix="NORM",
         )
 
         # Rename series with suffix
