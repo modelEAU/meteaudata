@@ -434,6 +434,7 @@ class ProcessingType(Enum):
     FAULT_DETECTION = "fault_detection"  # "Identifying anomalous measurements or sensor malfunctions"
     FAULT_IDENTIFICATION = "fault_identification"  # "Classifying the type or cause of detected faults"
     FAULT_DIAGNOSIS = "fault_diagnosis"  # "Determining root causes and recommending corrective actions for faults"
+    EXPORT_RENAME = "export_rename"  # "Renaming time series for export to different formats"
     OTHER = "other"  # "Custom or specialized processing operations not covered by standard categories"
 
  
@@ -1303,18 +1304,169 @@ class Signal(BaseModel, DisplayableBase):
         self.time_series = new_dico
         self.name = new_signal_name
 
-    def _save_data(self, path: str, separator: str = ",", index_name: Optional[str] = None):
-        # combine all time series into a single dataframe
+    def _save_data(
+        self,
+        path: str,
+        separator: str = ",",
+        output_index_name: Optional[Union[str, tuple]] = None,
+        output_value_names: Optional[Dict[str, Union[str, tuple]]] = None
+    ):
+        """
+        Save time series data to CSV files.
+
+        Args:
+            path: Directory path to save data
+            separator: CSV separator character
+            output_index_name: Custom name for index column (string or tuple for multi-line)
+            output_value_names: Dict mapping ts_name -> custom value column name (string or tuple)
+        """
         directory = f"{path}/{self.name}_data"
         if not os.path.exists(directory):
             os.makedirs(directory)
+
+        output_value_names = output_value_names or {}
+
         for ts_name, ts in self.time_series.items():
             file_path = f"{directory}/{ts_name}.csv"
             series_to_save = ts.series.copy()
-            if index_name is not None:
-                series_to_save.index.name = index_name
-            series_to_save.to_csv(file_path, sep=separator)
+
+            # Determine if we need multi-line headers
+            index_is_tuple = isinstance(output_index_name, tuple) and len(output_index_name) > 1
+            value_name = output_value_names.get(ts_name)
+            value_is_tuple = isinstance(value_name, tuple) and len(value_name) > 1
+
+            # Track if renaming occurred for ProcessingStep
+            original_name = series_to_save.name
+            export_name = value_name if value_name is not None else original_name
+
+            if index_is_tuple or value_is_tuple:
+                # Convert Series to DataFrame with MultiIndex columns
+                df = self._create_multiindex_dataframe(
+                    series_to_save,
+                    output_index_name,
+                    value_name or series_to_save.name
+                )
+                df.to_csv(file_path, sep=separator, index=False)
+            else:
+                # Single-line header (backward compatible)
+                if output_index_name is not None and isinstance(output_index_name, str):
+                    series_to_save.index.name = output_index_name
+                if value_name is not None and isinstance(value_name, str):
+                    series_to_save.name = value_name
+                series_to_save.to_csv(file_path, sep=separator)
+
+            # Add ProcessingStep if renaming occurred
+            if export_name != original_name:
+                rename_step = ProcessingStep(
+                    type=ProcessingType.EXPORT_RENAME,
+                    description=f"Renamed for export: '{original_name}' → '{export_name}'",
+                    run_datetime=datetime.datetime.now(),
+                    requires_calibration=False,
+                    function_info=FunctionInfo(
+                        name="export_rename",
+                        version="1.0",
+                        author="meteaudata",
+                        reference="Export operation"
+                    ),
+                    parameters=Parameters(original_name=original_name, export_name=str(export_name)),
+                    suffix="RENAMED",
+                    input_series_names=[original_name]
+                )
+                # Add to TimeSeries processing steps
+                ts.processing_steps.append(rename_step)
+
         return directory
+
+    def _create_multiindex_dataframe(
+        self,
+        series: pd.Series,
+        index_tuple: Optional[Union[str, tuple]],
+        value_tuple: Union[str, tuple]
+    ) -> pd.DataFrame:
+        """
+        Convert a Series to DataFrame with MultiIndex columns for multi-line headers.
+
+        Args:
+            series: The pandas Series to convert
+            index_tuple: Tuple for index column name (e.g., ("Time", "hours")) or string
+            value_tuple: Tuple for value column name (e.g., ("Temperature", "°C")) or string
+
+        Returns:
+            DataFrame with MultiIndex columns
+        """
+        # Normalize to tuples
+        if not isinstance(index_tuple, tuple):
+            index_tuple = (index_tuple,) if index_tuple else (series.index.name or "",)
+        if not isinstance(value_tuple, tuple):
+            value_tuple = (value_tuple,)
+
+        # Convert all elements to strings
+        index_tuple = tuple(str(elem) for elem in index_tuple)
+        value_tuple = tuple(str(elem) for elem in value_tuple)
+
+        # Ensure both have same number of levels (pad with empty strings)
+        max_levels = max(len(index_tuple), len(value_tuple))
+        index_tuple = index_tuple + ("",) * (max_levels - len(index_tuple))
+        value_tuple = value_tuple + ("",) * (max_levels - len(value_tuple))
+
+        # Create DataFrame with MultiIndex columns
+        columns = pd.MultiIndex.from_tuples([index_tuple, value_tuple])
+
+        # Create DataFrame: first column is index, second is values
+        df = pd.DataFrame({
+            columns[0]: series.index,
+            columns[1]: series.values
+        })
+
+        # Reset index so the time index becomes a regular column
+        df = df.reset_index(drop=True)
+
+        return df
+
+    def _process_output_value_names(
+        self,
+        output_value_names: Optional[Union[str, tuple, list, dict]]
+    ) -> Dict[str, Union[str, tuple]]:
+        """
+        Process output_value_names parameter into dict mapping ts_name -> name.
+
+        Args:
+            output_value_names: Can be None, "auto", single str/tuple, list, or dict
+
+        Returns:
+            Dict mapping each time series name to its output column name (str or tuple)
+        """
+        if output_value_names is None:
+            return {}
+
+        # Handle "auto" special value
+        if output_value_names == "auto":
+            result = {}
+            for ts_name in self.time_series.keys():
+                if self.units and self.units != "unit":  # Don't use default "unit"
+                    result[ts_name] = (ts_name, self.units)
+                else:
+                    result[ts_name] = ts_name
+            return result
+
+        # Handle dict
+        if isinstance(output_value_names, dict):
+            return output_value_names
+
+        # Handle single value (apply to all)
+        if isinstance(output_value_names, (str, tuple)):
+            return {ts_name: output_value_names for ts_name in self.time_series.keys()}
+
+        # Handle list
+        if isinstance(output_value_names, list):
+            if len(output_value_names) != len(self.time_series):
+                raise ValueError(
+                    f"output_value_names list must match number of time series. "
+                    f"Expected {len(self.time_series)}, got {len(output_value_names)}"
+                )
+            return dict(zip(self.time_series.keys(), output_value_names))
+
+        raise TypeError(f"Invalid type for output_value_names: {type(output_value_names)}")
 
     def metadata_dict(self):
         metadata = self.model_dump()
@@ -1332,14 +1484,65 @@ class Signal(BaseModel, DisplayableBase):
             yaml.dump(metadata, f)
         return file_path
 
-    def save(self, destination: str, zip: bool = True, separator: str = ",", index_name: Optional[str] = None):
+    def save(
+        self,
+        destination: str,
+        zip: bool = True,
+        separator: str = ",",
+        output_index_name: Optional[Union[str, tuple]] = None,
+        output_value_names: Optional[Union[str, tuple, list, dict]] = None
+    ):
+        """
+        Save signal data and metadata to disk.
+
+        Args:
+            destination: Directory path where files will be saved
+            zip: If True, creates a .zip archive; if False, saves as directory
+            separator: CSV column separator character (e.g., ',', ';', '\\t')
+            output_index_name: Custom name for index column in CSV files
+                - String: Single-line header (e.g., "Time")
+                - Tuple: Multi-line header (e.g., ("Time", "hours"))
+                - None: Uses pandas default (index name from Series)
+            output_value_names: Custom names for value columns in CSV files
+                - String/Tuple: Applies to all time series
+                - Dict: Map time_series_name -> custom_name for per-series control
+                - List: Must match number of time series
+                - "auto": Auto-create tuple (series_name, self.units) if units exist
+
+        Examples:
+            >>> # Single-line headers
+            >>> signal.save("output/", output_index_name="timestamp")
+
+            >>> # Multi-line headers
+            >>> signal.save("output/",
+            ...     output_index_name=("Time", "hours"),
+            ...     output_value_names=("Temperature", "°C"))
+
+            >>> # Auto-populate from units
+            >>> signal.save("output/", output_value_names="auto")
+
+            >>> # Per-series customization
+            >>> signal.save("output/",
+            ...     output_value_names={
+            ...         "A#1_RAW#1": ("Raw Temp", "°C"),
+            ...         "A#1_SMOOTH#1": ("Smoothed Temp", "°C")
+            ...     })
+        """
+        # Process output_value_names
+        value_names_dict = self._process_output_value_names(output_value_names)
+
         if not os.path.exists(destination):
             os.makedirs(destination)
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Step 2: Save metadata file
+            # Save metadata file
             self._save_metadata(temp_dir)
             # Prepare the subdirectory for signal data
-            self._save_data(temp_dir, separator=separator, index_name=index_name)
+            self._save_data(
+                temp_dir,
+                separator=separator,
+                output_index_name=output_index_name,
+                output_value_names=value_names_dict
+            )
             if not zip:
                 # Move the metadata file to the destination
                 shutil.move(f"{temp_dir}/{self.name}_metadata.yaml", destination)
@@ -1958,7 +2161,45 @@ class Dataset(BaseModel, DisplayableBase):
         }
         return metadata
 
-    def save(self, directory: str, separator: str = ",", index_name: Optional[str] = None) -> "Dataset":
+    def save(
+        self,
+        directory: str,
+        separator: str = ",",
+        output_index_name: Optional[Union[str, tuple]] = None,
+        output_value_names: Optional[Union[str, tuple, dict]] = None
+    ) -> "Dataset":
+        """
+        Save dataset data and metadata to disk as a zip archive.
+
+        Args:
+            directory: Directory path where the zip file will be created
+            separator: CSV column separator character
+            output_index_name: Custom name for index column (applies to all signals)
+                - String: Single-line header
+                - Tuple: Multi-line header
+            output_value_names: Custom names for value columns
+                - String/Tuple: Applies to all signals
+                - Dict[signal_name, str/tuple]: Per-signal customization
+                - Dict[signal_name, Dict[ts_name, str/tuple]]: Per-time-series customization
+                - "auto": Auto-populate from each signal's units attribute
+
+        Returns:
+            self: The Dataset object (for method chaining)
+
+        Examples:
+            >>> # Apply to all signals
+            >>> dataset.save("output/", output_index_name=("Time", "days"))
+
+            >>> # Per-signal customization
+            >>> dataset.save("output/",
+            ...     output_value_names={
+            ...         "temp_sensor": ("Temperature", "°C"),
+            ...         "pH_sensor": ("pH", "unitless")
+            ...     })
+
+            >>> # Auto-populate from units
+            >>> dataset.save("output/", output_value_names="auto")
+        """
         name = self.name
         dir_path = Path(directory)
         if not os.path.exists(dir_path):
@@ -1972,13 +2213,41 @@ class Dataset(BaseModel, DisplayableBase):
             yaml.dump(metadata, f)
         dir_name = f"{self.name}_data"
         with NamedTempDirectory(name=dir_name) as temp_dir:
-            for signal in self.signals.values():
-                signal.save(temp_dir, zip=False, separator=separator, index_name=index_name)
+            for signal_name, signal in self.signals.items():
+                # Determine output_value_names for this signal
+                signal_value_names = self._get_signal_output_value_names(
+                    signal_name, output_value_names
+                )
+                signal.save(
+                    temp_dir,
+                    zip=False,
+                    separator=separator,
+                    output_index_name=output_index_name,
+                    output_value_names=signal_value_names
+                )
             zip_directory(temp_dir, f"{directory}/{name}.zip")
         with zipfile.ZipFile(f"{directory}/{name}.zip", "a") as zf:
             zf.write(dataset_metadata_path, f"{name}_metadata.yaml")
         os.remove(dataset_metadata_path)
         return self
+
+    def _get_signal_output_value_names(
+        self,
+        signal_name: str,
+        dataset_output_value_names: Optional[Union[str, tuple, dict]]
+    ) -> Optional[Union[str, tuple, dict]]:
+        """Extract the output_value_names for a specific signal."""
+        if dataset_output_value_names is None:
+            return None
+
+        if dataset_output_value_names == "auto":
+            return "auto"
+
+        if isinstance(dataset_output_value_names, dict):
+            return dataset_output_value_names.get(signal_name, None)
+
+        # Single value applies to all signals
+        return dataset_output_value_names
 
     def _load_signal(self, dir_path: str, metadata: dict) -> Signal:
         signal = Signal._load_from_data_dir_and_meta_dict(dir_path, metadata)

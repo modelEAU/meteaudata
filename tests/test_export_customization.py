@@ -142,7 +142,7 @@ class TestIndexName:
         """Test saving signal with custom index name"""
         signal = create_test_signal()
         with tempfile.TemporaryDirectory() as temp_dir:
-            signal.save(temp_dir, zip=False, index_name="timestamp")
+            signal.save(temp_dir, zip=False, output_index_name="timestamp")
             csv_file = f"{temp_dir}/{signal.name}_data/A#1_RAW#1.csv"
             # Read CSV and check header
             df = pd.read_csv(csv_file, nrows=0)
@@ -164,7 +164,7 @@ class TestIndexName:
         """Test saving dataset with custom index name applies to all signals"""
         dataset = create_test_dataset()
         with tempfile.TemporaryDirectory() as temp_dir:
-            dataset.save(temp_dir, index_name="datetime")
+            dataset.save(temp_dir, output_index_name="datetime")
             # Extract and check files
             import zipfile
 
@@ -182,7 +182,7 @@ class TestIndexName:
         """Test using both custom separator and index name together"""
         signal = create_test_signal()
         with tempfile.TemporaryDirectory() as temp_dir:
-            signal.save(temp_dir, zip=False, separator=";", index_name="time")
+            signal.save(temp_dir, zip=False, separator=";", output_index_name="time")
             csv_file = f"{temp_dir}/{signal.name}_data/A#1_RAW#1.csv"
             with open(csv_file, "r") as f:
                 first_line = f.readline()
@@ -363,7 +363,7 @@ class TestIntegration:
                 temp_dir,
                 zip=False,
                 separator=";",
-                index_name="date",
+                output_index_name="date",
             )
 
             # Verify the saved file
@@ -398,7 +398,7 @@ class TestIntegration:
 
         # Save with all custom options
         with tempfile.TemporaryDirectory() as temp_dir:
-            dataset.save(temp_dir, separator="\t", index_name="timestamp")
+            dataset.save(temp_dir, separator="\t", output_index_name="timestamp")
 
             # Verify it was saved
             assert os.path.exists(f"{temp_dir}/test_dataset.zip")
