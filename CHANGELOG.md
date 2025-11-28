@@ -90,3 +90,7 @@
 
 - Fixed an issue where datetime objects were not represented adequately in YAML exports.
 - Fixed an issue where the test suite would open the web browser to render HTML.
+
+## 0.9.4
+
+- Fixed a bug where processing steps for TimeSeries objects were not appearing in the browser SVG graph visualization. The issue was caused by a mismatch between the identifier format expected by the SVG template ("Processing Steps") and the identifier returned by the CollectionContainer ("processing_steps").

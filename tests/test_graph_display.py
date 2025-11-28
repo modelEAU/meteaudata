@@ -319,10 +319,72 @@ class TestSVGGraphRenderer:
             # Container should have proper attributes
             signals_container = next((node for node in container_nodes if 'signals' in node['identifier'].lower()), None)
             assert signals_container is not None
-            
+
         except ImportError:
             pytest.skip("Graph display module not available")
-    
+
+    def test_processing_steps_container_identifier(self):
+        """Test that processing steps containers have the correct identifier for SVG template."""
+        try:
+            from meteaudata.graph_display import SVGGraphBuilder
+
+            # Create a TimeSeries with processing steps
+            provenance = DataProvenance(parameter="test_param", location="test_lab")
+            func_info = FunctionInfo(name="test_function", version="1.0", author="test", reference="test.com")
+            params = Parameters(param1="value1", param2=42)
+            step1 = ProcessingStep(
+                type=ProcessingType.SMOOTHING,
+                description="First step",
+                run_datetime=datetime.datetime.now(),
+                requires_calibration=False,
+                function_info=func_info,
+                suffix="STEP1",
+                parameters=params
+            )
+            step2 = ProcessingStep(
+                type=ProcessingType.TRANSFORMATION,
+                description="Second step",
+                run_datetime=datetime.datetime.now(),
+                requires_calibration=False,
+                function_info=func_info,
+                suffix="STEP2",
+                parameters=params
+            )
+
+            data = pd.Series([1, 2, 3, 4, 5], name="test_series")
+            ts = TimeSeries(series=data, processing_steps=[step1, step2])
+
+            # Build the graph
+            builder = SVGGraphBuilder()
+            graph_data = builder.build_graph(ts, max_depth=4)
+
+            # Find processing steps container
+            def find_processing_steps_container(node_dict):
+                """Recursively search for processing steps container."""
+                if node_dict.get('type') == 'Container' and node_dict.get('identifier') == 'Processing Steps':
+                    return node_dict
+
+                for child in node_dict.get('children', []):
+                    result = find_processing_steps_container(child)
+                    if result:
+                        return result
+                return None
+
+            # Check in hierarchy
+            processing_steps_container = find_processing_steps_container(graph_data['hierarchy'])
+
+            # Assert that processing steps container exists with correct identifier
+            assert processing_steps_container is not None, "Processing steps container not found in hierarchy"
+            assert processing_steps_container['identifier'] == 'Processing Steps', \
+                f"Expected identifier 'Processing Steps', got '{processing_steps_container['identifier']}'"
+
+            # Verify it has the processing step children
+            assert len(processing_steps_container.get('children', [])) == 2, \
+                f"Expected 2 processing steps, got {len(processing_steps_container.get('children', []))}"
+
+        except ImportError:
+            pytest.skip("Graph display module not available")
+
     def test_svg_renderer_produces_html(self, complex_dataset):
         """Test that SVG renderer produces valid HTML."""
         try:

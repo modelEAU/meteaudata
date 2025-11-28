@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "meteaudata"
-version = "0.9.3"
+version = "0.9.4"
 description = "A lightweight package for tracking metadata about time series to create repeatable data pipelines."
 authors = [
     {name = "Jean-David Therrien", email = "jeandavidt@gmail.com"}

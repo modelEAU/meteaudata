@@ -20,7 +20,7 @@ class CollectionContainer:
     
     def _get_identifier(self) -> str:
         """Get identifier for this collection container."""
-        return f"{self.collection_type}"
+        return self._get_display_name()
     
     def _get_display_name(self) -> str:
         """Get display name for this collection container."""
