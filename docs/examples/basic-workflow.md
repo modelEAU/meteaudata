@@ -34,36 +34,40 @@ signal.process(
     transform_function=replace_ranges,
     index_pairs=maintenance_periods,
     reason="Scheduled maintenance - sensor offline",
-    replace_with=np.nan
+    replace_with=np.nan,
+    output_names=["qc"]  # v0.10.0: Custom name instead of "REPLACED-RANGES"
 )
 print("Applied quality control filters")
 
-# Step 3: Resample to 5-minute intervals  
+# Step 3: Resample to 5-minute intervals
 signal.process(
-    input_time_series_names=["Temperature#1_REPLACED-RANGES#1"],
+    input_time_series_names=["Temperature#1_qc#1"],
     transform_function=resample,
-    frequency="5min"
+    frequency="5min",
+    output_names=["5min"]  # v0.10.0: Custom name instead of "RESAMPLED"
 )
 print("Resampled to 5-minute intervals")
 
 # Step 4: Fill gaps with linear interpolation
 signal.process(
-    input_time_series_names=["Temperature#1_RESAMPLED#1"],
-    transform_function=linear_interpolation
+    input_time_series_names=["Temperature#1_5min#1"],
+    transform_function=linear_interpolation,
+    output_names=["clean"]  # v0.10.0: Custom name instead of "LIN-INT"
 )
 print("Applied gap filling")
 
 # Step 5: Extract business hours (8 AM to 6 PM)
 signal.process(
-    input_time_series_names=["Temperature#1_LIN-INT#1"],
+    input_time_series_names=["Temperature#1_clean#1"],
     transform_function=subset,
     start_position=datetime(2024, 1, 1, 8, 0),
-    end_position=datetime(2024, 1, 1, 18, 0)
+    end_position=datetime(2024, 1, 1, 18, 0),
+    output_names=["business-hours"]  # v0.10.0: Custom name instead of "SLICE"
 )
 print("Extracted business hours data")
 
 # Step 6: Analyze results
-final_series_name = "Temperature#1_SLICE#1"
+final_series_name = "Temperature#1_business-hours#1"
 final_data = signal.time_series[final_series_name].series
 
 print(f"\nFinal processed data:")
@@ -78,10 +82,25 @@ processing_steps = signal.time_series[final_series_name].processing_steps
 for i, step in enumerate(processing_steps, 1):
     print(f"{i}. {step.description}")
     print(f"   Function: {step.function_info.name} v{step.function_info.version}")
+
+# Step 8: Save with custom CSV format (v0.10.0)
+import tempfile
+import os
+save_dir = tempfile.mkdtemp()
+save_path = os.path.join(save_dir, "temperature_data")
+
+signal.save(
+    save_path,
+    separator=";",  # European Excel format
+    index_name="timestamp"  # Custom index column name
+)
+print(f"\nSaved to: {save_path}")
+print("Export options: semicolon separator, custom index name")
 ```
 
 **Output:**
-```
+
+```text
 Signal created with 144 data points
 Missing values: 10
 Applied quality control filters
@@ -95,7 +114,7 @@ Data points: 121
 Mean temperature: 19.92°C
 Temperature range: 15.10°C to 44.12°C
 
-Processing history for Temperature#1_SLICE#1:
+Processing history for Temperature#1_business-hours#1:
 1. A function for replacing ranges of values with another (fixed) value.
    Function: replace_ranges v0.1
 2. A simple processing function that resamples a series to a given frequency
@@ -104,16 +123,20 @@ Processing history for Temperature#1_SLICE#1:
    Function: linear interpolation v0.1
 4. A simple processing function that slices a series to given indices.
    Function: subset v0.1
+
+Saved to: /tmp/tmpxxxxx/temperature_data
+Export options: semicolon separator, custom index name
 ```
 
 ```python
-# Step 8: Visualization
+# Step 9: Visualization
 print(f"\nGenerating visualization...")
 signal.display(format='html', depth=2)
 ```
 
 **Output:**
-```
+
+```text
 Generating visualization...
 ```
 
@@ -162,21 +185,23 @@ for signal_name, signal_obj in dataset.signals.items():
     raw_series_names = list(signal_obj.time_series.keys())
     if raw_series_names:
         raw_series_name = raw_series_names[0]
-        
-        # Resample to 5-minute intervals
+
+        # Resample to 5-minute intervals with custom naming (v0.10.0)
         signal_obj.process(
             input_time_series_names=[raw_series_name],
             transform_function=resample,
-            frequency="5min"
+            frequency="5min",
+            output_names=["5min"]  # Custom name instead of "RESAMPLED"
         )
-        
+
         # Fill any gaps
-        resampled_name = f"{signal_obj.name}_RESAMPLED#1"
+        resampled_name = f"{signal_obj.name}_5min#1"
         signal_obj.process(
             input_time_series_names=[resampled_name],
-            transform_function=linear_interpolation
+            transform_function=linear_interpolation,
+            output_names=["clean"]  # Custom name instead of "LIN-INT"
         )
-        
+
         print(f"  Processed {signal_name}")
 
 # Step 3: Create visualization
@@ -184,9 +209,9 @@ print("\nGenerating multi-signal visualization...")
 # Get the final processed series names for plotting
 final_series_names = []
 for signal_name, signal_obj in dataset.signals.items():
-    lin_int_series = [name for name in signal_obj.time_series.keys() if "LIN-INT" in name]
-    if lin_int_series:
-        final_series_names.append(lin_int_series[0])
+    clean_series = [name for name in signal_obj.time_series.keys() if "clean" in name]
+    if clean_series:
+        final_series_names.append(clean_series[0])
 
 if final_series_names:
     fig = dataset.plot(
@@ -195,10 +220,25 @@ if final_series_names:
         title="Multi-Parameter Process Monitoring"
     )
     print("Created dataset plot with synchronized time series")
+
+# Step 4: Save dataset with export customization (v0.10.0)
+import tempfile
+import os
+dataset_dir = tempfile.mkdtemp()
+dataset_path = os.path.join(dataset_dir, "process_data")
+
+dataset.save(
+    dataset_path,
+    separator="\t",  # Tab-separated values
+    index_name="datetime"  # Custom index column name
+)
+print(f"\nSaved dataset to: {dataset_path}")
+print("Export format: tab-separated, datetime index column")
 ```
 
 **Output:**
-```
+
+```text
 Created dataset with 3 signals
 
 Individual signal statistics:
@@ -231,6 +271,9 @@ Synchronizing all signals to 5-minute intervals...
 
 Generating multi-signal visualization...
 Created dataset plot with synchronized time series
+
+Saved dataset to: /tmp/tmpxxxxx/process_data
+Export format: tab-separated, datetime index column
 ```
 
 <iframe src="../../assets/generated/meteaudata_dataset_plot_d00f3439.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
@@ -238,13 +281,14 @@ Created dataset plot with synchronized time series
 <iframe src="../../assets/generated/meteaudata_timeseries_plot_d00f3439.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ```python
-# Step 4: Display dataset metadata
+# Step 5: Display dataset metadata
 print("\nDataset metadata overview:")
 dataset.display(format='html', depth=2)
 ```
 
 **Output:**
-```
+
+```text
 Dataset metadata overview:
 ```
 

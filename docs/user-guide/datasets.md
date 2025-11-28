@@ -92,6 +92,76 @@ Created: 2025-07-29 21:42:26.037581
 Signal count: 3
 ```
 
+## Custom Output Naming (v0.10.0+)
+
+When processing datasets, you can assign custom names to output signals and time series:
+
+```python
+from meteaudata import average_signals
+
+# Create custom-named output signals
+dataset.process(
+    input_signal_names=["Temperature#1", "Temperature#2"],
+    transform_function=average_signals,
+    output_signal_names=["TempAverage"]
+)
+
+print(f"Created signal: {list(dataset.signals.keys())[-1]}")
+# Creates "TempAverage#1" instead of default naming
+```
+
+### Custom Time Series Names
+
+You can also customize time series names within the output signals:
+
+```python
+# Custom signal and time series names
+dataset.process(
+    input_signal_names=["Temperature#1", "Temperature#2"],
+    transform_function=average_signals,
+    output_signal_names=["SiteAverage"],
+    output_ts_names=["hourly"]
+)
+
+# Creates signal "SiteAverage#1" with time series "SiteAverage#1_hourly#1"
+print(f"New signal: {list(dataset.signals.keys())[-1]}")
+new_signal = dataset.signals["SiteAverage#1"]
+print(f"Time series: {list(new_signal.time_series.keys())}")
+```
+
+**Note:** Custom names cannot contain underscores (reserved character). Use hyphens or other characters instead.
+
+## Overwrite Mode (v0.10.0+)
+
+Re-run dataset processing without creating new versions:
+
+```python
+# First run creates #1
+dataset.process(
+    input_signal_names=["Temperature#1"],
+    transform_function=some_function,
+    output_signal_names=["Processed"]
+)
+print(f"First run: {list(dataset.signals.keys())[-1]}")  # Processed#1
+
+# Second run creates #2 by default
+dataset.process(
+    input_signal_names=["Temperature#1"],
+    transform_function=some_function,
+    output_signal_names=["Processed"]
+)
+print(f"Second run: {list(dataset.signals.keys())[-1]}")  # Processed#2
+
+# With overwrite=True, replaces #1 instead of creating #3
+dataset.process(
+    input_signal_names=["Temperature#1"],
+    transform_function=some_function,
+    output_signal_names=["Processed"],
+    overwrite=True
+)
+print(f"With overwrite: {list(dataset.signals.keys())[-1]}")  # Processed#1
+```
+
 ## See Also
 
 - [Working with Signals](signals.md) - Understanding individual signals

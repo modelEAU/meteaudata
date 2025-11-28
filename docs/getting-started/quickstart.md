@@ -31,21 +31,23 @@ Now let's apply some processing to clean and transform our data:
 ```python
 from meteaudata import resample, linear_interpolation
 
-# Resample to 2-hour intervals
+# Resample to 2-hour intervals with custom naming (v0.10.0)
 signal.process(
     input_time_series_names=["Temperature#1_RAW#1"],
     transform_function=resample,
-    frequency="2H"
+    frequency="2H",
+    output_names=["2hour"]  # Custom name instead of "RESAMPLED"
 )
 
 # Fill any gaps with linear interpolation
 signal.process(
-    input_time_series_names=["Temperature#1_RESAMPLED#1"],
-    transform_function=linear_interpolation
+    input_time_series_names=["Temperature#1_2hour#1"],
+    transform_function=linear_interpolation,
+    output_names=["clean"]  # Custom name instead of "LIN-INT"
 )
 
 # Check our processing history
-latest_series_name = "Temperature#1_LIN-INT#1"
+latest_series_name = "Temperature#1_clean#1"
 processing_steps = signal.time_series[latest_series_name].processing_steps
 print(f"Applied {len(processing_steps)} processing steps:")
 for i, step in enumerate(processing_steps, 1):
@@ -67,13 +69,14 @@ meteaudata provides built-in visualization capabilities:
 # Display the signal (shows metadata and rich HTML)
 signal.display(format='html', depth=2)
 
-# Plot the time series  
-fig = signal.plot(["Temperature#1_RAW#1", "Temperature#1_LIN-INT#1"])
+# Plot the time series
+fig = signal.plot(["Temperature#1_RAW#1", "Temperature#1_clean#1"])
 print("Generated interactive plot with processed time series")
 ```
 
 **Output:**
-```
+
+```text
 Generated interactive plot with processed time series
 ```
 
@@ -83,6 +86,35 @@ Generated interactive plot with processed time series
 
 <iframe src="../../assets/generated/meteaudata_signal_plot_491be6f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
+## Saving Your Work
+
+Save your signal with custom export options (v0.10.0):
+
+```python
+import tempfile
+import os
+
+# Create a temporary directory for saving
+save_dir = tempfile.mkdtemp()
+save_path = os.path.join(save_dir, "my_signal")
+
+# Save with custom CSV format
+signal.save(
+    save_path,
+    separator=";",  # Use semicolon separator (European Excel)
+    index_name="timestamp"  # Custom index column name
+)
+print(f"Saved signal to: {save_path}")
+print("Export format: semicolon separator, custom timestamp column")
+```
+
+**Output:**
+
+```text
+Saved signal to: /tmp/tmpxxxxx/my_signal
+Export format: semicolon separator, custom timestamp column
+```
+
 ## Key Concepts Recap
 
 From this quick example, you've learned:
@@ -90,7 +122,9 @@ From this quick example, you've learned:
 1. **Signals** represent individual time series with rich metadata
 2. **DataProvenance** tracks where your data came from
 3. **Processing steps** are automatically tracked and documented
-4. **Everything can be saved and loaded** for reproducibility
+4. **Custom naming** (v0.10.0) gives you control over output names
+5. **Export customization** (v0.10.0) for different locales and formats
+6. **Everything can be saved and loaded** for reproducibility
 
 ## Next Steps
 
