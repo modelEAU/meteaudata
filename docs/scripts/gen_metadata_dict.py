@@ -57,13 +57,17 @@ def get_field_info(model_class: type[BaseModel], field_name: str):
     """Extract comprehensive field information from a Pydantic model."""
     model_fields = model_class.model_fields
     field_info = model_fields.get(field_name)
-    
+
     if not field_info:
         return None
-    
-    # Get type hints
-    type_hints = get_type_hints(model_class)
-    field_type = type_hints.get(field_name, "Unknown")
+
+    # Get type hints, handling forward references gracefully
+    try:
+        type_hints = get_type_hints(model_class)
+        field_type = type_hints.get(field_name, "Unknown")
+    except NameError:
+        # Forward reference can't be resolved, use annotation string
+        field_type = model_class.__annotations__.get(field_name, "Unknown")
     
     # Extract field properties
     default_value = None

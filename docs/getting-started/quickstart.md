@@ -75,16 +75,15 @@ print("Generated interactive plot with processed time series")
 ```
 
 **Output:**
-
-```text
+```
 Generated interactive plot with processed time series
 ```
 
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_491be6f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+<iframe src="../../assets/generated/meteaudata_signal_plot_6f3b789e.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
-<iframe src="../../assets/generated/display_content_491be6f4_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+<iframe src="../../assets/generated/display_content_6f3b789e_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
-<iframe src="../../assets/generated/meteaudata_signal_plot_491be6f4.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+<iframe src="../../assets/generated/meteaudata_timeseries_plot_6f3b789e.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Saving Your Work
 
@@ -102,18 +101,23 @@ save_path = os.path.join(save_dir, "my_signal")
 signal.save(
     save_path,
     separator=";",  # Use semicolon separator (European Excel)
-    index_name="timestamp"  # Custom index column name
+    output_index_name="timestamp"  # Custom index column name
 )
 print(f"Saved signal to: {save_path}")
 print("Export format: semicolon separator, custom timestamp column")
 ```
 
 **Output:**
-
-```text
-Saved signal to: /tmp/tmpxxxxx/my_signal
+```
+Saved signal to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpxai496x3/my_signal
 Export format: semicolon separator, custom timestamp column
 ```
+
+<iframe src="../../assets/generated/meteaudata_timeseries_plot_41eb8257.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+
+<iframe src="../../assets/generated/display_content_41eb8257_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+
+<iframe src="../../assets/generated/meteaudata_signal_plot_41eb8257.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Key Concepts Recap
 

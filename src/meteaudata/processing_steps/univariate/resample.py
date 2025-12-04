@@ -35,17 +35,21 @@ def resample(
         input_series_names=[str(col.name) for col in input_series],
         suffix="RESAMPLED",
     )
+    from meteaudata.types import Signal
+
     outputs = []
     for col in input_series:
         col = col.copy()
         col_name = col.name
-        signal, _ = str(col_name).split("_")
+        # Use utility function to handle new naming format (signalname_tsbase#number)
+        signal_name, _, _ = Signal.extract_ts_base_and_number(str(col_name))
         if not isinstance(col.index, (pd.DatetimeIndex, pd.TimedeltaIndex)):
             raise IndexError(
                 f"Series {col.name} has index type {type(col.index)}. Please provide either pd.DatetimeIndex or pd.TimedeltaIndex"
             )
         col = col.resample(frequency).mean()
-        new_name = f"{signal}_{processing_step.suffix}"
+        # Construct new name with signal prefix and processing step suffix
+        new_name = f"{signal_name}_{processing_step.suffix}"
         col.name = new_name
         outputs.append((col, [processing_step]))
     return outputs

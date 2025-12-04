@@ -4,10 +4,11 @@ import inspect
 import os
 import shutil
 import tempfile
+import warnings
 import zipfile
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Union
+from typing import Any, Dict, List, Optional, Protocol, Union, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -21,8 +22,12 @@ from pydantic import (
     field_serializer,
     field_validator,
     model_validator,
+    PrivateAttr,
 )
 from .displayable import DisplayableBase
+
+if TYPE_CHECKING:
+    from meteaudata.storage.protocols import StorageBackend
 
 # set the default plotly template
 pio.templates.default = "plotly_white"
@@ -636,6 +641,10 @@ class TimeSeries(BaseModel, DisplayableBase):
     values_dtype: str = Field(default="str", description="Data type of the time series values")
     created_on: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp when this TimeSeries object was created")
 
+    # Optional storage backend (propagated from Signal)
+    _backend: Optional["StorageBackend"] = PrivateAttr(default=None)
+    _storage_key: Optional[str] = PrivateAttr(default=None)
+
     model_config: dict = {
         "arbitrary_types_allowed": True,
     }
@@ -820,10 +829,14 @@ class TimeSeries(BaseModel, DisplayableBase):
             ProcessingType.FAULT_DIAGNOSIS: "lines+markers",
             ProcessingType.OTHER: "markers",
         }
-        split_series_name = self.series.name.split("_")
-        if len(split_series_name) > 1:
-            signal_name = split_series_name[0]
-            series_name = "_".join(split_series_name[1:])
+        # Import Signal here to avoid circular import at module level
+        from meteaudata.types import Signal as SignalClass
+        # Extract signal name and ts base using utility function
+        signal_name_extracted, ts_base, ts_num = SignalClass.extract_ts_base_and_number(str(self.series.name))
+        if signal_name_extracted:
+            signal_name = signal_name_extracted
+            # Reconstruct ts part without signal prefix
+            series_name = f"{ts_base}#{ts_num}" if ts_base else str(self.series.name)
         else:
             signal_name = "<No signal>"
             series_name = self.series.name
@@ -909,6 +922,39 @@ class TimeSeries(BaseModel, DisplayableBase):
                 new_steps.append(step)
         self.processing_steps = new_steps
         return self
+
+    def save_to_backend(self, key: str) -> None:
+        """Save this time series to the configured backend.
+
+        Args:
+            key: Unique storage key
+
+        Raises:
+            ValueError: If no storage backend is configured
+        """
+        if self._backend is None:
+            raise ValueError("No storage backend configured")
+
+        metadata = self.metadata_dict()
+        self._backend.save(self.series, key, metadata)
+        self._storage_key = key
+
+    def load_from_backend(self, key: str) -> None:
+        """Load this time series from the configured backend.
+
+        Args:
+            key: Storage key to load from
+
+        Raises:
+            ValueError: If no storage backend is configured
+        """
+        if self._backend is None:
+            raise ValueError("No storage backend configured")
+
+        series, metadata = self._backend.load(key)
+        self.series = series
+        self.load_metadata_from_dict(metadata)
+        self._storage_key = key
 
     def __str__(self):
         return f"{self.series.name}"
@@ -1015,6 +1061,11 @@ class Signal(BaseModel, DisplayableBase):
         description="Dictionary mapping time series names to TimeSeries objects for this signal"
     )
 
+    # Optional storage backend (propagated from Dataset)
+    _backend: Optional["StorageBackend"] = PrivateAttr(default=None)
+    _auto_save: bool = PrivateAttr(default=False)
+    _parent_dataset_name: Optional[str] = PrivateAttr(default=None)
+
     @field_serializer('created_on', 'last_updated')
     def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
         """Serialize datetime to ISO 8601 string format."""
@@ -1068,7 +1119,13 @@ class Signal(BaseModel, DisplayableBase):
                 ts.series.name = new_name
                 self.time_series[new_name] = ts
         elif current_data:
-            pass
+            # Rename time_series to include signal name prefix for consistency
+            renamed_time_series = {}
+            for old_name, ts in self.time_series.items():
+                new_name = self.new_ts_name(old_name)
+                ts.series.name = new_name
+                renamed_time_series[new_name] = ts
+            self.time_series = renamed_time_series
         else:
             raise ValueError(
                 f"Received data of type {type(data_input)}. Valid data types are pd.Series, pd.DataFrame, TimeSeries, list of TimeSeries, or dict of TimeSeries."
@@ -1094,6 +1151,76 @@ class Signal(BaseModel, DisplayableBase):
         else:
             number = 1
         return number_indicator.join([separator.join([self.name, rest]), str(number)])
+
+    @staticmethod
+    def extract_ts_base_and_number(ts_full_name: str) -> tuple[str, str, int]:
+        """Extract signal name, base ts name, and number from a full time series name.
+
+        Args:
+            ts_full_name: Full time series name in format 'signalname_tsbase#number'
+                         e.g., 'temperature#1_raw#2' or 'test_signal#1_processed#1'
+
+        Returns:
+            Tuple of (signal_name, ts_base, number)
+            e.g., ('temperature#1', 'raw', 2) or ('test_signal#1', 'processed', 1)
+
+        Examples:
+            >>> Signal.extract_ts_base_and_number('temperature#1_raw#2')
+            ('temperature#1', 'raw', 2)
+            >>> Signal.extract_ts_base_and_number('test_signal#1_processed#1')
+            ('test_signal#1', 'processed', 1)
+        """
+        # Find the last underscore followed by text and a hash
+        # This handles signal names that contain underscores
+        parts = ts_full_name.rsplit('_', 1)
+        if len(parts) == 2:
+            signal_name, ts_part = parts
+            # Extract base name and number from ts_part (e.g., 'raw#2' -> 'raw', 2)
+            if '#' in ts_part:
+                ts_base, num_str = ts_part.rsplit('#', 1)
+                try:
+                    number = int(num_str)
+                except ValueError:
+                    # If number parsing fails, treat whole thing as base
+                    ts_base = ts_part
+                    number = 1
+            else:
+                ts_base = ts_part
+                number = 1
+            return signal_name, ts_base, number
+        else:
+            # No underscore found, treat as just a base name
+            if '#' in ts_full_name:
+                ts_base, num_str = ts_full_name.rsplit('#', 1)
+                try:
+                    number = int(num_str)
+                except ValueError:
+                    ts_base = ts_full_name
+                    number = 1
+            else:
+                ts_base = ts_full_name
+                number = 1
+            return '', ts_base, number
+
+    @staticmethod
+    def make_ts_name(signal_name: str, ts_base: str, number: int) -> str:
+        """Construct a full time series name from components.
+
+        Args:
+            signal_name: Signal name (e.g., 'temperature#1')
+            ts_base: Base time series name (e.g., 'raw', 'processed')
+            number: Version number (e.g., 1, 2)
+
+        Returns:
+            Full time series name in format 'signalname_tsbase#number'
+
+        Examples:
+            >>> Signal.make_ts_name('temperature#1', 'raw', 2)
+            'temperature#1_raw#2'
+            >>> Signal.make_ts_name('test_signal#1', 'processed', 1)
+            'test_signal#1_processed#1'
+        """
+        return f"{signal_name}_{ts_base}#{number}"
 
     def add(self, ts: TimeSeries) -> None:
         old_name = ts.series.name
@@ -1122,37 +1249,28 @@ class Signal(BaseModel, DisplayableBase):
         else:
             self.name = f"{self.name}#1"
 
-    def max_ts_name_number(self, names: list[str]) -> dict[str, int]:
+    def max_ts_name_number(self, _: list[str]) -> dict[str, str]:
         full_names = list(self.time_series.keys())
-        # remove signal by splitting on "_" and keeping only the second part
-        names = [name.split("_")[1] for name in full_names]
-        names_no_numbers = [name.split("#")[0] for name in names]
-        numbers = [name.split("#")[1] for name in names if "#" in name]
-        name_numbers = {}
-        for name, number in zip(names_no_numbers, numbers):
-            if name in name_numbers.keys():
-                name_numbers[name] = max(name_numbers[name], number)
+        # Extract ts base names using utility function
+        name_numbers: dict[str, str] = {}
+        for full_name in full_names:
+            _, ts_base, number = Signal.extract_ts_base_and_number(full_name)
+            if ts_base in name_numbers:
+                name_numbers[ts_base] = str(max(int(name_numbers[ts_base]), number))
             else:
-                name_numbers[name] = number
+                name_numbers[ts_base] = str(number)
         return name_numbers
 
     def update_numbered_ts_name(self, name: str) -> str:
         name_max_number = self.max_ts_name_number(self.all_time_series)
-        signal_name, name = name.split("_")  # remove the signal name
-        if "#" in name:
-            name, num = name.split("#")
-            num = int(num)
-            if name in name_max_number.keys():
-                new_num = int(name_max_number[name]) + 1
-                return f"{signal_name}_{name}#{new_num}"
-            else:
-                return f"{signal_name}_{name}#1"
+        # Use utility function to extract components
+        signal_name, ts_base, _ = Signal.extract_ts_base_and_number(name)
+
+        if ts_base in name_max_number.keys():
+            new_num = int(name_max_number[ts_base]) + 1
+            return Signal.make_ts_name(signal_name, ts_base, new_num)
         else:
-            if name in name_max_number.keys():
-                new_num = int(name_max_number[name]) + 1
-                return f"{signal_name}_{name}#{new_num}"
-            else:
-                return f"{signal_name}_{name}#1"
+            return Signal.make_ts_name(signal_name, ts_base, 1)
 
     def replace_operation_suffix(self, ts_name: str, custom_suffix: str) -> str:
         """
@@ -1191,6 +1309,42 @@ class Signal(BaseModel, DisplayableBase):
         else:
             # No hash number, just replace operation
             return f"{signal_name}_{custom_suffix}"
+
+    def save_all(self, dataset_name: Optional[str] = None) -> None:
+        """Save all time series in this signal to the backend.
+
+        Args:
+            dataset_name: Optional dataset name for namespacing keys.
+                         If not provided, uses _parent_dataset_name or "default".
+        """
+        if self._backend is None:
+            return  # No backend configured, skip save
+
+        ds_name = dataset_name or self._parent_dataset_name or "default"
+
+        for ts_full_name, ts in self.time_series.items():
+            # Set backend on time series if not already set
+            if ts._backend is None or ts._backend != self._backend:
+                if ts._backend is not None and ts._backend != self._backend:
+                    warnings.warn(
+                        f"TimeSeries '{ts_full_name}' already has a different backend. "
+                        f"Using Signal's backend instead.",
+                        UserWarning
+                    )
+                ts._backend = self._backend
+
+            # Extract just the time series part by removing signal name prefix
+            # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
+            # Signal name is 'signal#1', so we remove 'signal#1_' prefix
+            if ts_full_name.startswith(self.name + '_'):
+                ts_name = ts_full_name[len(self.name) + 1:]  # +1 for the underscore
+            else:
+                ts_name = ts_full_name
+
+            # Save with hierarchical key structure
+            key = f"{ds_name}/{self.name}/{ts_name}"
+            metadata = ts.metadata_dict()
+            self._backend.save(ts.series, key, metadata)
 
     def process(
         self,
@@ -1275,7 +1429,15 @@ class Signal(BaseModel, DisplayableBase):
                 final_name = self.update_numbered_ts_name(new_ts_name)
 
             new_ts.series.name = final_name
+            # Propagate backend to new time series
+            if self._backend is not None:
+                new_ts._backend = self._backend
             self.time_series[final_name] = new_ts
+
+        # Auto-save if configured
+        if self._auto_save and self._backend is not None:
+            self.save_all()
+
         return self
 
     def update_processing_step_input_series_names(self, step: ProcessingStep):
@@ -1283,14 +1445,13 @@ class Signal(BaseModel, DisplayableBase):
         max_ts_name_number = self.max_ts_name_number(existing_ts_names)
         for input_name in step.input_series_names:
             if "#" in input_name:
-                signal_name, ts_name = input_name.split("_")
-                name, num = ts_name.split("#")
-                num = int(num)
-                if name in max_ts_name_number.keys():
-                    max_num = int(max_ts_name_number[name])
-                    new_name = f"{signal_name}_{name}#{max_num}"
+                # Use utility function to handle new naming format
+                signal_name, ts_base, _ = Signal.extract_ts_base_and_number(input_name)
+                if ts_base in max_ts_name_number.keys():
+                    max_num = int(max_ts_name_number[ts_base])
+                    new_name = Signal.make_ts_name(signal_name, ts_base, max_num)
                 else:
-                    new_name = f"{signal_name}_{name}#1"
+                    new_name = Signal.make_ts_name(signal_name, ts_base, 1)
                 step.input_series_names.remove(input_name)
                 step.input_series_names.append(new_name)
         return step
@@ -1311,9 +1472,11 @@ class Signal(BaseModel, DisplayableBase):
             return
         new_dico = {}
         for ts_name in self.time_series.keys():
-            _, ts_only_name = ts_name.split("_")
+            # Extract ts part using utility function
+            _, ts_base, ts_num = Signal.extract_ts_base_and_number(ts_name)
             ts = self.time_series[ts_name]
-            new_ts_name = f"{new_signal_name}_{ts_only_name}"
+            # Reconstruct with new signal name
+            new_ts_name = Signal.make_ts_name(new_signal_name, ts_base, ts_num)
             ts.series.name = new_ts_name
             new_dico[new_ts_name] = ts
         self.time_series = new_dico
@@ -2136,6 +2299,10 @@ class Dataset(BaseModel, DisplayableBase):
     purpose: Optional[str] = Field(default=None, description="Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research')")
     project: Optional[str] = Field(default=None, description="Project or study name associated with this dataset")
 
+    # Optional storage backend
+    _backend: Optional["StorageBackend"] = PrivateAttr(default=None)
+    _auto_save: bool = PrivateAttr(default=False)
+
     @field_serializer('created_on', 'last_updated')
     def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
         """Serialize datetime to ISO 8601 string format."""
@@ -2214,6 +2381,95 @@ class Dataset(BaseModel, DisplayableBase):
         else:
             # No hash number, just use custom name
             return custom_name
+
+    def set_backend(
+        self,
+        backend: "StorageBackend",
+        auto_save: bool = False
+    ) -> "Dataset":
+        """Configure storage backend for this dataset.
+
+        Args:
+            backend: Storage backend instance to use
+            auto_save: If True, automatically save after process() operations
+
+        Returns:
+            Self for method chaining
+        """
+        self._backend = backend
+        self._auto_save = auto_save
+
+        # Propagate backend to all existing signals
+        for signal in self.signals.values():
+            # Check for backend conflicts
+            if signal._backend is not None and signal._backend != backend:
+                warnings.warn(
+                    f"Signal '{signal.name}' already has a different backend configured. "
+                    f"Using Dataset's backend instead. To avoid this, configure backends "
+                    f"at the Dataset level before adding signals.",
+                    UserWarning
+                )
+
+            signal._backend = backend
+            signal._auto_save = auto_save
+            signal._parent_dataset_name = self.name
+
+            # Propagate to all time series in signal
+            for ts in signal.time_series.values():
+                if ts._backend is not None and ts._backend != backend:
+                    warnings.warn(
+                        f"TimeSeries '{ts.series.name}' already has a different backend. "
+                        f"Using Dataset's backend instead.",
+                        UserWarning
+                    )
+                ts._backend = backend
+
+        return self
+
+    def save_all(self) -> None:
+        """Save all time series data to the configured backend.
+
+        Raises:
+            ValueError: If no backend is configured
+        """
+        if self._backend is None:
+            raise ValueError("No storage backend configured. Call set_backend() first.")
+
+        for signal_name, signal in self.signals.items():
+            for ts_full_name, ts in signal.time_series.items():
+                # Extract just the time series part by removing signal name prefix
+                # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
+                if ts_full_name.startswith(signal_name + '_'):
+                    ts_name = ts_full_name[len(signal_name) + 1:]  # +1 for the underscore
+                else:
+                    ts_name = ts_full_name
+                # Create unique key: dataset/signal/timeseries
+                key = f"{self.name}/{signal_name}/{ts_name}"
+                metadata = ts.metadata_dict()
+                self._backend.save(ts.series, key, metadata)
+
+    def load_all(self) -> None:
+        """Load all time series data from the configured backend.
+
+        Raises:
+            ValueError: If no backend is configured
+        """
+        if self._backend is None:
+            raise ValueError("No storage backend configured. Call set_backend() first.")
+
+        for signal_name, signal in self.signals.items():
+            for ts_full_name, ts in signal.time_series.items():
+                # Extract just the time series part by removing signal name prefix
+                # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
+                if ts_full_name.startswith(signal_name + '_'):
+                    ts_name = ts_full_name[len(signal_name) + 1:]  # +1 for the underscore
+                else:
+                    ts_name = ts_full_name
+                key = f"{self.name}/{signal_name}/{ts_name}"
+                if self._backend.exists(key):
+                    series, metadata = self._backend.load(key)
+                    ts.series = series
+                    ts.load_metadata_from_dict(metadata)
 
     def add(self, signal: Signal) -> "Dataset":
         signal_name = signal.name
@@ -2427,11 +2683,25 @@ class Dataset(BaseModel, DisplayableBase):
             )
         split_names = []
         for name in input_time_series_names:
-            signal_name, ts_name = name.split("_")
+            # Use utility function to extract signal name
+            signal_name, ts_name, _ = Signal.extract_ts_base_and_number(name)
             split_names.append((signal_name, ts_name))
-        input_signals = [
-            copy.deepcopy(self.signals[signal_name]) for signal_name, _ in split_names
-        ]
+        # Copy signals without backend (to avoid pickling issues)
+        input_signals = []
+        for signal_name, _ in split_names:
+            signal = self.signals[signal_name]
+            # Temporarily save backend references
+            saved_backend = signal._backend
+            saved_auto_save = signal._auto_save
+            # Clear them before copy
+            signal._backend = None
+            signal._auto_save = False
+            # Do the copy
+            signal_copy = signal.model_copy(deep=True)
+            # Restore original signal's backend
+            signal._backend = saved_backend
+            signal._auto_save = saved_auto_save
+            input_signals.append(signal_copy)
         output_signals = transform_function(
             input_signals, input_time_series_names, *args, **kwargs
         )
@@ -2499,15 +2769,18 @@ class Dataset(BaseModel, DisplayableBase):
 
             out_signal.rename(new_signal_name)
             self.signals[new_signal_name] = out_signal
-            out_split_names = [x.split("_") for x in out_signal.all_time_series]
-            for out_signal_name, out_ts_name in out_split_names:
+            # Extract components from all time series names
+            out_split_names = [Signal.extract_ts_base_and_number(x) for x in out_signal.all_time_series]
+            for out_signal_name, out_ts_base, out_ts_num in out_split_names:
                 out_all_steps = []
-                out_full_ts_name = f"{out_signal_name}_{out_ts_name}"
+                out_full_ts_name = Signal.make_ts_name(out_signal_name, out_ts_base, out_ts_num)
                 out_ts = out_signal.time_series[out_full_ts_name]
                 new_steps = out_ts.processing_steps
                 for input_name in input_time_series_names:
-                    in_signal_name, in_ts_name = input_name.split("_")
-                    in_full_ts_name = f"{in_signal_name}_{in_ts_name}"
+                    # Use utility function to extract components
+                    in_signal_name, in_ts_base, in_ts_num = Signal.extract_ts_base_and_number(input_name)
+                    # Reconstruct the full name as it appears in the time_series dict
+                    in_full_ts_name = Signal.make_ts_name(in_signal_name, in_ts_base, in_ts_num)
                     input_steps = (
                         self.signals[in_signal_name]
                         .time_series[in_full_ts_name]
@@ -2520,6 +2793,11 @@ class Dataset(BaseModel, DisplayableBase):
                 )
                 out_new_ts = out_new_ts.remove_duplicated_steps()
                 self.signals[new_signal_name].time_series[out_full_ts_name] = out_new_ts
+
+        # Auto-save if configured
+        if self._auto_save and self._backend is not None:
+            self.save_all()
+
         return self
 
     def plot(

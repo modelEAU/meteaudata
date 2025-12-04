@@ -5,6 +5,91 @@ Datasets organize multiple signals together, representing a complete data collec
 ## Creating a Dataset
 
 ```python
+# Temperature data with daily cycle
+temp_data = pd.Series(
+    20 + 5 * np.sin(np.arange(100) * 2 * np.pi / 24) + np.random.normal(0, 0.5, 100),
+    index=timestamps, 
+    name="RAW"
+)
+# Temperature signal
+temp_provenance = DataProvenance(
+    source_repository="Plant SCADA",
+    project="Multi-parameter Monitoring",
+    location="Reactor R-101",
+    equipment="Thermocouple Type K",
+    parameter="Temperature", 
+    purpose="Process monitoring",
+    metadata_id="temp_001"
+)
+temperature_signal = Signal(
+    input_data=temp_data,
+    name="Temperature",
+    provenance=temp_provenance,
+    units="°C"
+)
+
+# pH data with longer cycle
+ph_data = pd.Series(
+    7.2 + 0.3 * np.sin(np.arange(100) * 2 * np.pi / 48) + np.random.normal(0, 0.1, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+# pH signal  
+ph_provenance = DataProvenance(
+    source_repository="Plant SCADA", 
+    project="Multi-parameter Monitoring",
+    location="Reactor R-101",
+    equipment="pH Sensor v1.3",
+    parameter="pH",
+    purpose="Process monitoring",
+    metadata_id="ph_001"
+)
+ph_signal = Signal(
+    input_data=ph_data,
+    name="pH", 
+    provenance=ph_provenance,
+    units="pH units"
+)
+
+# Dissolved oxygen data with some correlation to temperature
+do_data = pd.Series(
+    8.5 - 0.1 * (temp_data - 20) + np.random.normal(0, 0.2, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+# Dissolved oxygen signal
+do_provenance = DataProvenance(
+    source_repository="Plant SCADA",
+    project="Multi-parameter Monitoring", 
+    location="Reactor R-101",
+    equipment="DO Sensor v2.0",
+    parameter="Dissolved Oxygen",
+    purpose="Process monitoring",
+    metadata_id="do_001"
+)
+do_signal = Signal(
+    input_data=do_data,
+    name="DissolvedOxygen",
+    provenance=do_provenance,
+    units="mg/L"
+)
+
+# Create a dataset that groups the signals together
+dataset = Dataset(
+    name="reactor_monitoring",
+    description="Multi-parameter monitoring of reactor R-101",
+    owner="Process Engineer",
+    purpose="Process control and optimization",
+    project="Process Monitoring Study",
+    signals={
+        temperature_signal.name: temperature_signal,
+        ph_signal.name: ph_signal,
+        do_signal.name: do_signal
+    }
+)
+
 print(f"Dataset: {dataset.name}")
 print(f"Contains {len(dataset.signals)} signals:")
 for name, signal in dataset.signals.items():
@@ -40,7 +125,7 @@ print(f"Sample values: {temp_data.head(3).values}")
 Temperature signal: Temperature#1
 Time series: ['Temperature#1_RAW#1']
 Temperature data points: 100
-Sample values: [20.24835708 21.22496307 22.82384427]
+Sample values: [19.58550249 21.01400471 22.8736468 ]
 ```
 
 ## Dataset Processing
@@ -88,7 +173,7 @@ Dataset name: reactor_monitoring
 Description: Multi-parameter monitoring of reactor R-101
 Owner: Process Engineer
 Project: Process Monitoring Study
-Created: 2025-07-29 21:42:26.037581
+Created: 2025-12-03 19:22:04.227275
 Signal count: 3
 ```
 

@@ -5,11 +5,39 @@ Signals are the core building blocks of meteaudata. They represent a single meas
 ## Creating a Signal
 
 ```python
+# Create multiple time series for complex examples
+timestamps = pd.date_range('2024-01-01', periods=100, freq='1H')
+
+# Temperature data with daily cycle
+temp_data = pd.Series(
+    20 + 5 * np.sin(np.arange(100) * 2 * np.pi / 24) + np.random.normal(0, 0.5, 100),
+    index=timestamps, 
+    name="RAW"
+)
+
+# create a DataProvenance object to describe the source of the data
+provenance = DataProvenance(
+    source_repository="Example System",
+    project="Documentation Example",
+    location="Demo Location", 
+    equipment="Temperature Sensor v2.1",
+    parameter="Temperature",
+    purpose="Documentation example",
+    metadata_id="doc_example_001"
+)
+
+# create a signal object to hold the data and the metadata
+signal = Signal(
+    input_data=temp_data,
+    name="Temperature",
+    provenance=provenance,
+    units="°C"
+)
+
 print(f"Created signal: {signal.name}")
 print(f"Units: {signal.units}")
 print(f"Time series count: {len(signal.time_series)}")
-print(f"Data points: {len(signal.time_series['Temperature#1_RAW#1'].series)}")
-print(f"Date range: {signal.time_series['Temperature#1_RAW#1'].series.index.min()} to {signal.time_series['Temperature#1_RAW#1'].series.index.max()}")
+print(f"Time series names: {signal.all_time_series}")
 ```
 
 **Output:**
@@ -17,8 +45,7 @@ print(f"Date range: {signal.time_series['Temperature#1_RAW#1'].series.index.min(
 Created signal: Temperature#1
 Units: °C
 Time series count: 1
-Data points: 100
-Date range: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
+Time series names: ['Temperature#1_RAW#1']
 ```
 
 ## Adding Processing Steps
@@ -59,7 +86,7 @@ Processed series name: Temperature#1_LIN-INT#1
 Processing steps: 1
 Last processing step: ProcessingType.GAP_FILLING
 Data shape: (100,)
-Sample values: [24.96714153 18.61735699 26.47688538]
+Sample values: [19.29231463 21.08377256 22.32864274]
 ```
 
 ## Signal Attributes
@@ -77,7 +104,7 @@ print(f"Equipment: {signal.provenance.equipment}")
 ```
 Signal name: Temperature#1
 Units: °C
-Created on: 2025-07-29 21:42:33.788950
+Created on: 2025-12-03 19:22:12.096238
 Provenance: Temperature
 Equipment: Temperature Sensor v2.1
 ```

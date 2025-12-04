@@ -46,6 +46,7 @@ nav:
     - Time Series Processing: user-guide/time-series.md
     - Processing Steps: user-guide/processing-steps.md
     - Visualization: user-guide/visualization.md
+    - Backend Storage: user-guide/backend-storage.md
     - Saving and Loading: user-guide/saving-loading.md
   - Metadata Dictionary:
     - Overview: metadata-dictionary/index.md

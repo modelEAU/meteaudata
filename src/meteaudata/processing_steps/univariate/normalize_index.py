@@ -122,7 +122,8 @@ def normalize_index_to_numeric_delta(
     for col in input_series:
         col = col.copy()
         col_name = col.name
-        signal, _ = str(col_name).split("_")
+        # Use utility function to handle new naming format (signalname_tsbase#number)
+        signal, _, _ = Signal.extract_ts_base_and_number(str(col_name))
 
         # Store original index type for metadata
         original_index_type = type(col.index).__name__

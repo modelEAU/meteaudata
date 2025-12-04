@@ -34,11 +34,14 @@ def predict_from_previous_point(
         input_series_names=[str(col.name) for col in input_series],
         suffix="PREV-PRED",
     )
+    from meteaudata.types import Signal
+
     outputs = []
     for col in input_series:
         col = col.copy()
         col_name = col.name
-        signal, _ = str(col_name).split("_")
+        # Use utility function to handle new naming format (signalname_tsbase#number)
+        signal, _, _ = Signal.extract_ts_base_and_number(str(col_name))
         if not isinstance(col.index, (pd.DatetimeIndex, pd.TimedeltaIndex)):
             raise IndexError(
                 f"Series {col.name} has index type {type(col.index)}. Please provide either pd.DatetimeIndex or pd.TimedeltaIndex"

@@ -135,7 +135,7 @@ ProcessingStep details:
 - Description: Data smoothed using a moving average
 - Function: moving_average v1.0
 - Author: Guy Person
-- Run time: 2025-07-29 21:42:17
+- Run time: 2025-12-03 19:21:43
 - Suffix: MOVAVG
 ```
 
@@ -324,13 +324,13 @@ Processing steps applied: 2
 Step 1:
   - Function: resample v0.1
   - Description: A simple processing function that resamples a series to a given frequency
-  - When: 2025-07-29 21:42:19
+  - When: 2025-12-03 19:21:46
   - Type: ProcessingType.RESAMPLING
 
 Step 2:
   - Function: linear interpolation v0.1
   - Description: A simple processing function that linearly interpolates a series
-  - When: 2025-07-29 21:42:19
+  - When: 2025-12-03 19:21:46
   - Type: ProcessingType.GAP_FILLING
 ```
 
@@ -358,11 +358,11 @@ Reproducible workflow example:
 Temperature#1_LIN-INT#1 processing history:
   Step 1: resample v0.1
     Description: A simple processing function that resamples a series to a given frequency
-    When: 2025-07-29 21:42:20
+    When: 2025-12-03 19:21:46
     Parameters: frequency='2h'
   Step 2: linear interpolation v0.1
     Description: A simple processing function that linearly interpolates a series
-    When: 2025-07-29 21:42:20
+    When: 2025-12-03 19:21:46
     Parameters:
 ```
 
@@ -605,4 +605,4 @@ The examples above use several predefined contexts. Here are the key ones:
 - `full_environment`: Everything you need for complex examples
 - `continue`: Build on previous code blocks progressively
 
-For a complete list of available contexts and their contents, see the [Context Reference](../reference/contexts.md).
+For a complete list of available contexts and their contents, see the [Executable Docs Reference](../development/executable-code-docs.md).

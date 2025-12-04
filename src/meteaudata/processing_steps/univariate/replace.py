@@ -42,11 +42,14 @@ def replace_ranges(
         input_series_names=[str(col.name) for col in input_series],
         suffix="REPLACED-RANGES",
     )
+    from meteaudata.types import Signal
+
     outputs = []
     for col in input_series:
         col = col.copy()
         col_name = col.name
-        signal, _ = str(col_name).split("_")
+        # Use utility function to handle new naming format (signalname_tsbase#number)
+        signal, _, _ = Signal.extract_ts_base_and_number(str(col_name))
 
         for pair in index_pairs:
             if len(pair) != 2:

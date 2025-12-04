@@ -55,7 +55,8 @@ def average_signals(
     for name, col in input_series.items():
         col = col.copy()
         col_name = name
-        signal, _ = str(col_name).split("_")
+        # Use utility function to handle new naming format (signalname_tsbase#number)
+        signal, _, _ = Signal.extract_ts_base_and_number(str(col_name))
         if not isinstance(col.index, (pd.DatetimeIndex, pd.TimedeltaIndex)):
             raise IndexError(
                 f"Series {col.name} has index type {type(col.index)}. Please provide either pd.DatetimeIndex or pd.TimedeltaIndex"

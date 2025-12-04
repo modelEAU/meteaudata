@@ -134,3 +134,35 @@ This release adds export customization features to improve CSV compatibility wit
 - Added helper methods: `Signal.replace_operation_suffix()`, `Dataset.replace_signal_base_name()`
 - Validation ensures custom names don't contain reserved characters
 - Comprehensive test suite with 20 new tests covering all features
+
+### Internal Improvements
+
+- All processing functions now use `Signal.extract_ts_base_and_number()` for consistent signal name extraction instead of string splitting on underscores
+
+## 0.11.0
+
+### Backend Storage System
+
+Added pluggable storage backend system to enable processing of larger-than-memory datasets:
+
+- **Pandas Disk Backend**: Store data as Parquet files with YAML metadata
+  - Memory-efficient processing of large datasets
+  - Human-readable metadata files
+  - Configurable storage directory
+
+- **SQL Backend**: Store data in SQL databases (SQLite, PostgreSQL, MySQL)
+  - Multi-user access to shared data
+  - Automatic table creation (`time_series_data`, `time_series_metadata`)
+  - Compatible with any SQLAlchemy database
+
+- **Transparent API**: Processing code remains identical regardless of backend
+  - `Dataset.set_backend(backend, auto_save=True/False)`
+  - Manual control with `save_all()` and `load_all()`
+  - Auto-save mode persists data after each processing step
+
+- **Storage Management**:
+  - Delete individual time series: `backend.delete(key)`
+  - Clear all data: `backend.clear()`
+  - Complete cleanup: `backend.cleanup()` (disk only)
+
+See the [Backend Storage documentation](https://modeleau.github.io/meteaudata/user-guide/backend-storage/) for details

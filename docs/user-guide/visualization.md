@@ -125,47 +125,6 @@ Created dataset plot with 2 signals
 
 <iframe src="../../assets/generated/meteaudata_dataset_plot_19e670a6.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
-## Plot Customization
-
-Customize plot appearance with obvious styling changes:
-
-```python
-# Apply processing and get processed time series for customization example
-from meteaudata import linear_interpolation
-
-signal.process(["Temperature#1_RAW#1"], linear_interpolation)
-ts = signal.time_series["Temperature#1_LIN-INT#1"]
-
-# Create customized plot with dramatic styling
-fig = ts.plot(
-    title="Dramatically Customized Temperature Plot",
-    y_axis="Temperature (°C)",
-    x_axis="Time",
-    legend_name="Processed Temperature"
-)
-
-# Apply obvious custom styling - green background and bold formatting
-fig.update_layout(
-    plot_bgcolor='lightgreen',          # Green background to make change obvious
-    paper_bgcolor='lightblue',          # Light blue paper background
-    font=dict(size=16, color='darkblue', family='Arial Black'),  # Larger, bold, blue text
-    title_font=dict(size=20, color='red'),  # Large red title
-    showlegend=True,
-    legend=dict(
-        bgcolor='yellow',               # Yellow legend background
-        bordercolor='black',
-        borderwidth=2
-    )
-)
-print("Applied dramatic custom styling with green background and colorful formatting")
-```
-
-**Output:**
-```
-Applied dramatic custom styling with green background and colorful formatting
-```
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_99290be1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Rich Display System
 
@@ -197,10 +156,31 @@ Signal:
     parameter: 'Temperature'
     purpose: 'Process monitoring'
     metadata_id: 'temp_001'
-  created_on: 2025-07-29 21:42:39
-  last_updated: 2025-07-29 21:42:39
+  created_on: 2025-12-03 19:22:17
+  last_updated: 2025-12-03 19:22:17
   time_series_count: 1
-  timeseries_Temperature#1_RAW#1: {'series_name': 'Temperature#1_RAW#1', 'series_length': 100, 'values_dtype': 'float64', 'created_on': datetime.datetime(2025, 7, 29, 21, 42, 39, 679863), 'processing_steps_count': 0, 'processing_steps': [], 'index_metadata': IndexMetadata(type='DatetimeIndex', name=None, frequency='h', time_zone=None, closed=None, categories=None, ordered=None, start=None, end=None, step=None, dtype='datetime64[ns]'), 'date_range': '2024-01-01 00:00:00 to 2024-01-05 03:00:00'}
+  timeseries_Temperature#1_RAW#1: 
+  TimeSeries:
+    series_name: 'Temperature#1_RAW#1'
+    series_length: 100
+    values_dtype: 'float64'
+    created_on: 2025-12-03 19:22:17
+    processing_steps_count: 0
+    processing_steps: list[]
+    index_metadata: 
+    IndexMetadata:
+      type: str(...)
+      name: NoneType(...)
+      dtype: str(...)
+      frequency: str(...)
+      time_zone: NoneType(...)
+      closed: NoneType(...)
+      categories: NoneType(...)
+      ordered: NoneType(...)
+      start: NoneType(...)
+      end: NoneType(...)
+      step: NoneType(...)
+    date_range: '2024-01-01 00:00:00 to 2024-01-05 03:00:00'
 ```
 
 ### HTML Representation with Foldable Drill-downs
@@ -273,7 +253,7 @@ print("Alternative: Use dataset.show_graph_in_browser() to open directly in your
 ```
 Generated interactive dataset explorer
 Dataset contains 3 signals with full metadata hierarchy
-Saved to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmp1hw3a7b1.html
+Saved to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpvdu94vo7.html
 Features: zoom, pan, expand/collapse, click for details
 
 Alternative: Use dataset.show_graph_in_browser() to open directly in your browser

@@ -6,152 +6,191 @@ meteaudata objects can be saved to and loaded from files, preserving all data an
 
 ```python
 # Save a signal to directory
-import tempfile
 import os
-signal_dir = tempfile.mkdtemp()
+signal_dir = "demo_saves"
+os.makedirs(signal_dir, exist_ok=True)
 signal_path = os.path.join(signal_dir, "signal_data")
 
 signal.save(signal_path)
 print(f"Saved signal to: {signal_path}")
 print(f"Signal: {signal.name} ({signal.units})")
 print(f"Time series count: {len(signal.time_series)}")
+
+# Check what was actually created
+import os
+print(f"\nDirectory contents of {signal_dir}:")
+for item in os.listdir(signal_dir):
+    item_path = os.path.join(signal_dir, item)
+    if os.path.isdir(item_path):
+        print(f"  📁 {item}/")
+        for subitem in os.listdir(item_path):
+            print(f"    📄 {subitem}")
+    else:
+        print(f"  📄 {item}")
+
+# The save method creates a zip file with the signal name inside the destination directory
+signal_zip_path = os.path.join(signal_path, f"{signal.name}.zip")
+print(f"\nSignal zip file: {signal_zip_path}")
+print(f"Zip file exists: {os.path.exists(signal_zip_path)}")
 ```
 
 **Output:**
 ```
-Saved signal to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpkuqo8o80/signal_data
+Saved signal to: demo_saves/signal_data
 Signal: Temperature#1 (°C)
 Time series count: 1
+
+Directory contents of demo_saves:
+  📁 signal_data/
+    📄 Temperature#1.zip
+  📁 dataset_data/
+    📄 reactor_monitoring.zip
+
+Signal zip file: demo_saves/signal_data/Temperature#1.zip
+Zip file exists: True
 ```
 
 ## Loading Signals
 
 ```python
-# Check what was saved
-print(f"Signal data saved at: {signal_path}")
+# Load the signal back - the save method creates a zip file with the signal name inside the destination directory
+signal_zip_path = os.path.join(signal_path, f"{signal.name}.zip")
+print(f"Loading signal from: {signal_zip_path}")
+reloaded_signal = Signal.load_from_directory(signal_zip_path, signal.name)
 print(f"Original signal: {signal.name} ({signal.units})")
+print(f"Reloaded signal: {reloaded_signal.name} ({reloaded_signal.units})")
 print(f"Time series in original: {list(signal.time_series.keys())}")
-print(f"Data points: {len(signal.time_series['Temperature#1_RAW#1'].series)}")
+print(f"Time series in reloaded: {list(reloaded_signal.time_series.keys())}")
+# Use the actual first time series key from reloaded signal
+first_ts_key = list(reloaded_signal.time_series.keys())[0]
+print(f"Data points in original: {len(signal.time_series[first_ts_key].series)}")
+print(f"Data points in reloaded: {len(reloaded_signal.time_series[first_ts_key].series)}")
 ```
 
 **Output:**
 ```
-Signal data saved at: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpw5j9tid3/signal_data
+Loading signal from: demo_saves/signal_data/Temperature#1.zip
 Original signal: Temperature#1 (°C)
+Reloaded signal: Temperature#1 (°C)
 Time series in original: ['Temperature#1_RAW#1']
-Data points: 100
+Time series in reloaded: ['Temperature#1_RAW#1']
+Data points in original: 100
+Data points in reloaded: 100
 ```
 
 ## Saving Datasets
 
 ```python
 # Save a dataset to directory
-import tempfile
 import os
-dataset_dir = tempfile.mkdtemp()
+dataset_dir = "demo_saves"
+os.makedirs(dataset_dir, exist_ok=True)
 dataset_path = os.path.join(dataset_dir, "dataset_data")
 
 dataset.save(dataset_path)
 print(f"Saved dataset to: {dataset_path}")
 print(f"Dataset: {dataset.name}")
 print(f"Signals: {list(dataset.signals.keys())}")
+
+# Check what was actually created
+import os
+print(f"\nDirectory contents of {dataset_dir}:")
+for item in os.listdir(dataset_dir):
+    item_path = os.path.join(dataset_dir, item)
+    if os.path.isdir(item_path):
+        print(f"  📁 {item}/")
+        for subitem in os.listdir(item_path):
+            subitem_path = os.path.join(item_path, subitem)
+            if os.path.isdir(subitem_path):
+                print(f"    📁 {subitem}/")
+            else:
+                print(f"    📄 {subitem}")
+    else:
+        print(f"  📄 {item}")
+
+# The save method creates a zip file with the dataset name inside the destination directory
+dataset_zip_path = os.path.join(dataset_path, f"{dataset.name}.zip")
+print(f"\nDataset zip file: {dataset_zip_path}")
+print(f"Zip file exists: {os.path.exists(dataset_zip_path)}")
 ```
 
 **Output:**
 ```
-Saved dataset to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpqj7b8ttv/dataset_data
+Saved dataset to: demo_saves/dataset_data
 Dataset: reactor_monitoring
 Signals: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
+
+Directory contents of demo_saves:
+  📁 signal_data/
+    📄 Temperature#1.zip
+  📁 dataset_data/
+    📄 reactor_monitoring.zip
+
+Dataset zip file: demo_saves/dataset_data/reactor_monitoring.zip
+Zip file exists: True
 ```
 
 ## Loading Datasets
 
 ```python
-# Check what was saved
-print(f"Dataset saved at: {dataset_path}")
+# Load the dataset back - the save method creates a zip file with the dataset name inside the destination directory
+dataset_zip_path = os.path.join(dataset_path, f"{dataset.name}.zip")
+print(f"Loading dataset from: {dataset_zip_path}")
+reloaded_dataset = Dataset.load(dataset_zip_path, dataset.name)
 print(f"Original dataset: {dataset.name}")
-print(f"Description: {dataset.description}")
-print(f"Signals: {list(dataset.signals.keys())}")
-
-# Verify dataset structure
-for signal_name, signal in dataset.signals.items():
-    ts_count = len(signal.time_series)
-    print(f"  {signal_name}: {ts_count} time series")
+print(f"Reloaded dataset: {reloaded_dataset.name}")
+print(f"Original Description: {dataset.description}")
+print(f"Reloaded Description: {reloaded_dataset.description}")
+print(f"Original Signals: {list(dataset.signals.keys())}")
+print(f"Reloaded Signals: {list(reloaded_dataset.signals.keys())}")
 ```
 
 **Output:**
 ```
-Dataset saved at: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpt3svot6t/dataset_data
+Loading dataset from: demo_saves/dataset_data/reactor_monitoring.zip
 Original dataset: reactor_monitoring
-Description: Multi-parameter monitoring of reactor R-101
-Signals: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
-  Temperature#1: 1 time series
-  pH#1: 1 time series
-  DissolvedOxygen#1: 1 time series
-```
-
-## Export Customization (v0.10.0+)
-
-meteaudata provides options to customize CSV exports for compatibility with different computing environments and locales.
-
-### Custom CSV Separator
-
-Use semicolon separator for European Excel:
-
-```python
-# Save with semicolon separator (European locale)
-signal.save(signal_path, separator=";")
-
-# Or with tab separator
-dataset.save(dataset_path, separator="\t")
-```
-
-### Custom Index Names
-
-Set a custom column name for the time index:
-
-```python
-# Name the index column "timestamp"
-signal.save(signal_path, index_name="timestamp")
-
-# Or "datetime" for datasets
-dataset.save(dataset_path, index_name="datetime")
-```
-
-### Combined Customization
-
-```python
-# European format with custom index name
-dataset.save(
-    dataset_path,
-    separator=";",
-    index_name="date"
-)
+Reloaded dataset: reactor_monitoring
+Original Description: Multi-parameter monitoring of reactor R-101
+Reloaded Description: Multi-parameter monitoring of reactor R-101
+Original Signals: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
+Reloaded Signals: ['DissolvedOxygen#1', 'Temperature#1', 'pH#1']
 ```
 
 ## File Format
 
 ```python
-# Check directory contents
+# Check directory contents and zip file
 import os
-print("Dataset directory structure:")
-dataset_files = os.listdir(dataset_path)
-print(f"- Files created: {len(dataset_files)}")
-print(f"- File names: {dataset_files[:3]}...")  # First 3 files
+print("Directory structure after save:")
+all_files = os.listdir(dataset_dir)
+print(f"- Files in {dataset_dir}: {all_files}")
 
-# Directory size
-total_size = sum(os.path.getsize(os.path.join(dataset_path, f))
-                for f in dataset_files if os.path.isfile(os.path.join(dataset_path, f)))
-size_kb = total_size / 1024
-print(f"Total size: {size_kb:.1f} KB")
+# Check the zip file size
+dataset_zip_path = os.path.join(dataset_path, f"{dataset.name}.zip")
+if os.path.exists(dataset_zip_path):
+    zip_size = os.path.getsize(dataset_zip_path)
+    size_kb = zip_size / 1024
+    print(f"- Dataset zip file size: {size_kb:.1f} KB")
+    
+    # Show internal structure by checking what directories exist
+    print("\nStructure created by save operations:")
+    for item in all_files:
+        item_path = os.path.join(dataset_dir, item)
+        if os.path.isdir(item_path):
+            print(f"  📁 {item}/ (created during save process)")
+        elif item.endswith('.zip'):
+            print(f"  📦 {item} (final saved file)")
 ```
 
 **Output:**
 ```
-Dataset directory structure:
-- Files created: 1
-- File names: ['reactor_monitoring.zip']...
-Total size: 17.2 KB
+Directory structure after save:
+- Files in demo_saves: ['signal_data', 'dataset_data']
+- Dataset zip file size: 17.3 KB
+
+Structure created by save operations:
+  📁 signal_data/ (created during save process)
+  📁 dataset_data/ (created during save process)
 ```
 
 ## See Also
