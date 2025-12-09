@@ -129,8 +129,51 @@ With `auto_save=True` (the default), every time you process data, the results ar
 
 Sometimes you start with in-memory data, but your notebook session gets long and you want to move data to disk:
 
-```python exec="1" result="console" source="above" session="backend"
-# Your dataset is currently in-memory
+```python exec="1" result="console" source="above" session="backend-switch" id="switch-setup"
+import numpy as np
+import pandas as pd
+from meteaudata import Signal, DataProvenance, Dataset, resample
+import tempfile
+from pathlib import Path
+
+# Set random seed
+np.random.seed(42)
+
+# Create sample data
+timestamps = pd.date_range('2024-01-01', periods=100, freq='h')
+temp_data = pd.Series(
+    20 + 5 * np.sin(np.arange(100) * 2 * np.pi / 24) + np.random.normal(0, 0.5, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+temp_provenance = DataProvenance(
+    source_repository="Plant SCADA",
+    project="Switching Demo",
+    location="Reactor R-101",
+    equipment="Thermocouple",
+    parameter="Temperature",
+    purpose="Demo backend switching",
+    metadata_id="switch_demo_001"
+)
+
+temperature_signal = Signal(
+    input_data=temp_data,
+    name="Temperature",
+    provenance=temp_provenance,
+    units="°C"
+)
+
+# Start with in-memory dataset
+dataset = Dataset(
+    name="switch_demo",
+    description="Switching backends mid-session",
+    owner="Engineer",
+    purpose="Demo",
+    project="Switching Demo",
+    signals={"Temperature": temperature_signal}
+)
+
 print(f"Signals in dataset: {list(dataset.signals.keys())}")
 
 # Apply some processing (currently in-memory)
@@ -143,7 +186,7 @@ print(f"Time series after processing: {list(signal.time_series.keys())}")
 print("All data currently in memory")
 ```
 
-```python exec="1" result="console" source="above" session="backend"
+```python exec="1" result="console" source="above" session="backend-switch"
 # Now switch to on-disk storage mid-session - one line!
 temp_dir2 = Path(tempfile.mkdtemp(prefix="meteaudata_"))
 dataset.use_disk_storage(temp_dir2 / "session_data")

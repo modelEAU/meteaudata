@@ -137,7 +137,8 @@ markdown_extensions:
   - md_in_html
   - tables
   - footnotes
-  - pymdownx.critic
+  - pymdownx.critic:
+      mode: accept
   - pymdownx.caret
   - pymdownx.keys
   - pymdownx.mark
