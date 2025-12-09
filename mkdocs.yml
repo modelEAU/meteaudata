@@ -80,9 +80,11 @@ nav:
   - Development:
     - Contributing: development/contributing.md
     - Architecture: development/architecture.md
+    - Executable Code Docs: development/executable-code-docs.md
 
 plugins:
   - search
+  - markdown-exec
   - mkdocstrings:
       handlers:
         python:
@@ -102,7 +104,7 @@ plugins:
             show_root_toc_entry: false  # This should prevent duplicates
             filters:
               - "!^_"  # Hide private members
-            
+
   - gen-files:
       scripts:
         - docs/scripts/gen_metadata_dict.py
@@ -112,6 +114,7 @@ plugins:
 exclude_docs: |
   README.md
   README_template.md
+  snippets/_README.md
 
 markdown_extensions:
   - admonition

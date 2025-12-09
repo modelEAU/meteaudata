@@ -75,6 +75,7 @@ docs = [
     "pillow>=10.0.0",
     "cairosvg>=2.7.0",
     "matplotlib>=3.9.4",
+    "markdown-exec[ansi]>=1.11.0",
 ]
 
 # Combined environment for full development
