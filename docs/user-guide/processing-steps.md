@@ -6,7 +6,7 @@ Processing steps are functions that transform time series data while preserving 
 
 meteaudata includes several built-in processing functions:
 
-```python exec="1" result="console" source="tabbed-right" session="processing" id="setup"
+```python exec="1" result="console" source="above" session="processing" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance

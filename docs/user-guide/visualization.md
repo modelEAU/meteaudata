@@ -13,7 +13,7 @@ meteaudata visualization includes:
 
 ## Basic Time Series Plotting
 
-```python exec="1" result="console" source="tabbed-right" session="visualization" id="setup"
+```python exec="1" result="console" source="above" session="visualization" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance
@@ -123,7 +123,7 @@ print(f"Saved dependency graph to {dep_path}")
 
 Plot multiple signals using subplots:
 
-```python exec="1" result="console" source="tabbed-right" session="visualization-dataset" id="setup-dataset"
+```python exec="1" result="console" source="above" session="visualization-dataset" id="setup-dataset"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance, Dataset
@@ -320,18 +320,13 @@ This is particularly useful for understanding complex processing pipelines and d
 
 The simplest way to view the interactive graph is with the `show_graph_in_browser()` method:
 
-```python exec="1" result="console" source="above" session="visualization-dataset"
+```python
 # Open interactive visualization directly in your browser
 # This works for Signals, TimeSeries, and Datasets
-dataset.show_graph_in_browser()
 
-print("Interactive graph opened in your default browser!")
-print(f"Visualizing dataset with {len(dataset.signals)} signals")
-print("Features available:")
-print("  - Zoom and pan with mouse")
-print("  - Click any box to see detailed attributes")
-print("  - Use +/- buttons to expand/collapse sections")
+dataset.show_graph_in_browser()
 ```
+
 
 You can also customize the visualization:
 

@@ -23,7 +23,7 @@ Dataset
 
 DataProvenance captures the essential metadata about where your data came from:
 
-```python exec="1" result="console" source="tabbed-right" session="concepts" id="setup"
+```python exec="1" result="console" source="above" session="concepts" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance, Dataset

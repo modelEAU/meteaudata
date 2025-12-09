@@ -16,7 +16,7 @@ This directory contains reusable Python setup code for documentation examples. T
 
 **Example usage in markdown:**
 ```markdown
-​```python exec="1" result="console" source="tabbed-right" session="signals" id="setup"
+​```python exec="1" result="console" source="above" session="signals" id="setup"
 exec(open('docs/snippets/setup_simple_signal.py').read())
 ​```
 
@@ -39,7 +39,7 @@ print(f"Signal: {signal.name}")
 
 **Example usage in markdown:**
 ```markdown
-​```python exec="1" result="console" source="tabbed-right" session="dataset" id="setup"
+​```python exec="1" result="console" source="above" session="dataset" id="setup"
 exec(open('docs/snippets/setup_dataset.py').read())
 ​```
 
@@ -60,7 +60,7 @@ print(f"Dataset has {len(dataset.signals)} signals")
 
 **Example usage in markdown:**
 ```markdown
-​```python exec="1" result="console" source="tabbed-right" session="processing" id="setup"
+​```python exec="1" result="console" source="above" session="processing" id="setup"
 exec(open('docs/snippets/setup_processing.py').read())
 ​```
 
@@ -73,7 +73,7 @@ print(f"Missing values: {raw_data.isnull().sum()}")
 ## Usage Guidelines
 
 1. **Session names**: Use unique session names per page (e.g., `session="signals"` for signals.md)
-2. **Setup visibility**: Use `source="tabbed-right"` to show setup in a collapsible tab
+2. **Setup visibility**: Use `source="above"` to show setup code directly above the output
 3. **ID attribute**: Add `id="setup"` to setup blocks for easier debugging
 4. **Continuing examples**: Use the same session name to continue with the setup variables
 

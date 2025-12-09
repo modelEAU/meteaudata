@@ -4,7 +4,7 @@ Datasets organize multiple signals together, representing a complete data collec
 
 ## Creating a Dataset
 
-```python exec="1" result="console" source="tabbed-right" session="datasets" id="setup"
+```python exec="1" result="console" source="above" session="datasets" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance, Dataset
@@ -226,14 +226,14 @@ dataset.process(
 )
 print(f"Second run: {list(dataset.signals.keys())[-1]}")  # Processed#2
 
-# With overwrite=True, replaces #1 instead of creating #3
+# With overwrite=True, replaces #2 (the latest) instead of creating #3
 dataset.process(
     input_signal_names=["Temperature#1"],
     transform_function=some_function,
     output_signal_names=["Processed"],
     overwrite=True
 )
-print(f"With overwrite: {list(dataset.signals.keys())[-1]}")  # Processed#1
+print(f"With overwrite: {list(dataset.signals.keys())[-1]}")  # Still Processed#2
 ```
 
 ## See Also

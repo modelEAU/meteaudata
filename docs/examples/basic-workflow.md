@@ -16,7 +16,7 @@ You have temperature data from a reactor sensor with some data quality issues:
 
 ### Implementation
 
-```python exec="1" result="console" source="tabbed-right" session="workflow1" id="setup"
+```python exec="1" result="console" source="above" session="workflow1" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance
@@ -193,7 +193,7 @@ You're monitoring a water treatment process with multiple sensors:
 
 ### Implementation
 
-```python exec="1" result="console" source="tabbed-right" session="workflow2" id="setup-dataset"
+```python exec="1" result="console" source="above" session="workflow2" id="setup-dataset"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance, Dataset

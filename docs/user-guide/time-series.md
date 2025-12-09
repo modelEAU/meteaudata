@@ -4,7 +4,7 @@ Time series are the individual data arrays within signals. Each time series has 
 
 ## Working with Time Series
 
-```python exec="1" result="console" source="tabbed-right" session="timeseries" id="setup"
+```python exec="1" result="console" source="above" session="timeseries" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance

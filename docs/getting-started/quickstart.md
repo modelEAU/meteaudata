@@ -6,7 +6,7 @@ This guide will get you up and running with meteaudata in just a few minutes. We
 
 Let's start by creating a simple Signal with some sample time series data:
 
-```python exec="1" result="console" source="tabbed-right" session="quickstart" id="setup"
+```python exec="1" result="console" source="above" session="quickstart" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance

@@ -4,7 +4,7 @@ meteaudata objects can be saved to and loaded from files, preserving all data an
 
 ## Saving Signals
 
-```python exec="1" result="console" source="tabbed-right" session="saving" id="setup"
+```python exec="1" result="console" source="above" session="saving" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance, Dataset

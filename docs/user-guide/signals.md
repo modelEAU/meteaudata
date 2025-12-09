@@ -4,7 +4,7 @@ Signals are the core building blocks of meteaudata. They represent a single meas
 
 ## Creating a Signal
 
-```python exec="1" result="console" source="tabbed-right" session="signals" id="setup"
+```python exec="1" result="console" source="above" session="signals" id="setup"
 import numpy as np
 import pandas as pd
 from meteaudata import Signal, DataProvenance
