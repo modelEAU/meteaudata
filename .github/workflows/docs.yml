@@ -33,7 +33,11 @@ jobs:
         run: |
           uv sync --group docs
           uv pip install -e .
-          
+
+      - name: Create generated assets directory
+        run: |
+          mkdir -p docs/assets/generated
+
       - name: Build documentation
         run: |
           uv run mkdocs build --strict
