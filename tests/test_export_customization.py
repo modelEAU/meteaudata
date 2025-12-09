@@ -313,6 +313,30 @@ class TestOverwrite:
         assert "A#1_daily#1" in signal.all_time_series
         assert "A#1_daily#2" not in signal.all_time_series
 
+    def test_signal_process_overwrite_uses_latest_number(self):
+        """Test that overwrite=True overwrites the latest number, not #1"""
+        signal = create_test_signal()
+        # Create multiple versions
+        signal = signal.process(["A#1_RAW#1"], resample.resample, "1D")
+        signal = signal.process(["A#1_RAW#1"], resample.resample, "1D")
+        signal = signal.process(["A#1_RAW#1"], resample.resample, "1D")
+
+        # Should have RESAMPLED#1, #2, and #3
+        assert "A#1_RESAMPLED#1" in signal.all_time_series
+        assert "A#1_RESAMPLED#2" in signal.all_time_series
+        assert "A#1_RESAMPLED#3" in signal.all_time_series
+
+        # Now process with overwrite=True - should overwrite #3, not #1
+        signal = signal.process(
+            ["A#1_RAW#1"], resample.resample, "1D", overwrite=True
+        )
+
+        # Should still have #1, #2, #3, but NOT #4
+        assert "A#1_RESAMPLED#1" in signal.all_time_series
+        assert "A#1_RESAMPLED#2" in signal.all_time_series
+        assert "A#1_RESAMPLED#3" in signal.all_time_series
+        assert "A#1_RESAMPLED#4" not in signal.all_time_series
+
     def test_dataset_process_without_overwrite_increments_hash(self):
         """Test that dataset.process increments hash without overwrite"""
         dataset = create_test_dataset()
@@ -338,6 +362,36 @@ class TestOverwrite:
         # Should still only have AVERAGE#1
         assert "AVERAGE#1" in dataset.signals
         assert "AVERAGE#2" not in dataset.signals
+
+    def test_dataset_process_overwrite_uses_latest_number(self):
+        """Test that overwrite=True overwrites the latest signal number, not #1"""
+        dataset = create_test_dataset()
+        # Create multiple versions
+        dataset = dataset.process(
+            ["A#1_RAW#1", "B#1_RAW#1"], average_signals
+        )
+        dataset = dataset.process(
+            ["A#1_RAW#1", "B#1_RAW#1"], average_signals
+        )
+        dataset = dataset.process(
+            ["A#1_RAW#1", "B#1_RAW#1"], average_signals
+        )
+
+        # Should have AVERAGE#1, #2, and #3
+        assert "AVERAGE#1" in dataset.signals
+        assert "AVERAGE#2" in dataset.signals
+        assert "AVERAGE#3" in dataset.signals
+
+        # Now process with overwrite=True - should overwrite #3, not #1
+        dataset = dataset.process(
+            ["A#1_RAW#1", "B#1_RAW#1"], average_signals, overwrite=True
+        )
+
+        # Should still have #1, #2, #3, but NOT #4
+        assert "AVERAGE#1" in dataset.signals
+        assert "AVERAGE#2" in dataset.signals
+        assert "AVERAGE#3" in dataset.signals
+        assert "AVERAGE#4" not in dataset.signals
 
 
 class TestIntegration:
