@@ -583,3 +583,162 @@ class TestEdgeCases:
         # Keys get sanitized: slashes replaced with underscores
         # Key structure is dataset/signal/tspart where tspart is extracted from full ts name
         assert keys[0] == 'test_dataset_signal1#1_raw#1'
+
+
+class TestConvenienceMethods:
+    """Test the new convenience methods for configuring storage backends."""
+
+    def test_timeseries_use_disk_storage(self, sample_series, temp_dir):
+        """Test TimeSeries.use_disk_storage convenience method."""
+        ts = TimeSeries(series=sample_series.copy())
+
+        # Use convenience method
+        result = ts.use_disk_storage(temp_dir / "ts_data")
+
+        # Should return self for chaining
+        assert result is ts
+
+        # Backend should be configured
+        assert ts._backend is not None
+        assert ts._backend.get_backend_type() == "pandas-disk"
+
+    def test_timeseries_use_sql_storage(self, sample_series):
+        """Test TimeSeries.use_sql_storage convenience method."""
+        ts = TimeSeries(series=sample_series.copy())
+
+        # Use convenience method with in-memory SQLite
+        result = ts.use_sql_storage("sqlite:///:memory:")
+
+        # Should return self for chaining
+        assert result is ts
+
+        # Backend should be configured
+        assert ts._backend is not None
+        assert ts._backend.get_backend_type() == "sql"
+
+    def test_timeseries_use_memory_storage(self, sample_series):
+        """Test TimeSeries.use_memory_storage convenience method."""
+        ts = TimeSeries(series=sample_series.copy())
+
+        # Use convenience method
+        result = ts.use_memory_storage()
+
+        # Should return self for chaining
+        assert result is ts
+
+        # Backend should be configured
+        assert ts._backend is not None
+        assert ts._backend.get_backend_type() == "pandas-memory"
+
+    def test_signal_use_disk_storage(self, sample_signal, temp_dir):
+        """Test Signal.use_disk_storage convenience method."""
+        # Use convenience method
+        result = sample_signal.use_disk_storage(temp_dir / "signal_data", auto_save=True)
+
+        # Should return self for chaining
+        assert result is sample_signal
+
+        # Backend should be configured
+        assert sample_signal._backend is not None
+        assert sample_signal._backend.get_backend_type() == "pandas-disk"
+        assert sample_signal._auto_save is True
+
+        # Backend should be propagated to time series
+        for ts in sample_signal.time_series.values():
+            assert ts._backend is sample_signal._backend
+
+    def test_signal_use_sql_storage(self, sample_signal):
+        """Test Signal.use_sql_storage convenience method."""
+        # Use convenience method
+        result = sample_signal.use_sql_storage("sqlite:///:memory:", auto_save=False)
+
+        # Should return self for chaining
+        assert result is sample_signal
+
+        # Backend should be configured
+        assert sample_signal._backend is not None
+        assert sample_signal._backend.get_backend_type() == "sql"
+        assert sample_signal._auto_save is False
+
+        # Backend should be propagated to time series
+        for ts in sample_signal.time_series.values():
+            assert ts._backend is sample_signal._backend
+
+    def test_dataset_use_disk_storage(self, sample_dataset, temp_dir):
+        """Test Dataset.use_disk_storage convenience method."""
+        # Use convenience method
+        result = sample_dataset.use_disk_storage(temp_dir / "dataset_data")
+
+        # Should return self for chaining
+        assert result is sample_dataset
+
+        # Backend should be configured
+        assert sample_dataset._backend is not None
+        assert sample_dataset._backend.get_backend_type() == "pandas-disk"
+        assert sample_dataset._auto_save is True  # Default is True
+
+        # Backend should be propagated to signals and time series
+        for signal in sample_dataset.signals.values():
+            assert signal._backend is sample_dataset._backend
+            assert signal._auto_save is True
+            for ts in signal.time_series.values():
+                assert ts._backend is sample_dataset._backend
+
+    def test_dataset_use_sql_storage(self, sample_dataset):
+        """Test Dataset.use_sql_storage convenience method."""
+        # Use convenience method
+        result = sample_dataset.use_sql_storage("sqlite:///:memory:", auto_save=False)
+
+        # Should return self for chaining
+        assert result is sample_dataset
+
+        # Backend should be configured
+        assert sample_dataset._backend is not None
+        assert sample_dataset._backend.get_backend_type() == "sql"
+        assert sample_dataset._auto_save is False
+
+        # Backend should be propagated to signals and time series
+        for signal in sample_dataset.signals.values():
+            assert signal._backend is sample_dataset._backend
+            assert signal._auto_save is False
+            for ts in signal.time_series.values():
+                assert ts._backend is sample_dataset._backend
+
+    def test_dataset_use_memory_storage(self, sample_dataset):
+        """Test Dataset.use_memory_storage convenience method."""
+        # Use convenience method
+        result = sample_dataset.use_memory_storage()
+
+        # Should return self for chaining
+        assert result is sample_dataset
+
+        # Backend should be configured
+        assert sample_dataset._backend is not None
+        assert sample_dataset._backend.get_backend_type() == "pandas-memory"
+        assert sample_dataset._auto_save is False  # Memory doesn't need auto-save
+
+        # Backend should be propagated to signals and time series
+        for signal in sample_dataset.signals.values():
+            assert signal._backend is sample_dataset._backend
+            for ts in signal.time_series.values():
+                assert ts._backend is sample_dataset._backend
+
+    def test_convenience_methods_with_pathlib(self, sample_dataset, temp_dir):
+        """Test that convenience methods work with pathlib.Path objects."""
+        from pathlib import Path
+
+        # Should work with Path object
+        path = Path(temp_dir) / "test_path"
+        result = sample_dataset.use_disk_storage(path)
+
+        assert result is sample_dataset
+        assert sample_dataset._backend is not None
+
+    def test_convenience_methods_chaining(self, sample_dataset, temp_dir):
+        """Test that convenience methods can be chained."""
+        # Should be able to chain method calls
+        result = sample_dataset.use_disk_storage(temp_dir / "data")
+
+        # Can continue chaining other dataset methods
+        signal = result.signals['signal1#1']
+        assert signal is not None

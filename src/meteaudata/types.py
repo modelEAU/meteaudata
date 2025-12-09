@@ -956,6 +956,79 @@ class TimeSeries(BaseModel, DisplayableBase):
         self.load_metadata_from_dict(metadata)
         self._storage_key = key
 
+    def use_disk_storage(self, path: Union[str, Path], auto_save: bool = True) -> "TimeSeries":
+        """Configure this time series to use disk-based storage.
+
+        This is a convenience method that configures pandas-disk backend storage
+        for this time series. Data will be stored as Parquet files on disk.
+
+        Args:
+            path: Directory path where data will be stored
+            auto_save: If True, automatically save after modifications (default: True)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> ts = TimeSeries(series=my_data)
+            >>> ts.use_disk_storage("./my_data", auto_save=True)
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_pandas_disk(path)
+        backend = create_backend(config)
+        self._backend = backend
+        return self
+
+    def use_sql_storage(self, connection_string: str, auto_save: bool = True) -> "TimeSeries":
+        """Configure this time series to use SQL database storage.
+
+        This is a convenience method that configures SQL backend storage for
+        this time series. Supports SQLite, PostgreSQL, MySQL, and other
+        SQLAlchemy-compatible databases.
+
+        Args:
+            connection_string: Database connection string (e.g., 'sqlite:///my_data.db')
+            auto_save: If True, automatically save after modifications (default: True)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> ts = TimeSeries(series=my_data)
+            >>> ts.use_sql_storage("sqlite:///my_data.db")
+            >>> # PostgreSQL example:
+            >>> ts.use_sql_storage("postgresql://user:password@localhost/database")
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_sql(connection_string)
+        backend = create_backend(config)
+        self._backend = backend
+        return self
+
+    def use_memory_storage(self) -> "TimeSeries":
+        """Configure this time series to use in-memory storage.
+
+        This is a convenience method that explicitly configures in-memory storage
+        (the default). Useful for switching back from disk/SQL storage.
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> ts = TimeSeries(series=my_data)
+            >>> ts.use_disk_storage("./data")  # Use disk
+            >>> # ... later ...
+            >>> ts.use_memory_storage()  # Switch back to memory
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_pandas_memory()
+        backend = create_backend(config)
+        self._backend = backend
+        return self
+
     def __str__(self):
         return f"{self.series.name}"
     
@@ -1365,8 +1438,9 @@ class Signal(BaseModel, DisplayableBase):
             output_names (Optional[list[str]]): Optional list of custom names to replace the operation suffix.
                 Must have the same length as the number of outputs. Example: ["smoothed", "filtered"]
                 will produce names like "A#1_smoothed#1" instead of "A#1_SMOOTH#1".
-            overwrite (bool): If True, keeps the existing hash number instead of incrementing.
-                Default is False (increment hash number).
+            overwrite (bool): If True, overwrites the latest version instead of incrementing.
+                Default is False (increment hash number). For example, if versions #1, #2, #3 exist,
+                overwrite=True will replace #3, while overwrite=False will create #4.
             **kwargs: Additional keyword arguments to be passed to the transformation function.
 
         Returns:
@@ -1420,9 +1494,16 @@ class Signal(BaseModel, DisplayableBase):
 
             # Handle overwrite vs increment
             if overwrite:
-                # Keep the hash number as-is, just ensure format is correct
+                # Find the latest number and overwrite that one
                 if "#" not in new_ts_name:
-                    new_ts_name = f"{new_ts_name}#1"
+                    # Get max number for this ts_base
+                    name_max_number = self.max_ts_name_number(self.all_time_series)
+                    signal_name, ts_base, _ = Signal.extract_ts_base_and_number(new_ts_name)
+                    if ts_base in name_max_number.keys():
+                        max_num = int(name_max_number[ts_base])
+                        new_ts_name = Signal.make_ts_name(signal_name, ts_base, max_num)
+                    else:
+                        new_ts_name = f"{new_ts_name}#1"
                 final_name = new_ts_name
             else:
                 # Use the normal incrementing logic
@@ -2229,7 +2310,98 @@ class Signal(BaseModel, DisplayableBase):
             attrs[f"timeseries_{timeseries_name}"] = timeseries
         return attrs
 
-    
+    def use_disk_storage(self, path: Union[str, Path], auto_save: bool = True) -> "Signal":
+        """Configure this signal to use disk-based storage.
+
+        This is a convenience method that configures pandas-disk backend storage
+        for all time series in this signal. Data will be stored as Parquet files on disk.
+
+        Args:
+            path: Directory path where data will be stored
+            auto_save: If True, automatically save after modifications (default: True)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> signal = Signal(input_data=my_data, name="temperature", ...)
+            >>> signal.use_disk_storage("./my_data")
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_pandas_disk(path)
+        backend = create_backend(config)
+        self._backend = backend
+        self._auto_save = auto_save
+
+        # Propagate backend to all time series
+        for ts in self.time_series.values():
+            ts._backend = backend
+
+        return self
+
+    def use_sql_storage(self, connection_string: str, auto_save: bool = True) -> "Signal":
+        """Configure this signal to use SQL database storage.
+
+        This is a convenience method that configures SQL backend storage for
+        all time series in this signal. Supports SQLite, PostgreSQL, MySQL,
+        and other SQLAlchemy-compatible databases.
+
+        Args:
+            connection_string: Database connection string (e.g., 'sqlite:///my_data.db')
+            auto_save: If True, automatically save after modifications (default: True)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> signal = Signal(input_data=my_data, name="temperature", ...)
+            >>> signal.use_sql_storage("sqlite:///my_data.db")
+            >>> # PostgreSQL example:
+            >>> signal.use_sql_storage("postgresql://user:password@localhost/database")
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_sql(connection_string)
+        backend = create_backend(config)
+        self._backend = backend
+        self._auto_save = auto_save
+
+        # Propagate backend to all time series
+        for ts in self.time_series.values():
+            ts._backend = backend
+
+        return self
+
+    def use_memory_storage(self) -> "Signal":
+        """Configure this signal to use in-memory storage.
+
+        This is a convenience method that explicitly configures in-memory storage
+        (the default). Useful for switching back from disk/SQL storage.
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> signal = Signal(input_data=my_data, name="temperature", ...)
+            >>> signal.use_disk_storage("./data")  # Use disk
+            >>> # ... later ...
+            >>> signal.use_memory_storage()  # Switch back to memory
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_pandas_memory()
+        backend = create_backend(config)
+        self._backend = backend
+        self._auto_save = False
+
+        # Propagate backend to all time series
+        for ts in self.time_series.values():
+            ts._backend = backend
+
+        return self
+
+
 class DatasetTransformFunctionProtocol(Protocol):
     """Protocol defining the interface for Dataset-level processing functions.
     
@@ -2471,6 +2643,80 @@ class Dataset(BaseModel, DisplayableBase):
                     ts.series = series
                     ts.load_metadata_from_dict(metadata)
 
+    def use_disk_storage(self, path: Union[str, Path], auto_save: bool = True) -> "Dataset":
+        """Configure this dataset to use disk-based storage.
+
+        This is a convenience method that configures pandas-disk backend storage
+        for all signals and time series in this dataset. Data will be stored as
+        Parquet files on disk. This replaces the need to manually create
+        StorageConfig and call set_backend().
+
+        Args:
+            path: Directory path where data will be stored
+            auto_save: If True, automatically save after modifications (default: True)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> dataset = Dataset(name="my_dataset", ...)
+            >>> dataset.use_disk_storage("./my_data")
+            >>> # Now all processing will automatically save to disk
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_pandas_disk(path)
+        backend = create_backend(config)
+        return self.set_backend(backend, auto_save=auto_save)
+
+    def use_sql_storage(self, connection_string: str, auto_save: bool = True) -> "Dataset":
+        """Configure this dataset to use SQL database storage.
+
+        This is a convenience method that configures SQL backend storage for
+        all signals and time series in this dataset. Supports SQLite, PostgreSQL,
+        MySQL, and other SQLAlchemy-compatible databases. This replaces the need
+        to manually create StorageConfig and call set_backend().
+
+        Args:
+            connection_string: Database connection string (e.g., 'sqlite:///my_data.db')
+            auto_save: If True, automatically save after modifications (default: True)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> dataset = Dataset(name="my_dataset", ...)
+            >>> dataset.use_sql_storage("sqlite:///my_data.db")
+            >>> # PostgreSQL example:
+            >>> dataset.use_sql_storage("postgresql://user:password@localhost/database")
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_sql(connection_string)
+        backend = create_backend(config)
+        return self.set_backend(backend, auto_save=auto_save)
+
+    def use_memory_storage(self) -> "Dataset":
+        """Configure this dataset to use in-memory storage.
+
+        This is a convenience method that explicitly configures in-memory storage
+        (the default). Useful for switching back from disk/SQL storage.
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            >>> dataset = Dataset(name="my_dataset", ...)
+            >>> dataset.use_disk_storage("./data")  # Use disk
+            >>> # ... later ...
+            >>> dataset.use_memory_storage()  # Switch back to memory
+        """
+        from meteaudata.storage import StorageConfig, create_backend
+
+        config = StorageConfig.for_pandas_memory()
+        backend = create_backend(config)
+        return self.set_backend(backend, auto_save=False)
+
     def add(self, signal: Signal) -> "Dataset":
         signal_name = signal.name
         new_name = self.update_numbered_name(signal_name)
@@ -2666,8 +2912,9 @@ class Dataset(BaseModel, DisplayableBase):
             output_ts_names (Optional[list[str]]): Optional list of custom names for time series within output signals.
                 These replace the operation suffix in time series names. Example: ["combined"]
                 will create time series like "site_average#1_combined#1".
-            overwrite (bool): If True, keeps the existing hash number instead of incrementing.
-                Default is False (increment hash number).
+            overwrite (bool): If True, overwrites the latest version instead of incrementing.
+                Default is False (increment hash number). For example, if versions #1, #2, #3 exist,
+                overwrite=True will replace #3, while overwrite=False will create #4.
             **kwargs: Additional keyword arguments to be passed to the transformation function.
 
         Returns:
@@ -2741,9 +2988,16 @@ class Dataset(BaseModel, DisplayableBase):
 
             # Handle overwrite vs increment for signal name
             if overwrite:
-                # Keep the hash number as-is
+                # Find the latest number and overwrite that one
                 if "#" not in out_signal_name:
-                    out_signal_name = f"{out_signal_name}#1"
+                    # Get max number for this signal base name
+                    name_max_number = self.max_name_number()
+                    signal_base = out_signal_name.split("#")[0]
+                    if signal_base in name_max_number.keys():
+                        max_num = name_max_number[signal_base]
+                        out_signal_name = f"{signal_base}#{max_num}"
+                    else:
+                        out_signal_name = f"{out_signal_name}#1"
                 new_signal_name = out_signal_name
             else:
                 # Use the normal incrementing logic
