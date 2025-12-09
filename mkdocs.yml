@@ -3,6 +3,7 @@ site_description: A lightweight package for tracking metadata about time series 
 site_url: https://modeleau.github.io/meteaudata/
 repo_url: https://github.com/modelEAU/meteaudata
 repo_name: modelEAU/meteaudata
+strict: true
 
 theme:
   name: material
