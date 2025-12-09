@@ -4,30 +4,40 @@ Time series are the individual data arrays within signals. Each time series has 
 
 ## Working with Time Series
 
-```python
-temp_data = pd.Series(
-    20 + 5 * np.sin(np.arange(100) * 2 * np.pi / 24) + np.random.normal(0, 0.5, 100),
-    index=pd.date_range('2024-01-01', periods=100, freq='1H'), 
-    name="RAW"
-)
+```python exec="1" result="console" source="tabbed-right" session="timeseries" id="setup"
+import numpy as np
+import pandas as pd
+from meteaudata import Signal, DataProvenance
+from meteaudata import resample, linear_interpolation, subset, replace_ranges
 
+# Set random seed for reproducible examples
+np.random.seed(42)
+
+# Create a standard provenance for examples
 provenance = DataProvenance(
     source_repository="Example System",
-    project="metEAUdata documentation",
-    location="Demo Location", 
+    project="Documentation Example",
+    location="Demo Location",
     equipment="Temperature Sensor v2.1",
     parameter="Temperature",
-    purpose="Creating examples for the documentation",
+    purpose="Documentation example",
     metadata_id="doc_example_001"
 )
 
+# Create simple time series data
+timestamps = pd.date_range('2024-01-01', periods=100, freq='h')
+data = pd.Series(np.random.randn(100) * 10 + 20, index=timestamps, name="RAW")
+
+# Create a simple signal
 signal = Signal(
-    input_data=temp_data, # automatically parses the data into a TimeSeries object
+    input_data=data,
     name="Temperature",
     provenance=provenance,
     units="°C"
 )
+```
 
+```python exec="1" result="console" source="above" session="timeseries"
 ts = signal.time_series["Temperature#1_RAW#1"] # Recover the formatted TimeSeries object
 
 print(f"Time series: {ts.series.name}")
@@ -37,21 +47,15 @@ print(f"Date range: {ts.series.index.min()} to {ts.series.index.max()}")
 print(f"Processing steps: {len(ts.processing_steps)}") # Has no processing steps yet.
 ```
 
-**Output:**
-```
-Time series: Temperature#1_RAW#1
-Data points: 100
-Data type: float64
-Date range: 2024-01-01 00:00:00 to 2024-01-05 03:00:00
-Processing steps: 0
-```
-
 ## Accessing Data
 
-```python
+```python exec="1" result="console" source="above" session="timeseries"
 # Get the pandas Series
 data = ts.series
 print(f"First 5 values:\n{data.head()}")
+```
+
+```python exec="1" result="console" source="above" session="timeseries"
 print(f"\nBasic statistics:")
 print(f"Mean: {data.mean():.2f}")
 print(f"Std: {data.std():.2f}")
@@ -59,26 +63,9 @@ print(f"Min: {data.min():.2f}")
 print(f"Max: {data.max():.2f}")
 ```
 
-**Output:**
-```
-First 5 values:
-2024-01-01 00:00:00    19.292315
-2024-01-01 01:00:00    21.083773
-2024-01-01 02:00:00    22.328643
-2024-01-01 03:00:00    23.134395
-2024-01-01 04:00:00    24.249484
-Freq: h, Name: Temperature#1_RAW#1, dtype: float64
-
-Basic statistics:
-Mean: 20.08
-Std: 3.55
-Min: 14.20
-Max: 26.19
-```
-
 ## Processing Time Series
 
-```python
+```python exec="1" result="console" source="above" session="timeseries"
 # Apply processing to create new time series
 from meteaudata import linear_interpolation
 signal.process(["Temperature#1_RAW#1"], linear_interpolation)
@@ -89,22 +76,16 @@ processed_ts = signal.time_series[processed_name]
 print(f"Processed time series name: {processed_name}")
 print(f"Original: {len(ts.series)} points")
 print(f"Processed: {len(processed_ts.series)} points")
+```
+
+```python exec="1" result="console" source="above" session="timeseries"
 print(f"Processing steps: {len(processed_ts.processing_steps)}")
 print(f"Step type: {processed_ts.processing_steps[0].type}")
 ```
 
-**Output:**
-```
-Processed time series name: Temperature#1_LIN-INT#1
-Original: 100 points
-Processed: 100 points
-Processing steps: 1
-Step type: ProcessingType.GAP_FILLING
-```
-
 ## Time Series Metadata
 
-```python
+```python exec="1" result="console" source="above" session="timeseries"
 # Explore processing history
 step = processed_ts.processing_steps[0]
 print(f"Processing step:")
@@ -112,24 +93,13 @@ print(f"  Type: {step.type}")
 print(f"  Function: {step.function_info.name}")
 print(f"  Applied on: {step.run_datetime}")
 print(f"  Parameters: {step.parameters}")
+```
 
+```python exec="1" result="console" source="above" session="timeseries"
 # Index information
 print(f"\nIndex metadata:")
 print(f"  Type: {processed_ts.index_metadata.type}")
 print(f"  Frequency: {processed_ts.index_metadata.frequency}")
-```
-
-**Output:**
-```
-Processing step:
-  Type: ProcessingType.GAP_FILLING
-  Function: linear interpolation
-  Applied on: 2025-12-03 19:22:14.127257
-  Parameters: 
-
-Index metadata:
-  Type: DatetimeIndex
-  Frequency: h
 ```
 
 ## See Also

@@ -40,7 +40,7 @@ def copy_generated_assets():
         # This will be served at the root level of the site
         target_path = f"assets/generated/{asset_file.name}"
         
-        print(f"  Copying {asset_file.name} -> {target_path}")
+        # print(f"  Copying {asset_file.name} -> {target_path}")
         
         if asset_file.suffix == '.html':
             # Read HTML files as text

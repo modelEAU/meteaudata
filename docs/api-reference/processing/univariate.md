@@ -30,7 +30,7 @@ Each function returns a list of tuples, where each tuple contains:
 from meteaudata import resample
 
 # Resample to hourly data
-signal.process(["Signal#1_RAW#1"], resample, frequency="1H")
+signal.process(["Signal#1_RAW#1"], resample, frequency="h")
 
 # Resample to 5-minute intervals
 signal.process(["Signal#1_RAW#1"], resample, frequency="5min") 
@@ -41,7 +41,7 @@ signal.process(["Signal#1_RAW#1"], resample, frequency="1D")
 
 **Parameters**:
 - `input_series` (list[pd.Series]): Input time series to resample
-- `frequency` (str): Target frequency (e.g., "1H", "5min", "1D")
+- `frequency` (str): Target frequency (e.g., "1h", "5min", "1D")
 - `*args`, `**kwargs`: Additional arguments
 
 **Returns**: List of tuples with resampled series and processing steps

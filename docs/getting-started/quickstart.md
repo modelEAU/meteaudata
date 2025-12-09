@@ -6,7 +6,40 @@ This guide will get you up and running with meteaudata in just a few minutes. We
 
 Let's start by creating a simple Signal with some sample time series data:
 
-```python
+```python exec="1" result="console" source="tabbed-right" session="quickstart" id="setup"
+import numpy as np
+import pandas as pd
+from meteaudata import Signal, DataProvenance
+from meteaudata import resample, linear_interpolation
+
+# Set random seed for reproducible examples
+np.random.seed(42)
+
+# Create a standard provenance for examples
+provenance = DataProvenance(
+    source_repository="Example System",
+    project="Documentation Example",
+    location="Demo Location",
+    equipment="Temperature Sensor v2.1",
+    parameter="Temperature",
+    purpose="Documentation example",
+    metadata_id="doc_example_001"
+)
+
+# Create simple time series data
+timestamps = pd.date_range('2024-01-01', periods=100, freq='h')
+data = pd.Series(np.random.randn(100) * 10 + 20, index=timestamps, name="RAW")
+
+# Create a simple signal
+signal = Signal(
+    input_data=data,
+    name="Temperature",
+    provenance=provenance,
+    units="°C"
+)
+```
+
+```python exec="1" result="console" source="above" session="quickstart"
 # The signal has already been created for you! Let's explore it.
 print(f"Created signal: {signal.name}")
 print(f"Time series available: {list(signal.time_series.keys())}")
@@ -15,37 +48,32 @@ print(f"Units: {signal.units}")
 print(f"Data source: {signal.provenance.source_repository}")
 ```
 
-**Output:**
-```
-Created signal: Temperature#1
-Time series available: ['Temperature#1_RAW#1']
-Data points in raw series: 100
-Units: °C
-Data source: Example System
-```
-
 ## Applying Processing Steps
 
 Now let's apply some processing to clean and transform our data:
 
-```python
-from meteaudata import resample, linear_interpolation
-
+```python exec="1" result="console" source="above" session="quickstart"
 # Resample to 2-hour intervals with custom naming (v0.10.0)
 signal.process(
     input_time_series_names=["Temperature#1_RAW#1"],
     transform_function=resample,
-    frequency="2H",
+    frequency="2h",
     output_names=["2hour"]  # Custom name instead of "RESAMPLED"
 )
+print("Resampled to 2-hour intervals")
+```
 
+```python exec="1" result="console" source="above" session="quickstart"
 # Fill any gaps with linear interpolation
 signal.process(
     input_time_series_names=["Temperature#1_2hour#1"],
     transform_function=linear_interpolation,
     output_names=["clean"]  # Custom name instead of "LIN-INT"
 )
+print("Applied linear interpolation")
+```
 
+```python exec="1" result="console" source="above" session="quickstart"
 # Check our processing history
 latest_series_name = "Temperature#1_clean#1"
 processing_steps = signal.time_series[latest_series_name].processing_steps
@@ -54,42 +82,48 @@ for i, step in enumerate(processing_steps, 1):
     print(f"  {i}. {step.description}")
 ```
 
-**Output:**
-```
-Applied 2 processing steps:
-  1. A simple processing function that resamples a series to a given frequency
-  2. A simple processing function that linearly interpolates a series
-```
-
 ## Visualization
 
 meteaudata provides built-in visualization capabilities:
 
-```python
-# Display the signal (shows metadata and rich HTML)
-signal.display(format='html', depth=2)
-
+```python exec="1" result="console" source="above" session="quickstart"
 # Plot the time series
 fig = signal.plot(["Temperature#1_RAW#1", "Temperature#1_clean#1"])
-print("Generated interactive plot with processed time series")
+print("Generated interactive plot comparing raw and cleaned data")
+
+# Save plot for documentation
+import os
+from pathlib import Path
+output_dir = OUTPUT_DIR if 'OUTPUT_DIR' in globals() else Path('docs/assets/generated')
+plot_path = output_dir / "quickstart_signal_plot.html"
+fig.write_html(str(plot_path))
+print(f"Saved plot to {plot_path}")
 ```
 
-**Output:**
+<iframe src="../../assets/generated/quickstart_signal_plot.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+
+```python exec="1" result="console" source="above" session="quickstart"
+# Display the signal metadata (shows rich HTML representation)
+from pathlib import Path
+output_dir = OUTPUT_DIR if 'OUTPUT_DIR' in globals() else Path('docs/assets/generated')
+html_path = output_dir / "quickstart_signal_display.html"
+
+_ = signal.display(
+    format='html',
+    depth=2,
+    output_file=str(html_path)
+)
+print(f"Generated signal metadata display")
+print(f"Saved to {html_path}")
 ```
-Generated interactive plot with processed time series
-```
 
-<iframe src="../../assets/generated/meteaudata_signal_plot_6f3b789e.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_6f3b789e_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_6f3b789e.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
+<iframe src="../../assets/generated/quickstart_signal_display.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Saving Your Work
 
 Save your signal with custom export options (v0.10.0):
 
-```python
+```python exec="1" result="console" source="above" session="quickstart"
 import tempfile
 import os
 
@@ -106,18 +140,6 @@ signal.save(
 print(f"Saved signal to: {save_path}")
 print("Export format: semicolon separator, custom timestamp column")
 ```
-
-**Output:**
-```
-Saved signal to: /var/folders/5l/1tzhgnt576b5pxh92gf8jbg80000gn/T/tmpxai496x3/my_signal
-Export format: semicolon separator, custom timestamp column
-```
-
-<iframe src="../../assets/generated/meteaudata_timeseries_plot_41eb8257.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/display_content_41eb8257_1.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
-
-<iframe src="../../assets/generated/meteaudata_signal_plot_41eb8257.html" width="100%" height="500" style="border: none; display: block; margin: 1em 0;"></iframe>
 
 ## Key Concepts Recap
 

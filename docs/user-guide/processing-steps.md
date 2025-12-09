@@ -6,32 +6,54 @@ Processing steps are functions that transform time series data while preserving 
 
 meteaudata includes several built-in processing functions:
 
-```python
+```python exec="1" result="console" source="tabbed-right" session="processing" id="setup"
+import numpy as np
+import pandas as pd
+from meteaudata import Signal, DataProvenance
+from meteaudata import resample, linear_interpolation, subset, replace_ranges
+
+# Set random seed for reproducible examples
+np.random.seed(42)
+
+# Create a standard provenance for examples
+provenance = DataProvenance(
+    source_repository="Example System",
+    project="Documentation Example",
+    location="Demo Location",
+    equipment="Temperature Sensor v2.1",
+    parameter="Temperature",
+    purpose="Documentation example",
+    metadata_id="doc_example_001"
+)
+
+# Create simple time series data
+timestamps = pd.date_range('2024-01-01', periods=100, freq='h')
+data = pd.Series(np.random.randn(100) * 10 + 20, index=timestamps, name="RAW")
+
+# Create a simple signal
+signal = Signal(
+    input_data=data,
+    name="Temperature",
+    provenance=provenance,
+    units="°C"
+)
+```
+
+```python exec="1" result="console" source="above" session="processing"
 # Show available processing functions
 from meteaudata import linear_interpolation, resample, subset
 print("Built-in processing functions:")
 print("- linear_interpolation: Fill gaps in data")
-print("- resample: Change data frequency") 
+print("- resample: Change data frequency")
 print("- subset: Extract data ranges")
 
 print(f"\nStarting with signal: {signal.name}")
 print(f"Time series: {list(signal.time_series.keys())}")
 ```
 
-**Output:**
-```
-Built-in processing functions:
-- linear_interpolation: Fill gaps in data
-- resample: Change data frequency
-- subset: Extract data ranges
-
-Starting with signal: Temperature#1
-Time series: ['Temperature#1_RAW#1']
-```
-
 ## Linear Interpolation
 
-```python
+```python exec="1" result="console" source="above" session="processing"
 # Apply linear interpolation
 signal.process(["Temperature#1_RAW#1"], linear_interpolation)
 
@@ -41,37 +63,22 @@ print(f"Processing type: {processed_ts.processing_steps[0].type}")
 print(f"Data points: {len(processed_ts.series)}")
 ```
 
-**Output:**
-```
-Created: Temperature#1_LIN-INT#1
-Processing type: ProcessingType.GAP_FILLING
-Data points: 100
-```
-
 ## Resampling
 
-```python
+```python exec="1" result="console" source="above" session="processing"
 # Resample to 2-hour frequency
-signal.process(["Temperature#1_LIN-INT#1"], resample, frequency="2H")
+signal.process(["Temperature#1_LIN-INT#1"], resample, frequency="2h")
 
 resampled_ts = signal.time_series["Temperature#1_RESAMPLED#1"]
 print(f"Created: {resampled_ts.series.name}")
-print(f"Original frequency: 1H")
-print(f"New frequency: 2H")
+print(f"Original frequency: 11")
+print(f"New frequency: 2h")
 print(f"Data points: {len(resampled_ts.series)}")
-```
-
-**Output:**
-```
-Created: Temperature#1_RESAMPLED#1
-Original frequency: 1H
-New frequency: 2H
-Data points: 50
 ```
 
 ## Subsetting
 
-```python
+```python exec="1" result="console" source="above" session="processing"
 # Extract subset of data by rank (position-based)
 signal.process(["Temperature#1_RESAMPLED#1"], subset, 10, 30, rank_based=True)
 
@@ -82,17 +89,9 @@ print(f"Subset points: {len(subset_ts.series)}")
 print(f"Index range: {subset_ts.series.index.min()} to {subset_ts.series.index.max()}")
 ```
 
-**Output:**
-```
-Created: Temperature#1_SLICE#1
-Original points: 50
-Subset points: 20
-Index range: 2024-01-01 20:00:00 to 2024-01-03 10:00:00
-```
-
 ## Processing History
 
-```python
+```python exec="1" result="console" source="above" session="processing"
 # Examine processing history
 print("Processing pipeline:")
 for i, step in enumerate(subset_ts.processing_steps, 1):
@@ -101,37 +100,14 @@ for i, step in enumerate(subset_ts.processing_steps, 1):
     print(f"   Parameters: {step.parameters}")
 ```
 
-**Output:**
-```
-Processing pipeline:
-1. linear interpolation (ProcessingType.GAP_FILLING)
-   Applied: 2025-12-03 19:22:06.843040
-   Parameters: 
-2. resample (ProcessingType.RESAMPLING)
-   Applied: 2025-12-03 19:22:06.844114
-   Parameters: frequency='2H'
-3. subset (ProcessingType.RESAMPLING)
-   Applied: 2025-12-03 19:22:06.845394
-   Parameters: start_position=10 end_position=30 rank_based=True
-```
-
 ## Processing Chain
 
-```python
+```python exec="1" result="console" source="above" session="processing"
 # Show complete processing chain
 print("Complete signal processing chain:")
 for ts_name, ts in signal.time_series.items():
     steps = len(ts.processing_steps)
     print(f"{ts_name}: {steps} processing steps")
-```
-
-**Output:**
-```
-Complete signal processing chain:
-Temperature#1_RAW#1: 0 processing steps
-Temperature#1_LIN-INT#1: 1 processing steps
-Temperature#1_RESAMPLED#1: 2 processing steps
-Temperature#1_SLICE#1: 3 processing steps
 ```
 
 ## See Also

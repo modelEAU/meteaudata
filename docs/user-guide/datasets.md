@@ -4,20 +4,47 @@ Datasets organize multiple signals together, representing a complete data collec
 
 ## Creating a Dataset
 
-```python
+```python exec="1" result="console" source="tabbed-right" session="datasets" id="setup"
+import numpy as np
+import pandas as pd
+from meteaudata import Signal, DataProvenance, Dataset
+from meteaudata import resample, linear_interpolation, subset, replace_ranges
+from meteaudata import average_signals
+
+# Set random seed for reproducible examples
+np.random.seed(42)
+
+# Create multiple time series for complex examples
+timestamps = pd.date_range('2024-01-01', periods=100, freq='h')
+
 # Temperature data with daily cycle
 temp_data = pd.Series(
     20 + 5 * np.sin(np.arange(100) * 2 * np.pi / 24) + np.random.normal(0, 0.5, 100),
-    index=timestamps, 
+    index=timestamps,
     name="RAW"
 )
+
+# pH data with longer cycle
+ph_data = pd.Series(
+    7.2 + 0.3 * np.sin(np.arange(100) * 2 * np.pi / 48) + np.random.normal(0, 0.1, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+# Dissolved oxygen data with some correlation to temperature
+do_data = pd.Series(
+    8.5 - 0.1 * (temp_data - 20) + np.random.normal(0, 0.2, 100),
+    index=timestamps,
+    name="RAW"
+)
+
 # Temperature signal
 temp_provenance = DataProvenance(
     source_repository="Plant SCADA",
     project="Multi-parameter Monitoring",
     location="Reactor R-101",
     equipment="Thermocouple Type K",
-    parameter="Temperature", 
+    parameter="Temperature",
     purpose="Process monitoring",
     metadata_id="temp_001"
 )
@@ -28,16 +55,9 @@ temperature_signal = Signal(
     units="°C"
 )
 
-# pH data with longer cycle
-ph_data = pd.Series(
-    7.2 + 0.3 * np.sin(np.arange(100) * 2 * np.pi / 48) + np.random.normal(0, 0.1, 100),
-    index=timestamps,
-    name="RAW"
-)
-
-# pH signal  
+# pH signal
 ph_provenance = DataProvenance(
-    source_repository="Plant SCADA", 
+    source_repository="Plant SCADA",
     project="Multi-parameter Monitoring",
     location="Reactor R-101",
     equipment="pH Sensor v1.3",
@@ -47,22 +67,15 @@ ph_provenance = DataProvenance(
 )
 ph_signal = Signal(
     input_data=ph_data,
-    name="pH", 
+    name="pH",
     provenance=ph_provenance,
     units="pH units"
-)
-
-# Dissolved oxygen data with some correlation to temperature
-do_data = pd.Series(
-    8.5 - 0.1 * (temp_data - 20) + np.random.normal(0, 0.2, 100),
-    index=timestamps,
-    name="RAW"
 )
 
 # Dissolved oxygen signal
 do_provenance = DataProvenance(
     source_repository="Plant SCADA",
-    project="Multi-parameter Monitoring", 
+    project="Multi-parameter Monitoring",
     location="Reactor R-101",
     equipment="DO Sensor v2.0",
     parameter="Dissolved Oxygen",
@@ -76,7 +89,14 @@ do_signal = Signal(
     units="mg/L"
 )
 
-# Create a dataset that groups the signals together
+# Create signals dictionary for easy access
+signals = {
+    "temperature": temperature_signal,
+    "ph": ph_signal,
+    "dissolved_oxygen": do_signal
+}
+
+# Create a complete dataset
 dataset = Dataset(
     name="reactor_monitoring",
     description="Multi-parameter monitoring of reactor R-101",
@@ -84,53 +104,40 @@ dataset = Dataset(
     purpose="Process control and optimization",
     project="Process Monitoring Study",
     signals={
-        temperature_signal.name: temperature_signal,
-        ph_signal.name: ph_signal,
-        do_signal.name: do_signal
+        "temperature": temperature_signal,
+        "ph": ph_signal,
+        "dissolved_oxygen": do_signal
     }
 )
+```
 
+```python exec="1" result="console" source="above" session="datasets"
 print(f"Dataset: {dataset.name}")
 print(f"Contains {len(dataset.signals)} signals:")
 for name, signal in dataset.signals.items():
     print(f"  - {name}: {signal.name} ({signal.units})")
 ```
 
-**Output:**
-```
-Dataset: reactor_monitoring
-Contains 3 signals:
-  - Temperature#1: Temperature#1 (°C)
-  - pH#1: pH#1 (pH units)
-  - DissolvedOxygen#1: DissolvedOxygen#1 (mg/L)
-```
-
 ## Accessing Signals
 
-```python
+```python exec="1" result="console" source="above" session="datasets"
 # Get a specific signal using the actual key
 signal_keys = list(dataset.signals.keys())
 temp_signal = dataset.signals[signal_keys[0]]  # Get first signal
 print(f"Temperature signal: {temp_signal.name}")
 print(f"Time series: {list(temp_signal.time_series.keys())}")
+```
 
+```python exec="1" result="console" source="above" session="datasets"
 # Get signal data
 temp_data = temp_signal.time_series["Temperature#1_RAW#1"].series
 print(f"Temperature data points: {len(temp_data)}")
 print(f"Sample values: {temp_data.head(3).values}")
 ```
 
-**Output:**
-```
-Temperature signal: Temperature#1
-Time series: ['Temperature#1_RAW#1']
-Temperature data points: 100
-Sample values: [19.58550249 21.01400471 22.8736468 ]
-```
-
 ## Dataset Processing
 
-```python
+```python exec="1" result="console" source="above" session="datasets"
 # Apply processing to all signals
 from meteaudata import linear_interpolation
 
@@ -138,7 +145,9 @@ from meteaudata import linear_interpolation
 temp_signal.process(["Temperature#1_RAW#1"], linear_interpolation)
 print(f"Processed temperature signal")
 print(f"Temperature now has {len(temp_signal.time_series)} time series")
+```
 
+```python exec="1" result="console" source="above" session="datasets"
 # Check what's available
 print("Available time series:")
 for signal_name, signal in dataset.signals.items():
@@ -146,35 +155,15 @@ for signal_name, signal in dataset.signals.items():
     print(f"  {signal_name}: {ts_names}")
 ```
 
-**Output:**
-```
-Processed temperature signal
-Temperature now has 2 time series
-Available time series:
-  Temperature#1: ['Temperature#1_RAW#1', 'Temperature#1_LIN-INT#1']
-  pH#1: ['pH#1_RAW#1']
-  DissolvedOxygen#1: ['DissolvedOxygen#1_RAW#1']
-```
-
 ## Dataset Attributes
 
-```python
+```python exec="1" result="console" source="above" session="datasets"
 print(f"Dataset name: {dataset.name}")
 print(f"Description: {dataset.description}")
 print(f"Owner: {dataset.owner}")
 print(f"Project: {dataset.project}")
 print(f"Created: {dataset.created_on}")
 print(f"Signal count: {len(dataset.signals)}")
-```
-
-**Output:**
-```
-Dataset name: reactor_monitoring
-Description: Multi-parameter monitoring of reactor R-101
-Owner: Process Engineer
-Project: Process Monitoring Study
-Created: 2025-12-03 19:22:04.227275
-Signal count: 3
 ```
 
 ## Custom Output Naming (v0.10.0+)

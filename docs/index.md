@@ -10,7 +10,7 @@ metEAUdata is a Python library designed for comprehensive management and process
 - **🔄 Reproducible Processing Pipelines** - Every transformation is documented and repeatable
 - **🧪 Environmental Data Focus** - Built specifically for research and monitoring applications
 - **📈 Built-in Visualization** - Generate interactive plots and dependency graphs
-- **💾 Serialization Support** - Save and load complete datasets with full metadata
+- **💾 Serialization and Export Support** - Save and load complete datasets with full metadata
 - **🔗 Processing Step Tracking** - Maintain detailed records of all data transformations
 
 ## Quick Start
@@ -39,9 +39,14 @@ signal = Signal(
     provenance=provenance
 )
 
+# For tracking purposes, signals and time series get numbered automatically.
+# 'temperature' becomes temperature#1
+# The same is true for data series. Names are suffixed with a number and prefixed with the signal name.
+# 'RAW' becomes 'temperature#1_RAW#1'
+
 # Process the data
 from meteaudata.processing_steps.univariate.resample import resample
-signal.process(["temperature#1_RAW#1"], resample, "1min")
+signal.process(["temperature#1_RAW#1"], resample, "1min", output_signal_names=["RESAMPLED"])
 
 # Visualize
 fig = signal.plot(["temperature#1_RAW#1", "temperature#1_RESAMPLED#1"])
@@ -101,10 +106,10 @@ Contributing guidelines and architecture documentation.
 Traditional data analysis often loses track of data lineage and processing steps. metEAUdata solves this by:
 
 - **Preserving Context** - Never lose track of where your data came from
+- **Allowing Experimentation** - Try out different combinations of algorithms and parameters and visually compare the outcomes.
 - **Ensuring Reproducibility** - Recreate any analysis with full parameter history
 - **Facilitating Collaboration** - Share datasets with complete documentation
 - **Supporting Quality Assurance** - Trace errors back to their source
-- **Enabling Advanced Analysis** - Build complex pipelines with confidence
 
 ## Installation
 

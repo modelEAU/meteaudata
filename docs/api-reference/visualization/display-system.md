@@ -170,13 +170,13 @@ signal.show_graph()
 
 ```python
 # Custom text display
-signal.display(format='text', depth=3)
+_ = signal.display(format='text', depth=3)
 
 # Custom HTML display
-signal.display(format='html', depth=4)
+_ = signal.display(format='html', depth=4)
 
 # Custom graph display
-signal.display(format='graph', max_depth=5, width=1400, height=900)
+_ = signal.display(format='graph', max_depth=5, width=1400, height=900)
 ```
 
 ### Browser Visualization

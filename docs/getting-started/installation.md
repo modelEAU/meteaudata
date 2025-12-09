@@ -68,14 +68,14 @@ uv run pre-commit install
 
 To verify that meteaudata is installed correctly, try importing it:
 
-```python
+```python exec="1" result="console" source="above" session="installation"
 import meteaudata
-print(meteaudata.__version__)  # Should print the version number
+print("meteaudata imported successfully")
 ```
 
 Or run a quick test:
 
-```python
+```python exec="1" result="console" source="above" session="installation"
 from meteaudata import Signal, DataProvenance
 import pandas as pd
 import numpy as np
@@ -94,7 +94,7 @@ provenance = DataProvenance(
 
 signal = Signal(
     input_data=data,
-    name="test_signal", 
+    name="test_signal",
     provenance=provenance,
     units="test_units"
 )

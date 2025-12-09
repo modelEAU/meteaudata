@@ -249,15 +249,60 @@ class DisplayableBase(ABC):
                 "Please ensure meteaudata is properly installed."
             )
     
+    def save_html(self, path: str, depth: int = 2) -> None:
+        """
+        Save HTML representation to a file.
+        
+        Args:
+            path: Path to save the HTML file
+            depth: Depth of the nested object tree to display
+        """
+        # Extract CSS content from HTML_STYLE constant
+        css_content = HTML_STYLE.replace('<style>', '').replace('</style>', '').strip()
+        
+        # Create complete HTML document
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+            {css_content}
+            body {{ margin: 0; padding: 0; }}
+            </style>
+        </head>
+        <body>
+            <div class='meteaudata-display'>
+                {self._build_html_content(depth)}
+            </div>
+        </body>
+        </html>
+        """
+        
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+
     def display(self, format: str = "html", depth: int = 2, 
-            max_depth: int = 4, width: int = 1200, height: int = 800) -> None:
+            max_depth: int = 4, width: int = 1200, height: int = 800,
+            output_file: Optional[str] = None) -> None:
         """
         Display method with support for text, HTML, and interactive graph formats.
+        
+        Args:
+            format: Output format ('text', 'html', 'graph')
+            depth: Depth for text/html display
+            max_depth: Max depth for graph display
+            width: Width for graph display
+            height: Height for graph display
+            output_file: Optional path to save the output (HTML only)
         """
         if format == "text":
             print(self._render_text(depth))
         elif format == "html":
-            self._render_html(depth)
+            if output_file:
+                self.save_html(output_file, depth)
+            else:
+                self._render_html(depth)
         elif format == "graph":
             if _is_notebook_environment():
                 try:

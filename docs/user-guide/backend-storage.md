@@ -779,7 +779,6 @@ dataset.set_backend(backend1)  # Propagates to all signals
 - Learn about [Time Series Processing](time-series.md)
 - Explore [Managing Datasets](datasets.md)
 - See [Saving and Loading](saving-loading.md) for ZIP archives
-- Check the [Storage API Reference](../api-reference/storage.md)
 
 ## Summary
 

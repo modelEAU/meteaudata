@@ -23,27 +23,123 @@ Dataset
 
 DataProvenance captures the essential metadata about where your data came from:
 
-```python
-print("DataProvenance fields:")
-print(f"- source_repository: {provenance.source_repository}")
-print(f"- project: {provenance.project}")
-print(f"- location: {provenance.location}")
-print(f"- equipment: {provenance.equipment}")
-print(f"- parameter: {provenance.parameter}")
-print(f"- purpose: {provenance.purpose}")
-print(f"- metadata_id: {provenance.metadata_id}")
+```python exec="1" result="console" source="tabbed-right" session="concepts" id="setup"
+import numpy as np
+import pandas as pd
+from meteaudata import Signal, DataProvenance, Dataset
+from meteaudata import resample, linear_interpolation, subset, replace_ranges
+from meteaudata import average_signals
+
+# Set random seed for reproducible examples
+np.random.seed(42)
+
+# Create multiple time series for complex examples
+# indices
+timestamps = pd.date_range('2024-01-01', periods=100, freq='h')
+
+# Temperature data with daily cycle
+temp_data = pd.Series(
+    20 + 5 * np.sin(np.arange(100) * 2 * np.pi / 24) + np.random.normal(0, 0.5, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+# pH data with longer cycle
+ph_data = pd.Series(
+    7.2 + 0.3 * np.sin(np.arange(100) * 2 * np.pi / 48) + np.random.normal(0, 0.1, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+# Dissolved oxygen data with some correlation to temperature
+do_data = pd.Series(
+    8.5 - 0.1 * (temp_data - 20) + np.random.normal(0, 0.2, 100),
+    index=timestamps,
+    name="RAW"
+)
+
+# Temperature signal
+temp_provenance = DataProvenance(
+    source_repository="Plant SCADA",
+    project="Multi-parameter Monitoring",
+    location="Reactor R-101",
+    equipment="Thermocouple Type K",
+    parameter="Temperature",
+    purpose="Process monitoring",
+    metadata_id="temp_001"
+)
+temperature_signal = Signal(
+    input_data=temp_data,
+    name="Temperature",
+    provenance=temp_provenance,
+    units="°C"
+)
+
+# pH signal
+ph_provenance = DataProvenance(
+    source_repository="Plant SCADA",
+    project="Multi-parameter Monitoring",
+    location="Reactor R-101",
+    equipment="pH Sensor v1.3",
+    parameter="pH",
+    purpose="Process monitoring",
+    metadata_id="ph_001"
+)
+ph_signal = Signal(
+    input_data=ph_data,
+    name="pH",
+    provenance=ph_provenance,
+    units="pH units"
+)
+
+# Dissolved oxygen signal
+do_provenance = DataProvenance(
+    source_repository="Plant SCADA",
+    project="Multi-parameter Monitoring",
+    location="Reactor R-101",
+    equipment="DO Sensor v2.0",
+    parameter="Dissolved Oxygen",
+    purpose="Process monitoring",
+    metadata_id="do_001"
+)
+do_signal = Signal(
+    input_data=do_data,
+    name="DissolvedOxygen",
+    provenance=do_provenance,
+    units="mg/L"
+)
+
+# Create signals dictionary for easy access
+signals = {
+    "temperature": temperature_signal,
+    "ph": ph_signal,
+    "dissolved_oxygen": do_signal
+}
+
+# Create a complete dataset
+dataset = Dataset(
+    name="reactor_monitoring",
+    description="Multi-parameter monitoring of reactor R-101",
+    owner="Process Engineer",
+    purpose="Process control and optimization",
+    project="Process Monitoring Study",
+    signals={
+        "temperature": temperature_signal,
+        "ph": ph_signal,
+        "dissolved_oxygen": do_signal
+    }
+)
 ```
 
-**Output:**
-```
-DataProvenance fields:
-- source_repository: Example System
-- project: Documentation Example
-- location: Demo Location
-- equipment: Temperature Sensor v2.1
-- parameter: Temperature
-- purpose: Documentation example
-- metadata_id: doc_example_001
+```python exec="1" result="console" source="above" session="concepts"
+print("DataProvenance fields:")
+print(f"- source_repository: {temp_provenance.source_repository}")
+print(f"- project: {temp_provenance.project}")
+print(f"- location: {temp_provenance.location}")
+print(f"- equipment: {temp_provenance.equipment}")
+print(f"- parameter: {temp_provenance.parameter}")
+print(f"- purpose: {temp_provenance.purpose}")
+print(f"- metadata_id: {temp_provenance.metadata_id}")
 ```
 
 **Key fields:**
@@ -59,12 +155,12 @@ DataProvenance fields:
 
 A TimeSeries represents a single time-indexed data series along with its processing history:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 import datetime
 from meteaudata.types import TimeSeries, ProcessingStep, ProcessingType, FunctionInfo
 
 # The pandas Series contains your actual data
-demo_data = pd.Series([1.2, 1.5, 1.8], 
+demo_data = pd.Series([1.2, 1.5, 1.8],
                      index=pd.date_range('2024-01-01', periods=3, freq='1h'),
                      name='Temperature_RAW_1')
 
@@ -99,15 +195,6 @@ print(f"Processing steps: {len(time_series.processing_steps)}")
 print(f"Data values: {time_series.series.values}")
 ```
 
-**Output:**
-```
-TimeSeries contents:
-Data shape: (3,)
-Index range: 2024-01-01 00:00:00 to 2024-01-01 02:00:00
-Processing steps: 1
-Data values: [1.2 1.5 1.8]
-```
-
 **Key features:**
 - Contains a pandas Series with your time-indexed data
 - Maintains a list of all processing steps applied to create this data
@@ -117,7 +204,7 @@ Data values: [1.2 1.5 1.8]
 
 ProcessingStep objects document each transformation applied to time series data:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 step = processing_step
 print("ProcessingStep details:")
 print(f"- Type: {step.type}")
@@ -126,17 +213,6 @@ print(f"- Function: {step.function_info.name} v{step.function_info.version}")
 print(f"- Author: {step.function_info.author}")
 print(f"- Run time: {step.run_datetime.strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"- Suffix: {step.suffix}")
-```
-
-**Output:**
-```
-ProcessingStep details:
-- Type: ProcessingType.SMOOTHING
-- Description: Data smoothed using a moving average
-- Function: moving_average v1.0
-- Author: Guy Person
-- Run time: 2025-12-03 19:21:43
-- Suffix: MOVAVG
 ```
 
 **Key fields:**
@@ -150,7 +226,8 @@ ProcessingStep details:
 
 A Signal represents a single measured parameter and contains multiple TimeSeries at different processing stages:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
+signal = temperature_signal
 print("Signal created with initial time series:")
 print(f"Signal name: {signal.name}")
 print(f"Units: {signal.units}")
@@ -158,16 +235,7 @@ print(f"Number of time series: {len(signal.time_series)}")
 print(f"Available time series: {list(signal.time_series.keys())}")
 ```
 
-**Output:**
-```
-Signal created with initial time series:
-Signal name: Temperature#1
-Units: °C
-Number of time series: 1
-Available time series: ['Temperature#1_RAW#1']
-```
-
-```python
+```python exec="1" result="console" source="above" session="concepts"
 # Apply some processing to demonstrate multiple time series
 from meteaudata import resample
 signal.process(["Temperature#1_RAW#1"], resample, frequency="2h")
@@ -175,13 +243,6 @@ signal.process(["Temperature#1_RAW#1"], resample, frequency="2h")
 print(f"\nAfter processing:")
 print(f"Number of time series: {len(signal.time_series)}")
 print(f"Available time series: {list(signal.time_series.keys())}")
-```
-
-**Output:**
-```
-After processing:
-Number of time series: 2
-Available time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
 ```
 
 **Key features:**
@@ -194,7 +255,7 @@ Available time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
 
 A Dataset groups multiple related Signals together:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 print("Dataset contents:")
 print(f"Dataset name: {dataset.name}")
 print(f"Description: {dataset.description}")
@@ -202,39 +263,15 @@ print(f"Owner: {dataset.owner}")
 print(f"Project: {dataset.project}")
 print(f"Number of signals: {len(dataset.signals)}")
 print(f"Signal names: {list(dataset.signals.keys())}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 # Show some details about each signal
 for name, signal_obj in dataset.signals.items():
     print(f"\n{name} signal:")
     print(f"  - Units: {signal_obj.units}")
     print(f"  - Time series: {len(signal_obj.time_series)}")
     print(f"  - Parameter: {signal_obj.provenance.parameter}")
-```
-
-**Output:**
-```
-Dataset contents:
-Dataset name: reactor_monitoring
-Description: Multi-parameter monitoring of reactor R-101
-Owner: Process Engineer
-Project: Process Monitoring Study
-Number of signals: 3
-Signal names: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
-
-Temperature#1 signal:
-  - Units: °C
-  - Time series: 1
-  - Parameter: Temperature
-
-pH#1 signal:
-  - Units: pH units
-  - Time series: 1
-  - Parameter: pH
-
-DissolvedOxygen#1 signal:
-  - Units: mg/L
-  - Time series: 1
-  - Parameter: Dissolved Oxygen
 ```
 
 **Key features:**
@@ -251,7 +288,7 @@ meteaudata uses a structured naming convention for time series:
 {SignalName}#{SignalVersion}_{ProcessingSuffix}#{NumberOfTimesTheProcessingFunctionWasApplied}
 ```
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 # Demonstrate naming convention with processing steps
 from meteaudata import linear_interpolation
 
@@ -263,10 +300,12 @@ temp_signal.process(["Temperature#1_RESAMPLED#1"], linear_interpolation)
 print("Time series naming examples:")
 for ts_name in temp_signal.time_series.keys():
     print(f"  - {ts_name}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 print("\nNaming breakdown:")
 print("- Temperature#1_RAW#1: Original raw temperature data")
-print("- Temperature#1_RESAMPLED#1: After resampling") 
+print("- Temperature#1_RESAMPLED#1: After resampling")
 print("- Temperature#1_LIN-INT#1: After linear interpolation")
 print("\nThis naming ensures:")
 print("- Every time series can be uniquely identified")
@@ -274,33 +313,17 @@ print("- Processing history is traceable")
 print("- Multiple versions of the same signal can coexist")
 ```
 
-**Output:**
-```
-Time series naming examples:
-  - Temperature#1_RAW#1
-  - Temperature#1_RESAMPLED#1
-  - Temperature#1_LIN-INT#1
-
-Naming breakdown:
-- Temperature#1_RAW#1: Original raw temperature data
-- Temperature#1_RESAMPLED#1: After resampling
-- Temperature#1_LIN-INT#1: After linear interpolation
-
-This naming ensures:
-- Every time series can be uniquely identified
-- Processing history is traceable
-- Multiple versions of the same signal can coexist
-```
-
 ## Processing Philosophy
 
 ### Immutable History
+
 Once created, time series are never modified. Each processing step creates a new TimeSeries, preserving the complete processing lineage.
 
-### Complete Traceability  
+### Complete Traceability
+
 Every processed time series knows exactly how it was created:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 # Show complete traceability
 final_series_name = list(temp_signal.time_series.keys())[-1]
 final_series = temp_signal.time_series[final_series_name]
@@ -316,28 +339,11 @@ for i, step in enumerate(final_series.processing_steps, 1):
     print(f"  - Type: {step.type}")
 ```
 
-**Output:**
-```
-Traceability for Temperature#1_LIN-INT#1:
-Processing steps applied: 2
-
-Step 1:
-  - Function: resample v0.1
-  - Description: A simple processing function that resamples a series to a given frequency
-  - When: 2025-12-03 19:21:46
-  - Type: ProcessingType.RESAMPLING
-
-Step 2:
-  - Function: linear interpolation v0.1
-  - Description: A simple processing function that linearly interpolates a series
-  - When: 2025-12-03 19:21:46
-  - Type: ProcessingType.GAP_FILLING
-```
-
 ### Reproducible Workflows
+
 All processing steps are documented with enough detail to reproduce the analysis:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 # Show reproducible workflow documentation
 print("Reproducible workflow example:")
 for ts_name, ts in temp_signal.time_series.items():
@@ -351,26 +357,11 @@ for ts_name, ts in temp_signal.time_series.items():
                 print(f"    Parameters: {step.parameters}")
 ```
 
-**Output:**
-```
-Reproducible workflow example:
-
-Temperature#1_LIN-INT#1 processing history:
-  Step 1: resample v0.1
-    Description: A simple processing function that resamples a series to a given frequency
-    When: 2025-12-03 19:21:46
-    Parameters: frequency='2h'
-  Step 2: linear interpolation v0.1
-    Description: A simple processing function that linearly interpolates a series
-    When: 2025-12-03 19:21:46
-    Parameters:
-```
-
 ## Data Flow Example
 
 Here's how data flows through meteaudata:
 
-```python
+```python exec="1" result="console" source="above" session="concepts"
 # 1. Start with raw data
 import pandas as pd
 import numpy as np
@@ -378,14 +369,16 @@ from meteaudata import DataProvenance, Signal
 from meteaudata import resample, linear_interpolation
 
 np.random.seed(42)  # For reproducible examples
-timestamps = pd.date_range('2024-01-01', periods=20, freq='1H')
+timestamps = pd.date_range('2024-01-01', periods=20, freq='1h')
 sensor_readings = 20 + np.random.randn(20) * 2
 raw_data = pd.Series(sensor_readings, index=timestamps, name="RAW")
 
 print("1. Raw data created:")
 print(f"   Shape: {raw_data.shape}")
 print(f"   Range: {raw_data.min():.2f} to {raw_data.max():.2f}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 # 2. Create Signal with provenance
 flow_provenance = DataProvenance(
     source_repository="Demo System",
@@ -397,49 +390,34 @@ flow_provenance = DataProvenance(
     metadata_id="flow_example_001"
 )
 
-flow_signal = Signal(input_data=raw_data, name="Temperature", 
+flow_signal = Signal(input_data=raw_data, name="Temperature",
                     provenance=flow_provenance, units="°C")
 
 print(f"\n2. Signal created:")
 print(f"   Initial time series: {list(flow_signal.time_series.keys())}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 # 3. Apply processing (creates new TimeSeries)
-flow_signal.process(["Temperature#1_RAW#1"], resample, frequency="2H")
+flow_signal.process(["Temperature#1_RAW#1"], resample, frequency="2h")
 print(f"\n3. After resampling:")
 print(f"   Time series: {list(flow_signal.time_series.keys())}")
+```
 
-# 4. Apply more processing  
+```python exec="1" result="console" source="above" session="concepts"
+# 4. Apply more processing
 flow_signal.process(["Temperature#1_RESAMPLED#1"], linear_interpolation)
 print(f"\n4. After interpolation:")
 print(f"   Time series: {list(flow_signal.time_series.keys())}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 # 5. Each TimeSeries knows its complete history
 final_series = flow_signal.time_series["Temperature#1_LIN-INT#1"]
 print(f"\n5. Final series history:")
 print(f"   This data went through {len(final_series.processing_steps)} processing steps")
 for i, step in enumerate(final_series.processing_steps, 1):
     print(f"   Step {i}: {step.description}")
-```
-
-**Output:**
-```
-1. Raw data created:
-   Shape: (20,)
-   Range: 16.17 to 23.16
-
-2. Signal created:
-   Initial time series: ['Temperature#1_RAW#1']
-
-3. After resampling:
-   Time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1']
-
-4. After interpolation:
-   Time series: ['Temperature#1_RAW#1', 'Temperature#1_RESAMPLED#1', 'Temperature#1_LIN-INT#1']
-
-5. Final series history:
-   This data went through 2 processing steps
-   Step 1: A simple processing function that resamples a series to a given frequency
-   Step 2: A simple processing function that linearly interpolates a series
 ```
 
 ## Best Practices
@@ -467,7 +445,8 @@ for i, step in enumerate(final_series.processing_steps, 1):
 ## Common Patterns
 
 ### Iterative Processing
-```python
+
+```python exec="1" result="console" source="above" session="concepts"
 # Process step by step, building on previous results
 from meteaudata import subset
 
@@ -477,17 +456,19 @@ print(f"Starting with: {current_series}")
 
 # Apply subset operation (get first half of data)
 end_position = len(flow_signal.time_series[current_series].series) // 2
-flow_signal.process([current_series], subset, 
-                   start_position=0, 
+flow_signal.process([current_series], subset,
+                   start_position=0,
                    end_position=end_position,
                    rank_based=True)
 
 # Update to the newly created series name
 current_series = list(flow_signal.time_series.keys())[-1]
 print(f"After subset: {current_series}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 # Apply resampling
-flow_signal.process([current_series], resample, frequency="2H")
+flow_signal.process([current_series], resample, frequency="h")
 current_series = list(flow_signal.time_series.keys())[-1]
 print(f"After resampling: {current_series}")
 
@@ -496,63 +477,36 @@ for name in flow_signal.time_series.keys():
     print(f"  - {name}")
 ```
 
-**Output:**
-```
-Iterative processing example:
-Starting with: Temperature#1_RAW#1
-After subset: Temperature#1_SLICE#1
-After resampling: Temperature#1_RESAMPLED#2
-
-Final signal contains 5 time series:
-  - Temperature#1_RAW#1
-  - Temperature#1_RESAMPLED#1
-  - Temperature#1_LIN-INT#1
-  - Temperature#1_SLICE#1
-  - Temperature#1_RESAMPLED#2
-```
-
 ### Branching Processing
-```python
+
+```python exec="1" result="console" source="above" session="concepts"
 # Create multiple processing branches from the same raw data
 print("\nBranching processing example:")
 raw_series = "Temperature#1_RAW#1"
 print(f"Starting from: {raw_series}")
 
-# Branch 1: Resampling to hourly  
-flow_signal.process([raw_series], resample, frequency="1H")
+# Branch 1: Resampling to hourly
+flow_signal.process([raw_series], resample, frequency="h")
 hourly_series = list(flow_signal.time_series.keys())[-1]
 print(f"Branch 1 (hourly): {hourly_series}")
+```
 
+```python exec="1" result="console" source="above" session="concepts"
 # Branch 2: Resampling to 4-hourly
-flow_signal.process([raw_series], resample, frequency="4H")
+flow_signal.process([raw_series], resample, frequency="h")
 four_hourly_series = list(flow_signal.time_series.keys())[-1]
 print(f"Branch 2 (4-hourly): {four_hourly_series}")
 
 print(f"\nBoth branches coexist in the signal:")
 for name in flow_signal.time_series.keys():
-    if name != raw_series and "SUBSET" not in name:  # Skip raw and subset data
+    if name != raw_series and "SUBSET" not in name and "SLICE" not in name:  # Skip raw and subset data
         series = flow_signal.time_series[name]
         print(f"  - {name}: {len(series.series)} points")
 ```
 
-**Output:**
-```
-Branching processing example:
-Starting from: Temperature#1_RAW#1
-Branch 1 (hourly): Temperature#1_RESAMPLED#3
-Branch 2 (4-hourly): Temperature#1_RESAMPLED#4
-
-Both branches coexist in the signal:
-  - Temperature#1_RESAMPLED#1: 10 points
-  - Temperature#1_LIN-INT#1: 10 points
-  - Temperature#1_SLICE#1: 10 points
-  - Temperature#1_RESAMPLED#2: 5 points
-  - Temperature#1_RESAMPLED#3: 20 points
-  - Temperature#1_RESAMPLED#4: 5 points
-```
-
 ### Cross-Signal Processing
-```python
+
+```python exec="1" result="console" source="above" session="concepts"
 # Process multiple signals together
 from meteaudata import average_signals
 
@@ -564,24 +518,16 @@ temp_raw = list(dataset.signals["Temperature#1"].time_series.keys())[0]
 ph_raw = list(dataset.signals["pH#1"].time_series.keys())[0]
 
 print(f"Processing together: {temp_raw} and {ph_raw}")
+```
 
-
+```python exec="1" result="console" source="above" session="concepts"
 dataset.process(
-    [temp_raw, ph_raw], 
-    average_signals, 
-    check_units=False, # unit checking is disabled for the demo. 
+    [temp_raw, ph_raw],
+    average_signals,
+    check_units=False, # unit checking is disabled for the demo.
     # You should never average signals that don't have matching units!
 )
 print(f"New signals after cross-processing: {list(dataset.signals.keys())}")
-
-```
-
-**Output:**
-```
-Cross-signal processing example:
-Original dataset signals: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1']
-Processing together: Temperature#1_RAW#1 and pH#1_RAW#1
-New signals after cross-processing: ['Temperature#1', 'pH#1', 'DissolvedOxygen#1', 'AVERAGE#1']
 ```
 
 

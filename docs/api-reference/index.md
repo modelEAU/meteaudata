@@ -87,7 +87,7 @@ signal = Signal(
 from meteaudata import resample, linear_interpolation
 
 # Apply processing
-signal.process(["SignalName#1_RAW#1"], resample, frequency="1H")
+signal.process(["SignalName#1_RAW#1"], resample, frequency="1h")
 signal.process(["SignalName#1_RESAMPLED#1"], linear_interpolation)
 ```
 

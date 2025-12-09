@@ -8,6 +8,7 @@ from meteaudata.types import (
     Parameters,
     ProcessingStep,
     ProcessingType,
+    Signal,
 )
 
 
