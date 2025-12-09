@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0 (Unreleased)
+
+### Documentation System Improvements
+
+- **Migrated to markdown-exec**: Replaced bespoke code execution system with the standard [markdown-exec](https://github.com/pawamoy/markdown-exec) plugin
+  - Code blocks now execute during documentation build with `exec="1"` syntax
+  - Reusable setup code in `docs/snippets/` eliminates duplication
+  - Setup code shown in collapsible tabs with `source="tabbed-right"`
+  - Sessions replace the old context system: use `session="name"` to share state between code blocks
+  - Build warns when code examples have errors, ensuring docs stay synchronized with code
+  - Removed custom scripts: `exec_processor.py`, `exec_contexts.py`, `process_templates.py`, `mkdocs_exec_plugin/`
+  - No more `_template.md` files needed - edit markdown files directly
+  - Better integration with standard MkDocs workflow and plugins
+  - Converted 13 documentation files (user-guide, getting-started, examples)
+
+### Breaking Changes (Documentation Only)
+
+- Documentation contributors need to use new syntax for executable code blocks
+- Setup code now uses snippet files: `exec(open('docs/snippets/setup_simple_signal.py').read())`
+- Old: `exec="simple_signal"` → New: `exec="1" source="tabbed-right" session="signals" id="setup"`
+- Old: `exec="continue"` → New: `exec="1" session="same_name"`
+
 ## 0.2.0
 
 - First "feature-complete" release of `metEAUdata`. Contains functionality to transform both univariate and multivariate data.
