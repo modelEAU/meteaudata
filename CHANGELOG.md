@@ -167,6 +167,13 @@ This release adds export customization features to improve CSV compatibility wit
 
 Added pluggable storage backend system to enable processing of larger-than-memory datasets:
 
+- **Simple API**: Configure storage with one method call
+  - `dataset.use_disk_storage("./data")` - Store as Parquet files
+  - `dataset.use_sql_storage("sqlite:///db.db")` - Store in SQL database
+  - `dataset.use_memory_storage()` - Switch back to in-memory
+  - Works at all levels: `TimeSeries`, `Signal`, and `Dataset`
+  - Auto-save enabled by default for disk/SQL backends
+
 - **Pandas Disk Backend**: Store data as Parquet files with YAML metadata
   - Memory-efficient processing of large datasets
   - Human-readable metadata files
@@ -175,16 +182,16 @@ Added pluggable storage backend system to enable processing of larger-than-memor
 - **SQL Backend**: Store data in SQL databases (SQLite, PostgreSQL, MySQL)
   - Multi-user access to shared data
   - Automatic table creation (`time_series_data`, `time_series_metadata`)
-  - Compatible with any SQLAlchemy database
+  - Compatible with any SQLAlchemy database (via SQLAlchemy)
 
-- **Transparent API**: Processing code remains identical regardless of backend
-  - `Dataset.set_backend(backend, auto_save=True/False)`
-  - Manual control with `save_all()` and `load_all()`
+- **Transparent Processing**: Processing code remains identical regardless of backend
   - Auto-save mode persists data after each processing step
+  - Manual control with `save_all()` and `load_all()`
+  - Switch backends mid-session
 
-- **Storage Management**:
-  - Delete individual time series: `backend.delete(key)`
-  - Clear all data: `backend.clear()`
-  - Complete cleanup: `backend.cleanup()` (disk only)
+- **Advanced API**: Low-level control still available for power users
+  - `StorageConfig.for_pandas_disk()` / `StorageConfig.for_sql()`
+  - `create_backend(config)`
+  - `Dataset.set_backend(backend, auto_save=True/False)`
 
 See the [Backend Storage documentation](https://modeleau.github.io/meteaudata/user-guide/backend-storage/) for details
