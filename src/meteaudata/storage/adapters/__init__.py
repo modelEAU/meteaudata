@@ -16,7 +16,14 @@ except ImportError:
     pass
 
 try:
-    from meteaudata.storage.adapters.sql_adapter import SQLAdapter
+    from meteaudata.storage.adapters.sql_adapter import SQLAdapter, SQLiteAdapter
     __all__.append("SQLAdapter")
+    __all__.append("SQLiteAdapter")
+except ImportError:
+    pass
+
+try:
+    from meteaudata.storage.adapters.open_dateaubase_adapter import OpenDateaubaseAdapter
+    __all__.append("OpenDateaubaseAdapter")
 except ImportError:
     pass

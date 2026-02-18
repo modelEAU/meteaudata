@@ -421,3 +421,8 @@ class SQLAdapter:
             self.close()
         except Exception:
             pass  # Ignore errors during cleanup
+
+
+# Alias so that code written against the new name works too.
+# SQLAdapter remains the canonical name for one release cycle.
+SQLiteAdapter = SQLAdapter

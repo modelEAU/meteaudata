@@ -54,5 +54,25 @@ def create_backend(config: "StorageConfig") -> "StorageBackend":
             ) from e
         return SQLAdapter(connection_string=config.connection_string)
 
+    elif backend_type == "open-dateaubase":
+        try:
+            from meteaudata.storage.adapters.open_dateaubase_adapter import OpenDateaubaseAdapter
+        except ImportError as e:
+            raise ImportError(
+                "open-dateaubase backend requires 'pyodbc' and the 'open-dateaubase' package. "
+                "Install them with: pip install pyodbc open-dateaubase"
+            ) from e
+        if config.connection_string is None:
+            raise ValueError(
+                "connection_string (or a pre-opened connection) is required "
+                "for backend_type='open-dateaubase'"
+            )
+        # connection_string is interpreted as an opaque reference; callers should
+        # pass the live connection directly to OpenDateaubaseAdapter() instead.
+        raise ValueError(
+            "For the open-dateaubase backend, instantiate OpenDateaubaseAdapter "
+            "directly with a pyodbc connection object rather than using the factory."
+        )
+
     else:
         raise ValueError(f"Unknown backend type: {backend_type}")
