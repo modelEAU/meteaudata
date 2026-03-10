@@ -119,6 +119,21 @@ class StorageBackend(Protocol):
         ...
 
 
+# Optional extension methods (not in the core StorageBackend protocol).
+# Backends that link to an external metadata registry should implement these.
+# Detection is via duck-typing (hasattr), so they do not need to be declared here.
+#
+# generate_metadata_id(source_metadata_id: str, processing_degree: str) -> str
+#   Generate a new metadata_id for a processed TimeSeries. Called at TimeSeries
+#   creation time (in process()) when the backend is already known. Backends that
+#   don't implement this treat metadata_id as an optional annotation; processed
+#   TimeSeries will be saved with metadata_id=None.
+#
+# validate_metadata_id(metadata_id: str) -> bool   [future]
+#   Verify that an existing metadata_id is valid for this backend. Useful when a
+#   backend is swapped and stale IDs need to be detected before saving.
+
+
 class FileBasedBackend(Protocol):
     """Protocol for file-based storage backends that use a base directory.
 

@@ -1598,12 +1598,8 @@ class Signal(BaseModel, DisplayableBase):
                             source_metadata_id=signal_metadata_id,
                             processing_degree=processing_degree,
                         )
-                    else:
-                        raise ValueError(
-                            f"Processed TimeSeries '{ts_full_name}' has no metadata_id set, "
-                            f"and the backend does not support generate_metadata_id(). "
-                            f"Please set metadata_id on the TimeSeries before saving."
-                        )
+                    # else: metadata_id stays None — valid for generic backends
+                    # that don't link to an external metadata registry.
 
             # Save with hierarchical key structure
             key = f"{ds_name}/{self.name}/{ts_name}"
@@ -1703,9 +1699,15 @@ class Signal(BaseModel, DisplayableBase):
                 final_name = self.update_numbered_ts_name(new_ts_name)
 
             new_ts.series.name = final_name
-            # Propagate backend to new time series
+            # Propagate backend to new time series and generate metadata_id at creation
             if self._backend is not None:
                 new_ts._backend = self._backend
+                if hasattr(self._backend, "generate_metadata_id"):
+                    _, ts_base, _ = Signal.extract_ts_base_and_number(final_name)
+                    new_ts.metadata_id = self._backend.generate_metadata_id(
+                        source_metadata_id=self.provenance.metadata_id,
+                        processing_degree=ts_base.capitalize(),
+                    )
             self.time_series[final_name] = new_ts
 
         self._propagate_parent_refs()
@@ -2668,12 +2670,8 @@ class Dataset(BaseModel, DisplayableBase):
                                 source_metadata_id=signal_metadata_id,
                                 processing_degree=processing_degree,
                             )
-                        else:
-                            raise ValueError(
-                                f"Processed TimeSeries '{ts_full_name}' has no metadata_id set, "
-                                f"and the backend does not support generate_metadata_id(). "
-                                f"Please set metadata_id on the TimeSeries before saving."
-                            )
+                        # else: metadata_id stays None — valid for generic backends
+                        # that don't link to an external metadata registry.
 
                 # Extract just the time series part by removing signal name prefix
                 # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
@@ -3141,6 +3139,17 @@ class Dataset(BaseModel, DisplayableBase):
                     series=out_ts.series, processing_steps=out_all_steps
                 )
                 out_new_ts = out_new_ts.remove_duplicated_steps()
+                # Propagate backend and generate metadata_id at creation time
+                if self._backend is not None:
+                    out_new_ts._backend = self._backend
+                    if hasattr(self._backend, "generate_metadata_id"):
+                        source_metadata_id = self.signals[
+                            Signal.extract_ts_base_and_number(input_time_series_names[0])[0]
+                        ].provenance.metadata_id
+                        out_new_ts.metadata_id = self._backend.generate_metadata_id(
+                            source_metadata_id=source_metadata_id,
+                            processing_degree=out_ts_base.capitalize(),
+                        )
                 self.signals[new_signal_name].time_series[out_full_ts_name] = out_new_ts
 
         self._propagate_parent_refs()
