@@ -110,9 +110,17 @@ Visualize processing relationships:
 
 ```python exec="1" result="console" source="above" session="visualization"
 # Create dependency graph and save it
-dep_fig = signal.plot_dependency_graph("Temperature#1_LIN-INT#1")
+from meteaudata.graph_display import render_dependency_graph_html
+from meteaudata.types import _collect_ts_lookup
+
+ts_name = "Temperature#1_LIN-INT#1"
+deps = signal.build_dependency_graph(ts_name)
+lookup = _collect_ts_lookup(signal)
+html_content = render_dependency_graph_html(deps, lookup, title=ts_name)
+
 dep_path = output_dir / "viz_dependency_graph.html"
-dep_fig.write_html(str(dep_path))
+with open(str(dep_path), 'w', encoding='utf-8') as f:
+    f.write(html_content)
 print("Generated dependency graph showing processing lineage")
 print(f"Saved dependency graph to {dep_path}")
 ```
