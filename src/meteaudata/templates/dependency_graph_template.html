@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency Graph</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            box-sizing: border-box;
+        }
+
+        h1 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #24292f;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 80px);
+        }
+
+        .graph-container {
+            flex: 2;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .controls button {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: background 0.15s;
+        }
+
+        .controls button:hover {
+            background: #f3f4f6;
+        }
+
+        .details-panel {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
+            overflow-y: auto;
+            min-width: 260px;
+            max-width: 360px;
+        }
+
+        .details-panel h2 {
+            margin: 0 0 12px 0;
+            font-size: 15px;
+            font-weight: 600;
+            color: #24292f;
+        }
+
+        .details-panel .hint {
+            color: #57606a;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        .detail-row {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 12px;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #57606a;
+            margin-bottom: 3px;
+        }
+
+        .detail-value {
+            font-size: 13px;
+            color: #24292f;
+            word-break: break-all;
+        }
+
+        .step-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .step-list li {
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom: 1px dashed #f0f0f0;
+            color: #24292f;
+        }
+
+        .step-list li:last-child {
+            border-bottom: none;
+        }
+
+        .step-list .step-fn {
+            font-weight: 600;
+        }
+
+        .step-list .step-type {
+            color: #57606a;
+            font-size: 11px;
+        }
+
+        .empty-msg {
+            text-align: center;
+            color: #57606a;
+            font-size: 14px;
+            padding: 60px 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="graph-title">Dependency Graph</h1>
+    <div class="container">
+        <div class="graph-container">
+            <div id="cy"></div>
+            <div class="controls">
+                <button id="btn-fit" title="Fit to screen">⊞</button>
+                <button id="btn-zoom-in" title="Zoom in">+</button>
+                <button id="btn-zoom-out" title="Zoom out">−</button>
+            </div>
+        </div>
+        <div class="details-panel">
+            <h2>Details</h2>
+            <div id="details-content">
+                <p class="hint">Click a node to see details.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        cytoscape.use(cytoscapeDagre);
+
+        function initGraph(graphData) {
+            document.getElementById('graph-title').textContent = graphData.title || 'Dependency Graph';
+
+            const elements = graphData.elements || [];
+
+            if (elements.length === 0) {
+                document.getElementById('cy').innerHTML = '<div class="empty-msg">No dependencies found for this time series.</div>';
+                return;
+            }
+
+            const cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(label)',
+                            'background-color': 'data(color)',
+                            'color': '#fff',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'font-size': '12px',
+                            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                            'font-weight': '500',
+                            'shape': 'round-rectangle',
+                            'width': 'label',
+                            'height': '36px',
+                            'padding': '10px',
+                            'border-width': '2px',
+                            'border-color': 'data(borderColor)',
+                            'text-wrap': 'wrap',
+                            'text-max-width': '180px',
+                            'text-overflow-wrap': 'whitespace',
+                        }
+                    },
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'border-width': '3px',
+                            'border-color': '#0969da',
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'label': 'data(label)',
+                            'curve-style': 'bezier',
+                            'target-arrow-shape': 'triangle',
+                            'target-arrow-color': '#6e7781',
+                            'line-color': '#6e7781',
+                            'width': 2,
+                            'font-size': '11px',
+                            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                            'color': '#57606a',
+                            'text-background-color': '#f8f9fa',
+                            'text-background-opacity': 1,
+                            'text-background-padding': '3px',
+                            'text-border-radius': '3px',
+                            'edge-text-rotation': 'autorotate',
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'dagre',
+                    rankDir: 'LR',
+                    nodeSep: 60,
+                    rankSep: 120,
+                    padding: 40,
+                    animate: false,
+                }
+            });
+
+            // Controls
+            document.getElementById('btn-fit').addEventListener('click', () => cy.fit(undefined, 40));
+            document.getElementById('btn-zoom-in').addEventListener('click', () => cy.zoom(cy.zoom() * 1.2));
+            document.getElementById('btn-zoom-out').addEventListener('click', () => cy.zoom(cy.zoom() * 0.8));
+
+            // Details panel
+            const detailsContent = document.getElementById('details-content');
+
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                const data = node.data();
+                let html = '';
+
+                html += `<div class="detail-row"><div class="detail-label">Name</div><div class="detail-value">${data.id}</div></div>`;
+
+                if (data.node_type) {
+                    html += `<div class="detail-row"><div class="detail-label">Type</div><div class="detail-value">${data.node_type}</div></div>`;
+                }
+
+                if (data.created_on) {
+                    html += `<div class="detail-row"><div class="detail-label">Created</div><div class="detail-value">${data.created_on}</div></div>`;
+                }
+
+                if (data.steps && data.steps.length > 0) {
+                    html += `<div class="detail-row"><div class="detail-label">Processing Steps</div><ul class="step-list">`;
+                    data.steps.forEach(s => {
+                        html += `<li><span class="step-fn">${s.fn}</span><br><span class="step-type">${s.type}</span></li>`;
+                    });
+                    html += `</ul></div>`;
+                } else if (data.node_type === 'raw') {
+                    html += `<div class="detail-row"><div class="detail-label">Processing Steps</div><div class="detail-value hint">None (raw series)</div></div>`;
+                }
+
+                detailsContent.innerHTML = html;
+            });
+
+            cy.on('tap', function(evt) {
+                if (evt.target === cy) {
+                    detailsContent.innerHTML = '<p class="hint">Click a node to see details.</p>';
+                }
+            });
+        }
+
+        // INJECT_DATA_HERE
+
+        // Fallback for direct browser open without injection
+        if (typeof graphData === 'undefined') {
+            initGraph({
+                title: 'Dependency Graph (no data)',
+                elements: []
+            });
+        }
+    </script>
+</body>
+</html>
