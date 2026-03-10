@@ -16,6 +16,7 @@ from meteaudata.storage.factory import create_backend
 try:
     from meteaudata.storage.adapters.polars_adapter import PolarsAdapter
     import polars as pl
+
     POLARS_AVAILABLE = True
 except ImportError:
     POLARS_AVAILABLE = False
@@ -24,6 +25,7 @@ except ImportError:
 
 try:
     from meteaudata.storage.adapters.sql_adapter import SQLAdapter
+
     SQLALCHEMY_AVAILABLE = True
 except ImportError:
     SQLALCHEMY_AVAILABLE = False
@@ -34,19 +36,19 @@ except ImportError:
 @pytest.fixture
 def sample_series():
     """Create a sample pandas Series for testing."""
-    dates = pd.date_range('2024-01-01', periods=100, freq='h')
+    dates = pd.date_range("2024-01-01", periods=100, freq="h")
     values = np.random.randn(100)
-    return pd.Series(values, index=dates, name='test_series')
+    return pd.Series(values, index=dates, name="test_series")
 
 
 @pytest.fixture
 def sample_metadata():
     """Create sample metadata for testing."""
     return {
-        'description': 'Test time series',
-        'units': 'kg/m3',
-        'processing_steps': [],
-        'version': 1
+        "description": "Test time series",
+        "units": "kg/m3",
+        "processing_steps": [],
+        "version": 1,
     }
 
 
@@ -149,11 +151,11 @@ class TestPandasMemoryAdapter:
         adapter.save(sample_series, key, sample_metadata)
 
         # Modify original metadata
-        sample_metadata['new_field'] = 'new_value'
+        sample_metadata["new_field"] = "new_value"
 
         # Load should not include new field
         _, loaded_metadata = adapter.load(key)
-        assert 'new_field' not in loaded_metadata
+        assert "new_field" not in loaded_metadata
 
 
 # Tests for PandasDiskAdapter
@@ -249,7 +251,9 @@ class TestPandasDiskAdapter:
         adapter.cleanup()
         assert not temp_dir.exists()
 
-    def test_persistence_across_instances(self, temp_dir, sample_series, sample_metadata):
+    def test_persistence_across_instances(
+        self, temp_dir, sample_series, sample_metadata
+    ):
         """Test data persists across adapter instances."""
         # Save with first adapter
         adapter1 = PandasDiskAdapter(base_path=temp_dir)
@@ -294,16 +298,15 @@ class TestPolarsAdapter:
         loaded_pandas = adapter.to_pandas(loaded_series)
 
         # Reconstruct index from stored values and metadata
-        if 'index_values' in loaded_metadata and 'index_metadata' in loaded_metadata:
+        if "index_values" in loaded_metadata and "index_metadata" in loaded_metadata:
             # Create a pandas Index from the stored values
-            index_values = loaded_metadata['index_values']
+            index_values = loaded_metadata["index_values"]
             temp_index = pd.Index(index_values)
 
             # Apply metadata to reconstruct proper index type with properties
-            index_meta = IndexMetadata(**loaded_metadata['index_metadata'])
+            index_meta = IndexMetadata(**loaded_metadata["index_metadata"])
             reconstructed_index = IndexMetadata.reconstruct_index(
-                temp_index,
-                index_meta
+                temp_index, index_meta
             )
             loaded_pandas.index = reconstructed_index
 
@@ -365,10 +368,7 @@ class TestSQLAdapter:
 
         # Note: Index might be converted to string, so compare values
         assert len(loaded_series) == len(sample_series)
-        np.testing.assert_array_almost_equal(
-            loaded_series.values,
-            sample_series.values
-        )
+        np.testing.assert_array_almost_equal(loaded_series.values, sample_series.values)
         assert loaded_metadata == sample_metadata
 
     def test_exists(self, adapter, sample_series, sample_metadata):
@@ -511,3 +511,152 @@ class TestStorageConfig:
         """Test that pandas-memory validates without extra params."""
         config = StorageConfig(backend_type="pandas-memory")
         config.validate_config()  # Should not raise
+
+
+class TestMetadataIdTracking:
+    """Tests for metadata_id tracking in TimeSeries and Signal."""
+
+    def test_timeseries_metadata_id_field_exists(self):
+        """Test that TimeSeries has metadata_id field."""
+        from meteaudata.types import TimeSeries
+        import pandas as pd
+
+        ts = TimeSeries(series=pd.Series([1, 2, 3], name="test"))
+        assert hasattr(ts, "metadata_id")
+        assert ts.metadata_id is None
+
+    def test_timeseries_metadata_id_can_be_set(self):
+        """Test that metadata_id can be set on TimeSeries."""
+        from meteaudata.types import TimeSeries
+        import pandas as pd
+
+        ts = TimeSeries(series=pd.Series([1, 2, 3], name="test"))
+        ts.metadata_id = "123"
+        assert ts.metadata_id == "123"
+
+    def test_timeseries_metadata_id_in_metadata_dict(self):
+        """Test that metadata_id is included in metadata_dict()."""
+        from meteaudata.types import TimeSeries
+        import pandas as pd
+
+        ts = TimeSeries(series=pd.Series([1, 2, 3], name="test"))
+        ts.metadata_id = "456"
+
+        metadata = ts.metadata_dict()
+        assert "metadata_id" in metadata
+        assert metadata["metadata_id"] == "456"
+
+    def test_signal_provenance_metadata_id_propagates_to_raw_ts(self):
+        """Test that Signal's provenance.metadata_id propagates to raw time series."""
+        from meteaudata.types import Signal, TimeSeries
+        import pandas as pd
+
+        signal = Signal(
+            name="test_signal",
+            provenance={"metadata_id": "42", "parameter": "test"},
+            input_data=pd.Series(
+                [1, 2, 3], name="raw", index=pd.date_range("2024-01-01", periods=3)
+            ),
+        )
+
+        # Check that raw time series has the metadata_id
+        # Note: Signal name becomes "test_signal#1" and ts name is "test_signal#1_raw#1"
+        raw_ts = signal.time_series.get("test_signal#1_raw#1")
+        assert raw_ts is not None
+        # Note: metadata_id is assigned during save_all(), not at creation
+
+    def test_save_all_assigns_metadata_id_to_raw_ts(self):
+        """Test that Signal.save_all() assigns metadata_id to raw time series."""
+        from meteaudata.types import Signal
+        from meteaudata.storage.adapters.pandas_memory import PandasMemoryAdapter
+        import pandas as pd
+
+        signal = Signal(
+            name="test_signal",
+            provenance={"metadata_id": "42", "parameter": "test"},
+            input_data=pd.Series(
+                [1, 2, 3], name="raw", index=pd.date_range("2024-01-01", periods=3)
+            ),
+        )
+
+        adapter = PandasMemoryAdapter()
+        signal._backend = adapter
+
+        signal.save_all()
+
+        # Note: Signal name becomes "test_signal#1" and ts name is "test_signal#1_raw#1"
+        raw_ts = signal.time_series.get("test_signal#1_raw#1")
+        assert raw_ts is not None
+        assert raw_ts.metadata_id == "42"
+
+    def test_save_all_allows_no_metadata_id_for_processed_ts_on_generic_backend(self):
+        """Test that Signal.save_all() succeeds for processed TS with no metadata_id on generic backends.
+
+        metadata_id is optional for backends that don't link to an external metadata registry
+        (e.g. disk, memory, SQL). Only backends implementing generate_metadata_id() require it.
+        """
+        from meteaudata.types import Signal, TimeSeries
+        from meteaudata.storage.adapters.pandas_memory import PandasMemoryAdapter
+        import pandas as pd
+        from datetime import datetime
+
+        signal = Signal(
+            name="test_signal",
+            provenance={"metadata_id": "42", "parameter": "test"},
+            input_data=pd.Series(
+                [1, 2, 3], name="raw", index=pd.date_range("2024-01-01", periods=3)
+            ),
+        )
+
+        # Add a processed time series without metadata_id
+        processed_ts = TimeSeries(
+            series=pd.Series(
+                [4, 5, 6],
+                name="processed",
+                index=pd.date_range("2024-01-01", periods=3),
+            )
+        )
+        signal.time_series["test_signal#1_processed#1"] = processed_ts
+
+        adapter = PandasMemoryAdapter()
+        signal._backend = adapter
+
+        # Should succeed — metadata_id=None is valid for generic backends
+        signal.save_all()
+        processed = signal.time_series.get("test_signal#1_processed#1")
+        assert processed is not None
+        assert processed.metadata_id is None
+
+    def test_save_all_uses_existing_metadata_id_on_processed_ts(self):
+        """Test that Signal.save_all() uses existing metadata_id on processed TS."""
+        from meteaudata.types import Signal, TimeSeries
+        from meteaudata.storage.adapters.pandas_memory import PandasMemoryAdapter
+        import pandas as pd
+
+        signal = Signal(
+            name="test_signal",
+            provenance={"metadata_id": "42", "parameter": "test"},
+            input_data=pd.Series(
+                [1, 2, 3], name="raw", index=pd.date_range("2024-01-01", periods=3)
+            ),
+        )
+
+        # Add a processed time series WITH metadata_id already set
+        processed_ts = TimeSeries(
+            series=pd.Series(
+                [4, 5, 6],
+                name="processed",
+                index=pd.date_range("2024-01-01", periods=3),
+            ),
+            metadata_id="99",
+        )
+        signal.time_series["test_signal#1_processed#1"] = processed_ts
+
+        adapter = PandasMemoryAdapter()
+        signal._backend = adapter
+
+        signal.save_all()
+
+        processed = signal.time_series.get("test_signal#1_processed#1")
+        assert processed is not None
+        assert processed.metadata_id == "99"

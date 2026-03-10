@@ -244,10 +244,12 @@ def test_plots():
         title="Sample graph",
     )
     assert fig is not None
-    fig = dataset.signals["A#1"].plot_dependency_graph("A#1_PREV-PRED#1")
-    assert fig is not None
-    fig = dataset.signals["A#1"].plot_dependency_graph("A#1_RAW#1")
-    assert fig is not None
+    from unittest.mock import patch
+    with patch("webbrowser.open"):
+        html_path = dataset.signals["A#1"].plot_dependency_graph("A#1_PREV-PRED#1")
+        assert isinstance(html_path, str)
+        html_path = dataset.signals["A#1"].plot_dependency_graph("A#1_RAW#1")
+        assert isinstance(html_path, str)
 
 
 def test_processing():
