@@ -521,5 +521,176 @@ def open_meteaudata_graph_in_browser(obj, max_depth: int = 4, width: int = 1200,
     
     # Open in browser
     webbrowser.open(f'file://{temp_file.name}')
-    
+
+    return temp_file.name
+
+
+# ── Dependency graph (Cytoscape.js) ─────────────────────────────────────────
+
+_DEPENDENCY_GRAPH_NODE_COLORS = [
+    "#1f77b4",  # blue
+    "#ff7f0e",  # orange
+    "#9467bd",  # purple
+    "#8c564b",  # brown
+    "#e377c2",  # pink
+    "#17becf",  # cyan
+]
+_RAW_NODE_COLOR = "#2ca02c"       # green
+_EXTERNAL_NODE_COLOR = "#adb5bd"  # grey (ts not owned by this signal)
+
+
+def _load_dependency_graph_template() -> str:
+    """Load the Cytoscape.js dependency graph HTML template."""
+    try:
+        try:
+            from importlib.resources import files
+            template_file = files('meteaudata.templates') / 'dependency_graph_template.html'
+            return template_file.read_text(encoding='utf-8')
+        except (ImportError, AttributeError):
+            from importlib.resources import read_text
+            return read_text('meteaudata.templates', 'dependency_graph_template.html')
+    except (ImportError, FileNotFoundError, ModuleNotFoundError):
+        from pathlib import Path
+        template_path = Path(__file__).parent / 'templates' / 'dependency_graph_template.html'
+        try:
+            return template_path.read_text(encoding='utf-8')
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                "Dependency graph template not found. Expected: "
+                "meteaudata/templates/dependency_graph_template.html"
+            )
+
+
+def render_dependency_graph_html(
+    dependencies: List[Dict],
+    ts_lookup: Dict,
+    title: str = None,
+) -> str:
+    """
+    Render an interactive Cytoscape.js dependency graph.
+
+    Args:
+        dependencies: Pre-built dependency list from build_dependency_graph().
+        ts_lookup: Flat {ts_name: TimeSeries} dict for node detail enrichment.
+        title: Page/graph title (auto-generated if None).
+
+    Returns:
+        HTML string with embedded interactive Cytoscape.js graph.
+    """
+    if title is None:
+        title = "Dependency graph"
+
+    # Collect all node ids
+    node_ids: set = set()
+    for dep in dependencies:
+        node_ids.add(dep["origin"])
+        node_ids.add(dep["destination"])
+
+    # Assign colors — use stable ordering so colors don't flicker
+    sorted_nodes = sorted(node_ids)
+    processed_count = 0
+    node_colors: dict = {}
+    node_border_colors: dict = {}
+    for name in sorted_nodes:
+        if name not in ts_lookup:
+            color = _EXTERNAL_NODE_COLOR
+        elif not ts_lookup[name].processing_steps:
+            color = _RAW_NODE_COLOR
+        else:
+            color = _DEPENDENCY_GRAPH_NODE_COLORS[processed_count % len(_DEPENDENCY_GRAPH_NODE_COLORS)]
+            processed_count += 1
+        node_colors[name] = color
+        node_border_colors[name] = color
+
+    def _node_type(name: str) -> str:
+        if name not in ts_lookup:
+            return "external"
+        if not ts_lookup[name].processing_steps:
+            return "raw"
+        return "processed"
+
+    def _created_on(name: str) -> str:
+        if name not in ts_lookup:
+            return ""
+        ts = ts_lookup[name]
+        return ts.created_on.isoformat() if ts.created_on else ""
+
+    def _steps(name: str) -> list:
+        if name not in ts_lookup:
+            return []
+        steps_out = []
+        for step in ts_lookup[name].processing_steps:
+            steps_out.append({
+                "fn": step.function_info.name,
+                "type": str(step.type),
+            })
+        return steps_out
+
+    elements = []
+    for name in sorted_nodes:
+        elements.append({
+            "data": {
+                "id": name,
+                "label": name,
+                "color": node_colors[name],
+                "borderColor": node_border_colors[name],
+                "node_type": _node_type(name),
+                "created_on": _created_on(name),
+                "steps": _steps(name),
+            }
+        })
+
+    seen_edges: set = set()
+    for dep in dependencies:
+        edge_key = (dep["origin"], dep["destination"])
+        if edge_key in seen_edges:
+            continue
+        seen_edges.add(edge_key)
+        elements.append({
+            "data": {
+                "source": dep["origin"],
+                "target": dep["destination"],
+                "label": dep["step"],
+            }
+        })
+
+    graph_data = {
+        "title": title,
+        "elements": elements,
+    }
+
+    graph_data_json = json.dumps(graph_data, default=str, ensure_ascii=True)
+    injection = f"const graphData = {graph_data_json};\n        initGraph(graphData);"
+
+    template = _load_dependency_graph_template()
+    return template.replace("// INJECT_DATA_HERE", injection)
+
+
+def open_dependency_graph_in_browser(signal, ts_name: str, title: str = None) -> str:
+    """
+    Render an interactive dependency graph and open it in the system browser.
+
+    Args:
+        signal: A meteaudata Signal object.
+        ts_name: Name of the time series to trace dependencies for.
+        title: Page/graph title (auto-generated if None).
+
+    Returns:
+        Path to the generated temporary HTML file.
+    """
+    import tempfile
+    import webbrowser
+    from meteaudata.types import _collect_ts_lookup
+
+    if title is None:
+        title = f"Dependency graph for {ts_name}"
+    deps = signal.build_dependency_graph(ts_name)
+    lookup = _collect_ts_lookup(signal)
+    html_content = render_dependency_graph_html(deps, lookup, title=title)
+
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8')
+    temp_file.write(html_content)
+    temp_file.close()
+
+    webbrowser.open(f'file://{temp_file.name}')
     return temp_file.name

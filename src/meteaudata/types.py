@@ -93,29 +93,51 @@ def serialize_series(series: pd.Series) -> dict:
 
 class IndexMetadata(BaseModel, DisplayableBase):
     """Metadata describing the characteristics of a pandas Index.
-    
+
     This class captures essential information about time series indices to enable
     proper reconstruction after serialization. It handles various pandas Index types
     including DatetimeIndex, PeriodIndex, RangeIndex, and CategoricalIndex.
-    
+
     The metadata preserves critical properties like timezone information for datetime
     indices, frequency for time-based indices, and categorical ordering, ensuring
     that reconstructed indices maintain their original behavior and constraints.
-    
-    """
-    type: str = Field(description="Type of pandas Index (e.g., 'DatetimeIndex', 'RangeIndex', 'PeriodIndex')")
-    name: Optional[str] = Field(default=None, description="Name assigned to the index, if any")
-    frequency: Optional[str] = Field(default=None, description="Frequency string for time-based indices (e.g., 'D', 'H', '15min')")
-    time_zone: Optional[str] = Field(default=None, description="Timezone information for datetime indices (e.g., 'UTC', 'America/Toronto')")
-    closed: Optional[str] = Field(default=None, description="Which side of intervals are closed for IntervalIndex ('left', 'right', 'both', 'neither')")
-    categories: Optional[list[Any]] = Field(default=None, description="List of category values for CategoricalIndex")
-    ordered: Optional[bool] = Field(default=None, description="Whether categories have a meaningful order for CategoricalIndex")
-    start: Optional[int] = Field(default=None, description="Start value for RangeIndex")
-    end: Optional[int] = Field(default=None, description="End value (exclusive) for RangeIndex")
-    step: Optional[int] = Field(default=None, description="Step size for RangeIndex")
-    dtype: str = Field(description="Data type of the index values (e.g., 'datetime64[ns]', 'int64')")
 
-    
+    """
+
+    type: str = Field(
+        description="Type of pandas Index (e.g., 'DatetimeIndex', 'RangeIndex', 'PeriodIndex')"
+    )
+    name: Optional[str] = Field(
+        default=None, description="Name assigned to the index, if any"
+    )
+    frequency: Optional[str] = Field(
+        default=None,
+        description="Frequency string for time-based indices (e.g., 'D', 'H', '15min')",
+    )
+    time_zone: Optional[str] = Field(
+        default=None,
+        description="Timezone information for datetime indices (e.g., 'UTC', 'America/Toronto')",
+    )
+    closed: Optional[str] = Field(
+        default=None,
+        description="Which side of intervals are closed for IntervalIndex ('left', 'right', 'both', 'neither')",
+    )
+    categories: Optional[list[Any]] = Field(
+        default=None, description="List of category values for CategoricalIndex"
+    )
+    ordered: Optional[bool] = Field(
+        default=None,
+        description="Whether categories have a meaningful order for CategoricalIndex",
+    )
+    start: Optional[int] = Field(default=None, description="Start value for RangeIndex")
+    end: Optional[int] = Field(
+        default=None, description="End value (exclusive) for RangeIndex"
+    )
+    step: Optional[int] = Field(default=None, description="Step size for RangeIndex")
+    dtype: str = Field(
+        description="Data type of the index values (e.g., 'datetime64[ns]', 'int64')"
+    )
+
     @staticmethod
     def extract_index_metadata(index: pd.Index) -> "IndexMetadata":
         metadata = {
@@ -195,54 +217,58 @@ class IndexMetadata(BaseModel, DisplayableBase):
 
         reconstructed_index.name = metadata.name
         return reconstructed_index
+
     def _get_identifier(self) -> str:
         """Get the key identifier for IndexMetadata."""
         return f"type='{self.type}'"
-    
+
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for IndexMetadata."""
         return {
-            'type': self.type,
-            'name': self.name,
-            'dtype': self.dtype,
-            'frequency': self.frequency,
-            'time_zone': self.time_zone,
-            'closed': self.closed,
-            'categories': self.categories,
-            'ordered': self.ordered,
-            'start': self.start,
-            'end': self.end,
-            'step': self.step
+            "type": self.type,
+            "name": self.name,
+            "dtype": self.dtype,
+            "frequency": self.frequency,
+            "time_zone": self.time_zone,
+            "closed": self.closed,
+            "categories": self.categories,
+            "ordered": self.ordered,
+            "start": self.start,
+            "end": self.end,
+            "step": self.step,
         }
+
 
 class ParameterValue(BaseModel, DisplayableBase):
     """Wrapper for complex parameter values in processing functions.
-    
+
     This class provides a structured way to store and display complex parameter
     values like nested dictionaries, lists, or custom objects that are used in
     time series processing functions. It enables recursive display of nested
     structures while maintaining type information.
-    
+
     The wrapper handles numpy arrays by converting them to a serializable format
     and provides formatted display for various data types commonly used in
     environmental data processing workflows.
-    
+
     Attributes:
         value: The actual parameter value of any type
         value_type: String representation of the value's type
     """
-    value: Any = Field(description="The actual parameter value of any type")
-    value_type: str = Field(description="String representation of the value's Python type")
 
-    
+    value: Any = Field(description="The actual parameter value of any type")
+    value_type: str = Field(
+        description="String representation of the value's Python type"
+    )
+
     model_config = {"arbitrary_types_allowed": True}
-    
+
     def __init__(self, value: Any, **data):
         super().__init__(value=value, value_type=type(value).__name__, **data)
-    
+
     def _get_identifier(self) -> str:
         return f"type='{self.value_type}'"
-    
+
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Recursively handle nested structures."""
         if isinstance(self.value, dict):
@@ -254,37 +280,43 @@ class ParameterValue(BaseModel, DisplayableBase):
                     attrs[key] = self._format_simple_parameter_value(val)
             return attrs
         elif isinstance(self.value, (list, tuple)):
-            attrs = {
-                'length': len(self.value),
-                'type': self.value_type
-            }
+            attrs = {"length": len(self.value), "type": self.value_type}
             # Show first few items if they're complex, or a summary if simple
             for i, item in enumerate(self.value[:5]):  # Limit to first 5 items
                 if self._is_displayable_complex(item):
                     attrs[f"item_{i}"] = ParameterValue(item)
                 else:
                     attrs[f"item_{i}"] = self._format_simple_parameter_value(item)
-            
+
             if len(self.value) > 5:
-                attrs['more_items'] = f"... and {len(self.value) - 5} more items"
-            
+                attrs["more_items"] = f"... and {len(self.value) - 5} more items"
+
             return attrs
         else:
             # For simple values, just show the value
-            return {'value': self._format_simple_parameter_value(self.value)}
-    
+            return {"value": self._format_simple_parameter_value(self.value)}
+
     def _is_displayable_complex(self, obj: Any) -> bool:
         """Check if an object is complex enough to warrant its own ParameterValue wrapper."""
         if isinstance(obj, dict):
             return len(obj) > 1 or any(
-                isinstance(v, (dict, list, tuple)) or (hasattr(v, '__dict__') and not isinstance(v, (str, int, float, bool, datetime))) for v in obj.values()
+                isinstance(v, (dict, list, tuple))
+                or (
+                    hasattr(v, "__dict__")
+                    and not isinstance(v, (str, int, float, bool, datetime))
+                )
+                for v in obj.values()
             )
         elif isinstance(obj, (list, tuple)):
-            return len(obj) > 1 or any(isinstance(item, (dict, list, tuple)) for item in obj)
-        elif hasattr(obj, '__dict__') and not isinstance(obj, (str, int, float, bool, datetime.datetime)):
+            return len(obj) > 1 or any(
+                isinstance(item, (dict, list, tuple)) for item in obj
+            )
+        elif hasattr(obj, "__dict__") and not isinstance(
+            obj, (str, int, float, bool, datetime.datetime)
+        ):
             return True
         return False
-    
+
     def _format_simple_parameter_value(self, value: Any) -> str:
         """Format simple parameter values."""
         if isinstance(value, dict) and "__numpy_array__" in value:
@@ -298,19 +330,21 @@ class ParameterValue(BaseModel, DisplayableBase):
         else:
             return str(value)
 
+
 class Parameters(BaseModel, DisplayableBase):
     """Container for processing function parameters with numpy array support.
-    
+
     This class stores parameters passed to time series processing functions,
     automatically handling complex data types like numpy arrays, nested objects,
     and custom classes. It provides serialization capabilities while preserving
     the ability to reconstruct original parameter values.
-    
+
     The class is particularly useful for maintaining reproducible processing
     pipelines where parameter values need to be stored as metadata alongside
     processed time series data.
-    
+
     """
+
     model_config = {"extra": "allow", "arbitrary_types_allowed": True}
 
     @model_validator(mode="before")
@@ -360,19 +394,19 @@ class Parameters(BaseModel, DisplayableBase):
     def _get_identifier(self) -> str:
         """Get the key identifier for Parameters."""
         # Get all non-private attributes from model_extra
-        param_attrs = getattr(self, 'model_extra', {})
+        param_attrs = getattr(self, "model_extra", {})
         param_count = len(param_attrs)
         return f"parameters[{param_count} items]"
-    
+
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for Parameters with nested object support."""
         attrs = {}
-        
+
         # Get parameter count
-        param_attrs = getattr(self, 'model_extra', {})
+        param_attrs = getattr(self, "model_extra", {})
         if param_attrs:
-            attrs['parameter_count'] = len(param_attrs)
-            
+            attrs["parameter_count"] = len(param_attrs)
+
             # Process each parameter
             for field_name, value in param_attrs.items():
                 if self._is_displayable_complex(value):
@@ -381,23 +415,29 @@ class Parameters(BaseModel, DisplayableBase):
                 else:
                     # Show simple values directly
                     attrs[field_name] = self._format_simple_parameter_value(value)
-        
+
         return attrs
-    
+
     def _is_displayable_complex(self, obj: Any) -> bool:
         """Check if a parameter value is complex enough to warrant recursive display."""
         if isinstance(obj, dict):
             # Complex if it has multiple keys or contains nested structures
             if obj.get("__numpy_array__"):
                 return False  # Numpy arrays are handled as simple values
-            return len(obj) > 1 or any(isinstance(v, (dict, list, tuple)) for v in obj.values())
+            return len(obj) > 1 or any(
+                isinstance(v, (dict, list, tuple)) for v in obj.values()
+            )
         elif isinstance(obj, (list, tuple)):
             # Complex if it's long or contains nested structures
-            return len(obj) > 3 or any(isinstance(item, (dict, list, tuple)) for item in obj[:3])
-        elif hasattr(obj, '__dict__') and not isinstance(obj, (str, int, float, bool, datetime.datetime)):
+            return len(obj) > 3 or any(
+                isinstance(item, (dict, list, tuple)) for item in obj[:3]
+            )
+        elif hasattr(obj, "__dict__") and not isinstance(
+            obj, (str, int, float, bool, datetime.datetime)
+        ):
             return True
         return False
-    
+
     def _format_simple_parameter_value(self, value: Any) -> str:
         """Format simple parameter values for display."""
         if isinstance(value, dict) and "__numpy_array__" in value:
@@ -413,20 +453,21 @@ class Parameters(BaseModel, DisplayableBase):
         else:
             return str(value)
 
+
 class ProcessingType(Enum):
     """Standardized categories for time series processing operations.
-    
+
     This enumeration defines the standard types of processing operations that can
     be applied to environmental time series data. Each type represents a distinct
     category of data transformation with specific characteristics and purposes
     in environmental monitoring and wastewater treatment analysis.
-    
+
     The processing types enable consistent categorization of operations across
     different processing pipelines and facilitate automated quality control,
     reporting, and method comparison workflows.
-    
+
     """
-    
+
     SORTING = "sorting"  # "Reordering time series data by timestamp or value"
     REMOVE_DUPLICATES = "remove_duplicates"  # "Eliminating duplicate measurements at the same timestamp"
     SMOOTHING = "smoothing"  # "Noise reduction using moving averages, exponential smoothing, or similar techniques"
@@ -436,36 +477,62 @@ class ProcessingType(Enum):
     PREDICTION = "prediction"  # "Forecasting future values using statistical or machine learning models"
     TRANSFORMATION = "transformation"  # "Mathematical transformations (log, power, normalization, standardization)"
     DIMENSIONALITY_REDUCTION = "dimensionality_reduction"  # "Reducing data complexity using PCA, feature selection, or similar techniques"
-    FAULT_DETECTION = "fault_detection"  # "Identifying anomalous measurements or sensor malfunctions"
-    FAULT_IDENTIFICATION = "fault_identification"  # "Classifying the type or cause of detected faults"
+    FAULT_DETECTION = (
+        "fault_detection"  # "Identifying anomalous measurements or sensor malfunctions"
+    )
+    FAULT_IDENTIFICATION = (
+        "fault_identification"  # "Classifying the type or cause of detected faults"
+    )
     FAULT_DIAGNOSIS = "fault_diagnosis"  # "Determining root causes and recommending corrective actions for faults"
-    EXPORT_RENAME = "export_rename"  # "Renaming time series for export to different formats"
+    EXPORT_RENAME = (
+        "export_rename"  # "Renaming time series for export to different formats"
+    )
     OTHER = "other"  # "Custom or specialized processing operations not covered by standard categories"
 
- 
 
 class DataProvenance(BaseModel, DisplayableBase):
     """Information about the source and context of time series data.
-    
+
     This class captures essential metadata about where time series data originated,
     including the source repository, project context, physical location, equipment
     used, and the measured parameter. This information is crucial for data
     traceability and understanding measurement context in environmental monitoring.
-    
+
     Provenance information enables users to assess data quality, understand
     measurement conditions, and make informed decisions about data usage in
     analysis and modeling workflows.
-    
-    """
-    source_repository: Optional[str] = Field(default=None, description="Name or identifier of the data repository or database")
-    project: Optional[str] = Field(default=None, description="Project name or identifier under which data was collected")
-    location: Optional[str] = Field(default=None, description="Physical location where measurements were taken (e.g., 'Site_A', 'Influent_Tank_1')")
-    equipment: Optional[str] = Field(default=None, description="Equipment or instrument used for data collection (e.g., 'pH_probe_001', 'flow_meter')")
-    parameter: Optional[str] = Field(default=None, description="Physical/chemical parameter being measured (e.g., 'temperature', 'dissolved_oxygen', 'TSS')")
-    purpose: Optional[str] = Field(default=None, description="Purpose or context of the measurement (e.g., 'regulatory_compliance', 'process_optimization')")
-    metadata_id: Optional[str] = Field(default=None, description="Unique identifier for linking to external metadata systems")
 
-    
+    """
+
+    source_repository: Optional[str] = Field(
+        default=None,
+        description="Name or identifier of the data repository or database",
+    )
+    project: Optional[str] = Field(
+        default=None,
+        description="Project name or identifier under which data was collected",
+    )
+    location: Optional[str] = Field(
+        default=None,
+        description="Physical location where measurements were taken (e.g., 'Site_A', 'Influent_Tank_1')",
+    )
+    equipment: Optional[str] = Field(
+        default=None,
+        description="Equipment or instrument used for data collection (e.g., 'pH_probe_001', 'flow_meter')",
+    )
+    parameter: Optional[str] = Field(
+        default=None,
+        description="Physical/chemical parameter being measured (e.g., 'temperature', 'dissolved_oxygen', 'TSS')",
+    )
+    purpose: Optional[str] = Field(
+        default=None,
+        description="Purpose or context of the measurement (e.g., 'regulatory_compliance', 'process_optimization')",
+    )
+    metadata_id: Optional[str] = Field(
+        default=None,
+        description="Unique identifier for linking to external metadata systems",
+    )
+
     def _get_identifier(self) -> str:
         """Get the key identifier for DataProvenance."""
         if self.parameter:
@@ -474,39 +541,49 @@ class DataProvenance(BaseModel, DisplayableBase):
             return f"metadata_id='{self.metadata_id}'"
         else:
             return f"location='{self.location}'"
-    
+
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for DataProvenance."""
         return {
-            'source_repository': self.source_repository,
-            'project': self.project,
-            'location': self.location,
-            'equipment': self.equipment,
-            'parameter': self.parameter,
-            'purpose': self.purpose,
-            'metadata_id': self.metadata_id
+            "source_repository": self.source_repository,
+            "project": self.project,
+            "location": self.location,
+            "equipment": self.equipment,
+            "parameter": self.parameter,
+            "purpose": self.purpose,
+            "metadata_id": self.metadata_id,
         }
 
 
 class FunctionInfo(BaseModel, DisplayableBase):
     """Metadata about processing functions applied to time series data.
-    
+
     This class documents the functions used in data processing pipelines,
     capturing essential information for reproducibility including function name,
     version, author, and reference documentation. It can optionally capture
     the actual source code of the function for complete reproducibility.
-    
+
     Function information is critical for understanding how data has been processed
     and for reproducing analysis results. The automatic source code capture
     feature helps maintain processing lineage even when function implementations
     change over time.
-    
+
     """
+
     name: str = Field(description="Name of the processing function")
-    version: str = Field(description="Version identifier of the function (e.g., '1.2.0', 'v2024.1')")
-    author: str = Field(description="Author or team responsible for the function implementation")
-    reference: str = Field(description="Reference documentation, paper, or URL describing the method")
-    source_code: Optional[str] = Field(default=None, description="Complete source code of the function for reproducibility")
+    version: str = Field(
+        description="Version identifier of the function (e.g., '1.2.0', 'v2024.1')"
+    )
+    author: str = Field(
+        description="Author or team responsible for the function implementation"
+    )
+    reference: str = Field(
+        description="Reference documentation, paper, or URL describing the method"
+    )
+    source_code: Optional[str] = Field(
+        default=None,
+        description="Complete source code of the function for reproducibility",
+    )
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -536,58 +613,82 @@ class FunctionInfo(BaseModel, DisplayableBase):
     def _get_identifier(self) -> str:
         """Get the key identifier for FunctionInfo."""
         return f"name='{self.name}'"
-    
+
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for FunctionInfo."""
         attrs = {
-            'name': self.name,
-            'version': self.version,
-            'author': self.author,
-            'reference': self.reference
+            "name": self.name,
+            "version": self.version,
+            "author": self.author,
+            "reference": self.reference,
         }
-        
+
         # Only show source code info if it exists and isn't an error message
-        if (self.source_code and 
-            not self.source_code.startswith("Could not determine") and
-            not self.source_code.startswith("Function not found") and
-            not self.source_code.startswith("An error occurred")):
-            attrs['has_source_code'] = True
-            attrs['source_code_lines'] = len(self.source_code.splitlines())
+        if (
+            self.source_code
+            and not self.source_code.startswith("Could not determine")
+            and not self.source_code.startswith("Function not found")
+            and not self.source_code.startswith("An error occurred")
+        ):
+            attrs["has_source_code"] = True
+            attrs["source_code_lines"] = len(self.source_code.splitlines())
         else:
-            attrs['has_source_code'] = False
-        
+            attrs["has_source_code"] = False
+
         return attrs
+
 
 class ProcessingStep(BaseModel, DisplayableBase):
     """Record of a single data processing operation applied to time series.
-    
+
     This class documents individual steps in a data processing pipeline, capturing
     the type of processing performed, when it was executed, the function used,
     and the parameters applied. Each step maintains a complete audit trail of
     data transformations.
-    
+
     Processing steps are chained together to form a complete processing history,
     enabling full traceability from raw data to final processed results. The
     step_distance field tracks temporal shifts introduced by operations like
     forecasting or lag analysis.
-    
-    """
-    type: ProcessingType = Field(description="Category of processing operation performed")
-    description: str = Field(description="Human-readable description of what this processing step accomplished")
-    run_datetime: datetime.datetime = Field(description="Timestamp when this processing step was executed")
-    requires_calibration: bool = Field(description="Whether this processing step requires calibration data or parameters")
-    function_info: FunctionInfo = Field(description="Information about the function used for processing")
-    parameters: Optional[Parameters] = Field(default=None, description="Parameters passed to the processing function")
-    step_distance: int = Field(default=0, description="Number of time steps shifted (positive for future predictions, negative for lag operations)")
-    suffix: str = Field(description="Short identifier appended to time series names (e.g., 'SMOOTH', 'FILT', 'PRED')")
-    input_series_names: list[str] = Field(default_factory=list, description="Names of input time series used in this processing step")
 
-    @field_serializer('run_datetime')
+    """
+
+    type: ProcessingType = Field(
+        description="Category of processing operation performed"
+    )
+    description: str = Field(
+        description="Human-readable description of what this processing step accomplished"
+    )
+    run_datetime: datetime.datetime = Field(
+        description="Timestamp when this processing step was executed"
+    )
+    requires_calibration: bool = Field(
+        description="Whether this processing step requires calibration data or parameters"
+    )
+    function_info: FunctionInfo = Field(
+        description="Information about the function used for processing"
+    )
+    parameters: Optional[Parameters] = Field(
+        default=None, description="Parameters passed to the processing function"
+    )
+    step_distance: int = Field(
+        default=0,
+        description="Number of time steps shifted (positive for future predictions, negative for lag operations)",
+    )
+    suffix: str = Field(
+        description="Short identifier appended to time series names (e.g., 'SMOOTH', 'FILT', 'PRED')"
+    )
+    input_series_names: list[str] = Field(
+        default_factory=list,
+        description="Names of input time series used in this processing step",
+    )
+
+    @field_serializer("run_datetime")
     def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
         """Serialize datetime to ISO 8601 string format."""
         return dt.isoformat()
 
-    @field_serializer('type')
+    @field_serializer("type")
     def serialize_type(self, t: ProcessingType, _info) -> str:
         """Serialize ProcessingType enum to its string value."""
         return t.value
@@ -598,25 +699,26 @@ class ProcessingStep(BaseModel, DisplayableBase):
     def _get_identifier(self) -> str:
         """Get the key identifier for ProcessingStep."""
         return f"type='{self.type.value} ({self.suffix})'"
-    
+
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for ProcessingStep."""
         attrs = {
-            'type': self.type.value,
-            'description': self.description,
-            'suffix': self.suffix,
-            'run_datetime': self.run_datetime,
-            'requires_calibration': self.requires_calibration,
-            'step_distance': self.step_distance,
-            'input_series_names': self.input_series_names,
-            'function_info': self.function_info,  # This allows drilling into FunctionInfo
+            "type": self.type.value,
+            "description": self.description,
+            "suffix": self.suffix,
+            "run_datetime": self.run_datetime,
+            "requires_calibration": self.requires_calibration,
+            "step_distance": self.step_distance,
+            "input_series_names": self.input_series_names,
+            "function_info": self.function_info,  # This allows drilling into FunctionInfo
         }
-        
+
         # Add parameters if they exist
         if self.parameters:
-            attrs['parameters'] = self.parameters
-        
+            attrs["parameters"] = self.parameters
+
         return attrs
+
 
 class ProcessingConfig(BaseModel):
     steps: list[ProcessingStep]
@@ -624,36 +726,56 @@ class ProcessingConfig(BaseModel):
 
 class TimeSeries(BaseModel, DisplayableBase):
     """Time series data with complete processing history and metadata.
-    
+
     This class represents a single time series with its associated pandas Series
     data, complete processing history, and index metadata. It maintains a full
     audit trail of all transformations applied to the data from its raw state
     to the current processed form.
-    
+
     The class handles serialization of pandas objects and preserves critical
     index information to ensure proper reconstruction. It's the fundamental
     building block for environmental time series analysis workflows.
-    
+
     """
-    series: pd.Series = Field(default=pd.Series(dtype=object), description="The pandas Series containing the actual time series data")
-    processing_steps: list[ProcessingStep] = Field(default_factory=list, description="Complete history of processing operations applied to this time series")
-    index_metadata: Optional[IndexMetadata] = Field(default=None, description="Metadata about the time series index for proper reconstruction")
-    values_dtype: str = Field(default="str", description="Data type of the time series values")
-    created_on: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp when this TimeSeries object was created")
+
+    series: pd.Series = Field(
+        default=pd.Series(dtype=object),
+        description="The pandas Series containing the actual time series data",
+    )
+    processing_steps: list[ProcessingStep] = Field(
+        default_factory=list,
+        description="Complete history of processing operations applied to this time series",
+    )
+    index_metadata: Optional[IndexMetadata] = Field(
+        default=None,
+        description="Metadata about the time series index for proper reconstruction",
+    )
+    values_dtype: str = Field(
+        default="str", description="Data type of the time series values"
+    )
+    metadata_id: Optional[str] = Field(
+        default=None,
+        description="Metadata ID for linking to external metadata systems (e.g., open_dateaubase). Assigned at commit time for processed series, propagated from Signal for raw series.",
+    )
+    created_on: datetime.datetime = Field(
+        default_factory=datetime.datetime.now,
+        description="Timestamp when this TimeSeries object was created",
+    )
 
     # Optional storage backend (propagated from Signal)
     _backend: Optional["StorageBackend"] = PrivateAttr(default=None)
     _storage_key: Optional[str] = PrivateAttr(default=None)
+    _parent_signal: Optional["Signal"] = PrivateAttr(default=None)
 
     model_config: dict = {
         "arbitrary_types_allowed": True,
     }
 
-    @field_serializer('created_on')
+    @field_serializer("created_on")
     def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
         """Serialize datetime to ISO 8601 string format."""
         return dt.isoformat()
-    
+
     def __init__(self, **data):
         super().__init__(**data)
         from_serialized = (
@@ -784,10 +906,10 @@ class TimeSeries(BaseModel, DisplayableBase):
     ) -> go.Figure:
         """
         Create an interactive Plotly plot of the time series data.
-        
+
         The plot styling is automatically determined by the processing type of the time series.
         For prediction data, temporal shifting is applied to show future timestamps.
-        
+
         Args:
             title: Plot title. If None, uses the time series name.
             y_axis: Y-axis label. If None, uses the time series name.
@@ -795,7 +917,7 @@ class TimeSeries(BaseModel, DisplayableBase):
             legend_name: Legend entry name. If None, uses the time series name.
             start: Start date for filtering data (datetime string or object).
             end: End date for filtering data (datetime string or object).
-            
+
         Returns:
             Plotly Figure object with the time series plot.
         """
@@ -831,8 +953,11 @@ class TimeSeries(BaseModel, DisplayableBase):
         }
         # Import Signal here to avoid circular import at module level
         from meteaudata.types import Signal as SignalClass
+
         # Extract signal name and ts base using utility function
-        signal_name_extracted, ts_base, ts_num = SignalClass.extract_ts_base_and_number(str(self.series.name))
+        signal_name_extracted, ts_base, ts_num = SignalClass.extract_ts_base_and_number(
+            str(self.series.name)
+        )
         if signal_name_extracted:
             signal_name = signal_name_extracted
             # Reconstruct ts part without signal prefix
@@ -854,8 +979,8 @@ class TimeSeries(BaseModel, DisplayableBase):
         for step in reversed(self.processing_steps):
             if step.type == ProcessingType.TRANSFORMATION and step.parameters:
                 params_dict = step.parameters.model_dump()
-                if 'unit' in params_dict:
-                    index_unit = params_dict['unit']
+                if "unit" in params_dict:
+                    index_unit = params_dict["unit"]
                     break
 
         if index_unit:
@@ -956,7 +1081,9 @@ class TimeSeries(BaseModel, DisplayableBase):
         self.load_metadata_from_dict(metadata)
         self._storage_key = key
 
-    def use_disk_storage(self, path: Union[str, Path], auto_save: bool = True) -> "TimeSeries":
+    def use_disk_storage(
+        self, path: Union[str, Path], auto_save: bool = True
+    ) -> "TimeSeries":
         """Configure this time series to use disk-based storage.
 
         This is a convenience method that configures pandas-disk backend storage
@@ -980,7 +1107,9 @@ class TimeSeries(BaseModel, DisplayableBase):
         self._backend = backend
         return self
 
-    def use_sql_storage(self, connection_string: str, auto_save: bool = True) -> "TimeSeries":
+    def use_sql_storage(
+        self, connection_string: str, auto_save: bool = True
+    ) -> "TimeSeries":
         """Configure this time series to use SQL database storage.
 
         This is a convenience method that configures SQL backend storage for
@@ -1031,47 +1160,50 @@ class TimeSeries(BaseModel, DisplayableBase):
 
     def __str__(self):
         return f"{self.series.name}"
-    
+
     def _get_identifier(self) -> str:
         """Get the key identifier for TimeSeries."""
-        series_name = getattr(self.series, 'name', 'unnamed')
+        series_name = getattr(self.series, "name", "unnamed")
         return f"series='{series_name}'"
 
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for TimeSeries."""
         attrs = {
-            'series_name': self.series.name,
-            'series_length': len(self.series),
-            'values_dtype': self.values_dtype,
-            'created_on': self.created_on,
-            'processing_steps_count': len(self.processing_steps),
-            'processing_steps': self.processing_steps,
-            'index_metadata': self.index_metadata
+            "series_name": self.series.name,
+            "series_length": len(self.series),
+            "values_dtype": self.values_dtype,
+            "created_on": self.created_on,
+            "processing_steps_count": len(self.processing_steps),
+            "processing_steps": self.processing_steps,
+            "index_metadata": self.index_metadata,
         }
-        
+
         # Add date range if it's a datetime index
-        if hasattr(self.series.index, 'min') and len(self.series) > 0:
+        if hasattr(self.series.index, "min") and len(self.series) > 0:
             try:
-                attrs['date_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
+                attrs["date_range"] = (
+                    f"{self.series.index.min()} to {self.series.index.max()}"
+                )
             except (TypeError, ValueError):
-                attrs['index_range'] = f"{self.series.index.min()} to {self.series.index.max()}"
-        
+                attrs["index_range"] = (
+                    f"{self.series.index.min()} to {self.series.index.max()}"
+                )
 
         return attrs
 
 
 class SignalTransformFunctionProtocol(Protocol):
     """Protocol defining the interface for Signal-level processing functions.
-    
+
     This protocol specifies the required signature for functions that can be used
     with the Signal.process() method. Transform functions take multiple input
     time series and return processed results with complete processing metadata.
-    
+
     Signal transform functions operate within a single measured parameter (Signal)
     and can take multiple time series representing different processing stages
     of that parameter. They are ideal for operations like smoothing, filtering,
     gap filling, and other single-parameter processing tasks.
-    
+
     The protocol ensures consistent interfaces across different processing
     functions while maintaining complete audit trails of all transformations
     applied to environmental monitoring data.
@@ -1079,67 +1211,85 @@ class SignalTransformFunctionProtocol(Protocol):
 
     def __call__(
         self, input_series: list[pd.Series], *args: Any, **kwargs: Any
-    ) -> list[tuple[pd.Series, list[ProcessingStep]]]: 
+    ) -> list[tuple[pd.Series, list[ProcessingStep]]]:
         """Process input time series and return results with processing metadata.
-                
-                Args:
-                    input_series (list[pd.Series]): List of pandas Series to be processed
-                    *args: Function-specific positional arguments
-                    **kwargs: Function-specific keyword arguments
-                    
-                Returns:
-                    list[tuple[pd.Series, list[ProcessingStep]]]: List of (processed_series, processing_steps) tuples
-                """
+
+        Args:
+            input_series (list[pd.Series]): List of pandas Series to be processed
+            *args: Function-specific positional arguments
+            **kwargs: Function-specific keyword arguments
+
+        Returns:
+            list[tuple[pd.Series, list[ProcessingStep]]]: List of (processed_series, processing_steps) tuples
+        """
         ...
+
 
 class Signal(BaseModel, DisplayableBase):
     """Collection of related time series representing a measured parameter.
-    
+
     A Signal groups multiple time series that represent the same physical
     parameter (e.g., temperature) at different processing stages or from
     different processing paths. This enables comparison between raw and
     processed data, evaluation of different processing methods, and
     maintenance of data lineage.
-    
+
     Signals handle the naming conventions for time series, ensuring consistent
     identification across processing workflows. They support processing
     operations that can take multiple input time series and produce new
     processed versions with complete metadata preservation.
-    
+
     """
 
     model_config: dict = {"arbitrary_types_allowed": True}
-    created_on: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(), description="Timestamp when this Signal was created")
-    last_updated: datetime.datetime = Field(default_factory=lambda: datetime.datetime.now(), description="Timestamp of the most recent modification to this Signal")
-    input_data: Optional[Union[pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]]] = Field(
-        default=None, 
-        description="Initial data used to create the Signal (removed after initialization)"
+    created_on: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(),
+        description="Timestamp when this Signal was created",
     )
-    name: str = Field(default="signal", description="Name identifying this signal with automatic numbering (e.g., 'temperature#1')")
-    units: str = Field(default="unit", description="Units of measurement for this parameter (e.g., '°C', 'mg/L', 'NTU')")
+    last_updated: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(),
+        description="Timestamp of the most recent modification to this Signal",
+    )
+    input_data: Optional[
+        Union[
+            pd.Series, pd.DataFrame, TimeSeries, list[TimeSeries], dict[str, TimeSeries]
+        ]
+    ] = Field(
+        default=None,
+        description="Initial data used to create the Signal (removed after initialization)",
+    )
+    name: str = Field(
+        default="signal",
+        description="Name identifying this signal with automatic numbering (e.g., 'temperature#1')",
+    )
+    units: str = Field(
+        default="unit",
+        description="Units of measurement for this parameter (e.g., '°C', 'mg/L', 'NTU')",
+    )
     provenance: DataProvenance = Field(
         default_factory=lambda: DataProvenance(
             source_repository="unknown",
-            project="unknown", 
+            project="unknown",
             location="unknown",
             equipment="unknown",
             parameter="unknown",
             purpose="unknown",
             metadata_id="unknown",
         ),
-        description="Information about the source and context of this signal's data"
+        description="Information about the source and context of this signal's data",
     )
     time_series: dict[str, TimeSeries] = Field(
         default_factory=lambda: dict(),
-        description="Dictionary mapping time series names to TimeSeries objects for this signal"
+        description="Dictionary mapping time series names to TimeSeries objects for this signal",
     )
 
     # Optional storage backend (propagated from Dataset)
     _backend: Optional["StorageBackend"] = PrivateAttr(default=None)
     _auto_save: bool = PrivateAttr(default=False)
     _parent_dataset_name: Optional[str] = PrivateAttr(default=None)
+    _parent_dataset: Optional["Dataset"] = PrivateAttr(default=None)
 
-    @field_serializer('created_on', 'last_updated')
+    @field_serializer("created_on", "last_updated")
     def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
         """Serialize datetime to ISO 8601 string format."""
         return dt.isoformat()
@@ -1210,6 +1360,12 @@ class Signal(BaseModel, DisplayableBase):
                 lu = datetime.datetime.strptime(lu, format_string)
             self.last_updated = lu
         del self.input_data
+        self._propagate_parent_refs()
+
+    def _propagate_parent_refs(self) -> None:
+        """Set _parent_signal on every TimeSeries owned by this Signal."""
+        for ts in self.time_series.values():
+            ts._parent_signal = self
 
     def new_ts_name(self, old_name: str) -> str:
         separator = "_"
@@ -1245,12 +1401,12 @@ class Signal(BaseModel, DisplayableBase):
         """
         # Find the last underscore followed by text and a hash
         # This handles signal names that contain underscores
-        parts = ts_full_name.rsplit('_', 1)
+        parts = ts_full_name.rsplit("_", 1)
         if len(parts) == 2:
             signal_name, ts_part = parts
             # Extract base name and number from ts_part (e.g., 'raw#2' -> 'raw', 2)
-            if '#' in ts_part:
-                ts_base, num_str = ts_part.rsplit('#', 1)
+            if "#" in ts_part:
+                ts_base, num_str = ts_part.rsplit("#", 1)
                 try:
                     number = int(num_str)
                 except ValueError:
@@ -1263,8 +1419,8 @@ class Signal(BaseModel, DisplayableBase):
             return signal_name, ts_base, number
         else:
             # No underscore found, treat as just a base name
-            if '#' in ts_full_name:
-                ts_base, num_str = ts_full_name.rsplit('#', 1)
+            if "#" in ts_full_name:
+                ts_base, num_str = ts_full_name.rsplit("#", 1)
                 try:
                     number = int(num_str)
                 except ValueError:
@@ -1273,7 +1429,7 @@ class Signal(BaseModel, DisplayableBase):
             else:
                 ts_base = ts_full_name
                 number = 1
-            return '', ts_base, number
+            return "", ts_base, number
 
     @staticmethod
     def make_ts_name(signal_name: str, ts_base: str, number: int) -> str:
@@ -1301,6 +1457,7 @@ class Signal(BaseModel, DisplayableBase):
         new_name = self.update_numbered_ts_name(new_name)
         ts.series.name = new_name
         self.time_series[new_name] = ts
+        self._propagate_parent_refs()
 
     def remove(self, ts_name: str) -> None:
         self.time_series.pop(ts_name)
@@ -1311,8 +1468,14 @@ class Signal(BaseModel, DisplayableBase):
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
+        if name == "time_series":
+            try:
+                self._propagate_parent_refs()
+            except AttributeError:
+                pass  # During __init__, _propagate_parent_refs may not exist yet
         if (
             name != "last_updated"
+            and not name.startswith("_")  # Skip private attrs (e.g. _parent_dataset)
         ):  # Avoid updating when the modified field is 'last_updated' itself
             super().__setattr__("last_updated", datetime.datetime.now())
 
@@ -1386,6 +1549,11 @@ class Signal(BaseModel, DisplayableBase):
     def save_all(self, dataset_name: Optional[str] = None) -> None:
         """Save all time series in this signal to the backend.
 
+        This method handles metadata_id assignment:
+        - For raw time series: propagates the Signal's provenance.metadata_id
+        - For processed time series: uses the TimeSeries's metadata_id if set,
+          or generates a new one via the backend's generate_metadata_id() method
+
         Args:
             dataset_name: Optional dataset name for namespacing keys.
                          If not provided, uses _parent_dataset_name or "default".
@@ -1394,6 +1562,7 @@ class Signal(BaseModel, DisplayableBase):
             return  # No backend configured, skip save
 
         ds_name = dataset_name or self._parent_dataset_name or "default"
+        signal_metadata_id = self.provenance.metadata_id
 
         for ts_full_name, ts in self.time_series.items():
             # Set backend on time series if not already set
@@ -1402,17 +1571,39 @@ class Signal(BaseModel, DisplayableBase):
                     warnings.warn(
                         f"TimeSeries '{ts_full_name}' already has a different backend. "
                         f"Using Signal's backend instead.",
-                        UserWarning
+                        UserWarning,
                     )
                 ts._backend = self._backend
 
             # Extract just the time series part by removing signal name prefix
             # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
             # Signal name is 'signal#1', so we remove 'signal#1_' prefix
-            if ts_full_name.startswith(self.name + '_'):
-                ts_name = ts_full_name[len(self.name) + 1:]  # +1 for the underscore
+            if ts_full_name.startswith(self.name + "_"):
+                ts_name = ts_full_name[len(self.name) + 1 :]  # +1 for the underscore
             else:
                 ts_name = ts_full_name
+
+            # Determine if this is a raw or processed time series
+            _, ts_base, _ = Signal.extract_ts_base_and_number(ts_full_name)
+            is_raw = ts_base.lower() == "raw"
+
+            # Assign metadata_id based on whether it's raw or processed
+            if is_raw:
+                ts.metadata_id = signal_metadata_id
+            else:
+                if ts.metadata_id is None:
+                    if hasattr(self._backend, "generate_metadata_id"):
+                        processing_degree = ts_base.capitalize()
+                        ts.metadata_id = self._backend.generate_metadata_id(
+                            source_metadata_id=signal_metadata_id,
+                            processing_degree=processing_degree,
+                        )
+                    else:
+                        raise ValueError(
+                            f"Processed TimeSeries '{ts_full_name}' has no metadata_id set, "
+                            f"and the backend does not support generate_metadata_id(). "
+                            f"Please set metadata_id on the TimeSeries before saving."
+                        )
 
             # Save with hierarchical key structure
             key = f"{ds_name}/{self.name}/{ts_name}"
@@ -1498,7 +1689,9 @@ class Signal(BaseModel, DisplayableBase):
                 if "#" not in new_ts_name:
                     # Get max number for this ts_base
                     name_max_number = self.max_ts_name_number(self.all_time_series)
-                    signal_name, ts_base, _ = Signal.extract_ts_base_and_number(new_ts_name)
+                    signal_name, ts_base, _ = Signal.extract_ts_base_and_number(
+                        new_ts_name
+                    )
                     if ts_base in name_max_number.keys():
                         max_num = int(name_max_number[ts_base])
                         new_ts_name = Signal.make_ts_name(signal_name, ts_base, max_num)
@@ -1514,6 +1707,8 @@ class Signal(BaseModel, DisplayableBase):
             if self._backend is not None:
                 new_ts._backend = self._backend
             self.time_series[final_name] = new_ts
+
+        self._propagate_parent_refs()
 
         # Auto-save if configured
         if self._auto_save and self._backend is not None:
@@ -1568,7 +1763,7 @@ class Signal(BaseModel, DisplayableBase):
         path: str,
         separator: str = ",",
         output_index_name: Optional[Union[str, tuple]] = None,
-        output_value_names: Optional[Dict[str, Union[str, tuple]]] = None
+        output_value_names: Optional[Dict[str, Union[str, tuple]]] = None,
     ):
         """
         Save time series data to CSV files.
@@ -1590,7 +1785,9 @@ class Signal(BaseModel, DisplayableBase):
             series_to_save = ts.series.copy()
 
             # Determine if we need multi-line headers
-            index_is_tuple = isinstance(output_index_name, tuple) and len(output_index_name) > 1
+            index_is_tuple = (
+                isinstance(output_index_name, tuple) and len(output_index_name) > 1
+            )
             value_name = output_value_names.get(ts_name)
             value_is_tuple = isinstance(value_name, tuple) and len(value_name) > 1
 
@@ -1601,9 +1798,7 @@ class Signal(BaseModel, DisplayableBase):
             if index_is_tuple or value_is_tuple:
                 # Convert Series to DataFrame with MultiIndex columns
                 df = self._create_multiindex_dataframe(
-                    series_to_save,
-                    output_index_name,
-                    value_name or series_to_save.name
+                    series_to_save, output_index_name, value_name or series_to_save.name
                 )
                 df.to_csv(file_path, sep=separator, index=False)
             else:
@@ -1625,11 +1820,13 @@ class Signal(BaseModel, DisplayableBase):
                         name="export_rename",
                         version="1.0",
                         author="meteaudata",
-                        reference="Export operation"
+                        reference="Export operation",
                     ),
-                    parameters=Parameters(original_name=original_name, export_name=str(export_name)),
+                    parameters=Parameters(
+                        original_name=original_name, export_name=str(export_name)
+                    ),
                     suffix="RENAMED",
-                    input_series_names=[original_name]
+                    input_series_names=[original_name],
                 )
                 # Add to TimeSeries processing steps
                 ts.processing_steps.append(rename_step)
@@ -1640,7 +1837,7 @@ class Signal(BaseModel, DisplayableBase):
         self,
         series: pd.Series,
         index_tuple: Optional[Union[str, tuple]],
-        value_tuple: Union[str, tuple]
+        value_tuple: Union[str, tuple],
     ) -> pd.DataFrame:
         """
         Convert a Series to DataFrame with MultiIndex columns for multi-line headers.
@@ -1672,10 +1869,7 @@ class Signal(BaseModel, DisplayableBase):
         columns = pd.MultiIndex.from_tuples([index_tuple, value_tuple])
 
         # Create DataFrame: first column is index, second is values
-        df = pd.DataFrame({
-            columns[0]: series.index,
-            columns[1]: series.values
-        })
+        df = pd.DataFrame({columns[0]: series.index, columns[1]: series.values})
 
         # Reset index so the time index becomes a regular column
         df = df.reset_index(drop=True)
@@ -1683,8 +1877,7 @@ class Signal(BaseModel, DisplayableBase):
         return df
 
     def _process_output_value_names(
-        self,
-        output_value_names: Optional[Union[str, tuple, list, dict]]
+        self, output_value_names: Optional[Union[str, tuple, list, dict]]
     ) -> Dict[str, Union[str, tuple]]:
         """
         Process output_value_names parameter into dict mapping ts_name -> name.
@@ -1725,7 +1918,9 @@ class Signal(BaseModel, DisplayableBase):
                 )
             return dict(zip(self.time_series.keys(), output_value_names))
 
-        raise TypeError(f"Invalid type for output_value_names: {type(output_value_names)}")
+        raise TypeError(
+            f"Invalid type for output_value_names: {type(output_value_names)}"
+        )
 
     def metadata_dict(self):
         metadata = self.model_dump()
@@ -1749,7 +1944,7 @@ class Signal(BaseModel, DisplayableBase):
         zip: bool = True,
         separator: str = ",",
         output_index_name: Optional[Union[str, tuple]] = None,
-        output_value_names: Optional[Union[str, tuple, list, dict]] = None
+        output_value_names: Optional[Union[str, tuple, list, dict]] = None,
     ):
         """
         Save signal data and metadata to disk.
@@ -1800,7 +1995,7 @@ class Signal(BaseModel, DisplayableBase):
                 temp_dir,
                 separator=separator,
                 output_index_name=output_index_name,
-                output_value_names=value_names_dict
+                output_value_names=value_names_dict,
             )
             if not zip:
                 # Move the metadata file to the destination
@@ -1919,10 +2114,10 @@ class Signal(BaseModel, DisplayableBase):
     ) -> go.Figure:
         """
         Create an interactive Plotly plot with multiple time series from this signal.
-        
+
         Each time series is plotted with different colors and appropriate styling based
         on their processing types. Temporal shifting is applied automatically for prediction data.
-        
+
         Args:
             ts_names: List of time series names to plot. Must exist in this signal.
             title: Plot title. If None, uses "Time series plot of {signal_name}".
@@ -1930,7 +2125,7 @@ class Signal(BaseModel, DisplayableBase):
             x_axis: X-axis label. If None, uses "Time".
             start: Start date for filtering data (datetime string or object).
             end: End date for filtering data (datetime string or object).
-            
+
         Returns:
             Plotly Figure object with multiple time series traces.
         """
@@ -1954,8 +2149,8 @@ class Signal(BaseModel, DisplayableBase):
             for step in reversed(ts.processing_steps):
                 if step.type == ProcessingType.TRANSFORMATION and step.parameters:
                     params_dict = step.parameters.model_dump()
-                    if 'unit' in params_dict:
-                        unit = params_dict['unit']
+                    if "unit" in params_dict:
+                        unit = params_dict["unit"]
                         return f"Normalized({unit})"
 
             # For other index types, group by type name
@@ -1963,6 +2158,7 @@ class Signal(BaseModel, DisplayableBase):
 
         # Group time series by index transformation
         from collections import defaultdict
+
         ts_by_group = defaultdict(list)
         for ts_name in ts_names:
             ts = self.time_series[ts_name]
@@ -1985,7 +2181,9 @@ class Signal(BaseModel, DisplayableBase):
                 vertical_spacing=0.15 / n_subplots if n_subplots > 1 else 0.1,
             )
 
-            for subplot_idx, (group_key, ts_list) in enumerate(ts_by_group.items(), start=1):
+            for subplot_idx, (group_key, ts_list) in enumerate(
+                ts_by_group.items(), start=1
+            ):
                 # Determine x-axis label for this subplot
                 x_label = x_axis
 
@@ -2030,244 +2228,53 @@ class Signal(BaseModel, DisplayableBase):
 
     def build_dependency_graph(self, ts_name: str) -> List[Dict[str, Any]]:
         """
-        Build a data structure that represents all the processig steps and their dependencies for a given time series.
+        Build a data structure that represents all the processing steps and their
+        dependencies for a given time series, spanning cross-signal dependencies
+        when a parent dataset is available.
         """
-        dependencies = []
-        if ts_name not in self.time_series.keys():
+        if ts_name not in self.time_series:
             raise ValueError(f"Time series {ts_name} not found in the signal.")
-        ts = self.time_series[ts_name]
-        if not ts.processing_steps:
-            return dependencies
-        last_step = ts.processing_steps[-1]
-        input_series_names = last_step.input_series_names
-        for input_series_name in input_series_names:
-            current_dependency = {
-                "step": last_step.function_info.name,
-                "type": last_step.type,
-                "origin": input_series_name,
-                "destination": ts_name,
-            }
-            dependencies.append(current_dependency)
-            dependencies.extend(self.build_dependency_graph(input_series_name))
-        return dependencies
+        lookup = _collect_ts_lookup(self)
+        return _build_dependency_graph_recursive(ts_name, lookup)
 
-    def plot_dependency_graph(self, ts_name: str) -> go.Figure:
+    def plot_dependency_graph(self, ts_name: str) -> Optional[str]:
         """
-        Create a dependency graph visualization showing processing lineage for a time series.
-        
-        The graph displays time series as colored rectangles connected by lines representing
-        processing functions. The flow is temporal from left to right.
-        
+        Create an interactive dependency graph visualization for a time series.
+
+        Renders the graph inline in Jupyter notebooks, or opens a browser tab
+        when called from a script or terminal.
+
         Args:
             ts_name: Name of the time series to trace dependencies for.
-            
+
         Returns:
-            Plotly Figure object with the dependency graph visualization.
+            Path to the temporary HTML file when running outside a notebook,
+            or None when displaying inline in Jupyter.
         """
-        dependencies = self.build_dependency_graph(ts_name)
-        time_series_in_deps = set(
-            [dep["origin"] for dep in dependencies]
-            + [dep["destination"] for dep in dependencies]
+        import webbrowser
+        from meteaudata.graph_display import render_dependency_graph_html
+        from meteaudata.display_utils import _is_notebook_environment
+
+        deps = self.build_dependency_graph(ts_name)
+        lookup = _collect_ts_lookup(self)
+        html_content = render_dependency_graph_html(deps, lookup, title=ts_name)
+
+        if _is_notebook_environment():
+            try:
+                from IPython.display import HTML, display
+                display(HTML(html_content))
+                return None
+            except ImportError:
+                pass
+
+        # Fallback: open in browser
+        temp_file = tempfile.NamedTemporaryFile(
+            mode='w', suffix='.html', delete=False, encoding='utf-8'
         )
-        times_in_deps = {}
-        for ts_name in time_series_in_deps:
-            if ts_name not in self.time_series.keys():
-                times_in_deps[ts_name] = None
-            else:
-                ts = self.time_series[ts_name]
-                times_in_deps[ts_name] = ts.created_on
-        min_time = min(times_in_deps.values()) if times_in_deps else self.created_on
-        for ts_name, ts_time in times_in_deps.items():
-            if ts_time is None:
-                times_in_deps[ts_name] = min_time
-        ts_times = list(times_in_deps.items())
-
-        sorted_times = sorted(ts_times, key=lambda x: x[1])
-
-        n_ts = len(ts_times)
-        # create a plotly figure
-        fig = go.Figure()
-        # the figure will have nodes (representing Time Series) and arrows (representing processing steps)
-        # The x position of the nodes will be determined by the time of creation of the time series
-        # The y position of the nodes will be staggered to avoid overlap
-        # The nodes will be rectangles with labels in the middle for the ts name
-        # The arrows will be lines with labels for the processing step name
-        ts_box_positions = {}
-        if len(sorted_times) == 0:
-            # no time series to plot
-            # Add annotation in the middle in a box that says "No dependencies"
-            fig.add_annotation(
-                x=0.5,
-                y=0.5,
-                text="(No dependencies)",
-                showarrow=False,
-                xref="paper",
-                yref="paper",
-                font=dict(size=20),
-            )
-        else:
-            for i, (ts_name, ts_time) in enumerate(sorted_times):
-                box_positions = {
-                    "x0": i,
-                    "x1": i + 1,
-                    "y0": i / n_ts,
-                    "y1": (i + 1) / n_ts,
-                    "x_middle": i + 0.5,
-                    "y_middle": (i + 0.5) / n_ts,
-                }
-                fig.add_shape(
-                    type="rect",
-                    x0=box_positions["x0"] + 0.1,
-                    y0=box_positions["y0"] + 0.1,
-                    x1=box_positions["x1"] - 0.1,
-                    y1=box_positions["y1"] - 0.1,
-                    line=dict(color="black", width=2),
-                    fillcolor=PLOT_COLORS[i % len(PLOT_COLORS)],
-                )
-                fig.add_annotation(
-                    x=box_positions["x_middle"],
-                    y=box_positions["y_middle"],
-                    text=ts_name,
-                    showarrow=False,
-                    # refer to x and y axes in data coordinates
-                    xref="x",
-                    yref="y",
-                )
-                ts_box_positions[ts_name] = box_positions
-            for i, dep in enumerate(dependencies):
-                origin = dep["origin"]
-                destination = dep["destination"]
-                origin_pos = ts_box_positions[origin]
-                destination_pos = ts_box_positions[destination]
-                # dependency lines
-                fig.add_shape(
-                    type="line",
-                    x0=origin_pos["x1"] - 0.1,
-                    y0=origin_pos["y_middle"],
-                    x1=destination_pos["x0"] + 0.1,
-                    y1=destination_pos["y_middle"],
-                    line=dict(color="black", width=2),
-                )
-                # dependency labels
-                fig.add_annotation(
-                    x=(origin_pos["x_middle"] + destination_pos["x_middle"]) / 2,
-                    y=(origin_pos["y_middle"] + destination_pos["y_middle"]) / 2,
-                    text=dep["step"],
-                    showarrow=False,
-                    xref="x",
-                    yref="y",
-                )
-        fig.update_layout(
-            title=f"Dependency graph for time series {ts_name}",
-            xaxis_title="Time",
-            yaxis_title="Time Series",
-            yaxis_range=[-0.2, 1.2],
-            showlegend=False,
-            # dont't show the y tick labels
-            yaxis=dict(showticklabels=False),
-        )
-        return fig
-
-        # # create a timeline with a vertical line for each step
-        # # build a dict with a color for each type of processing step
-        # types_in_graph = set([step["type"] for step in dependencies])
-        # colors = {}
-        # for i, step_type in enumerate(types_in_graph):
-        #     colors[step_type] = PLOT_COLORS[i % len(PLOT_COLORS)]
-        # base_date = self.created_on
-        # inputs_in_deps = sorted(
-        #     list(
-        #         set(  # get all the inputs in the dependencies
-        #             [
-        #                 input_name
-        #                 for step in dependencies
-        #                 for input_name in step["inputs"]
-        #             ]
-        #         )
-        #     )
-        # )
-        # n_inputs = len(inputs_in_deps)
-        # for i, step in enumerate(dependencies):
-        #     x = [step["time"], step["time"]]
-        #     y = [0, 1]
-        #     fig.add_trace(
-        #         go.Scatter(
-        #             x=x,
-        #             y=y,
-        #             mode="lines",
-        #             name=step["name"].title(),
-        #             line=dict(color=colors[step["type"]]),
-        #         )
-        #     )
-        #     # add a label for the step necxt to the line
-        #     fig.add_annotation(
-        #         x=step["time"],
-        #         y=1,
-        #         text=step["name"].title(),
-        #         showarrow=False,
-        #         yshift=10,
-        #     )
-        # # add a line for the creation of the signal
-        # fig.add_trace(
-        #     go.Scatter(
-        #         x=[base_date, base_date],
-        #         y=[0, 1],
-        #         mode="lines",
-        #         name="Signal creation",
-        #         line=dict(color="black"),
-        #     )
-        # )
-        # fig.add_annotation(
-        #     x=base_date,
-        #     y=1,
-        #     text="Signal creation".title(),
-        #     showarrow=False,
-        #     yshift=10,
-        # )
-        # # for each step, create pointed arrows from the last line (either the signal creation or the previous step) to the current step
-        # for i, step in enumerate(dependencies):
-        #     for input_name in sorted(step["inputs"]):
-        #         # determine the x position of the arrow for the input
-        #         x = base_date
-        #         if i > 0:
-        #             x0 = dependencies[i - 1]["time"]
-        #         else:
-        #             x0 = base_date
-        #         x1 = step["time"]
-        #         input_index = inputs_in_deps.index(input_name)
-        #         y = 1 - (input_index + 1) / (n_inputs + 1)
-        #         fig.add_annotation(
-        #             xref="x",
-        #             yref="y",
-        #             axref="x",
-        #             ayref="y",
-        #             x=x1,
-        #             y=y,
-        #             ax=x0,
-        #             ay=y,
-        #             showarrow=True,
-        #             arrowhead=2,
-        #             arrowsize=1,
-        #             arrowwidth=2,
-        #             arrowcolor="black",
-        #         )
-        #         # add a label for the input right above the arrow
-        #         fig.add_annotation(
-        #             x=x0 + (x1 - x0) / 2,
-        #             y=y,
-        #             text=input_name,
-        #             showarrow=False,
-        #             yshift=10,
-        #         )
-        # fig.update_layout(
-        #     title=f"Dependency graph for time series {ts_name}",
-        #     xaxis_title="Time",
-        #     yaxis_title="Steps",
-        #     showlegend=False,
-        #     # dont't show the y tick labels
-        #     yaxis=dict(showticklabels=False),
-        # )
-        # return fig
+        temp_file.write(html_content)
+        temp_file.close()
+        webbrowser.open(f'file://{temp_file.name}')
+        return temp_file.name
 
     def __eq__(self, other):
         if not isinstance(other, Signal):
@@ -2290,7 +2297,7 @@ class Signal(BaseModel, DisplayableBase):
             if v != other.time_series[k]:
                 return False
         return True
-    
+
     def _get_identifier(self) -> str:
         """Get the key identifier for Signal."""
         return f"name='{self.name}'"
@@ -2298,19 +2305,21 @@ class Signal(BaseModel, DisplayableBase):
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for Signal."""
         attrs = {
-            'name': self.name,
-            'units': self.units,
-            'provenance': self.provenance,
-            'created_on': self.created_on,
-            'last_updated': self.last_updated,
-            'time_series_count': len(self.time_series),
+            "name": self.name,
+            "units": self.units,
+            "provenance": self.provenance,
+            "created_on": self.created_on,
+            "last_updated": self.last_updated,
+            "time_series_count": len(self.time_series),
         }
         # Return actual TimeSeries objects, not their attributes
         for timeseries_name, timeseries in self.time_series.items():
             attrs[f"timeseries_{timeseries_name}"] = timeseries
         return attrs
 
-    def use_disk_storage(self, path: Union[str, Path], auto_save: bool = True) -> "Signal":
+    def use_disk_storage(
+        self, path: Union[str, Path], auto_save: bool = True
+    ) -> "Signal":
         """Configure this signal to use disk-based storage.
 
         This is a convenience method that configures pandas-disk backend storage
@@ -2340,7 +2349,9 @@ class Signal(BaseModel, DisplayableBase):
 
         return self
 
-    def use_sql_storage(self, connection_string: str, auto_save: bool = True) -> "Signal":
+    def use_sql_storage(
+        self, connection_string: str, auto_save: bool = True
+    ) -> "Signal":
         """Configure this signal to use SQL database storage.
 
         This is a convenience method that configures SQL backend storage for
@@ -2404,11 +2415,11 @@ class Signal(BaseModel, DisplayableBase):
 
 class DatasetTransformFunctionProtocol(Protocol):
     """Protocol defining the interface for Dataset-level processing functions.
-    
+
     This protocol specifies the required signature for functions that can be used
     with the Dataset.process() method. These functions can operate across multiple
     signals and create new signals with cross-parameter relationships.
-    
+
     Dataset transform functions are ideal for operations that require multiple
     parameters simultaneously, such as:
     - Calculating derived parameters (e.g., BOD/COD ratios)
@@ -2416,10 +2427,10 @@ class DatasetTransformFunctionProtocol(Protocol):
     - Cross-parameter quality control
     - System-wide fault detection
     - Process efficiency calculations
-    
+
     The protocol ensures that new signals created by dataset processing maintain
     proper metadata inheritance and processing lineage from their input signals.
-    
+
     Note:
         New signals created by dataset processing will have their project property
         automatically updated to match the parent dataset's project. The transform
@@ -2435,13 +2446,13 @@ class DatasetTransformFunctionProtocol(Protocol):
         **kwargs: Any,
     ) -> list[Signal]:
         """Process input signals and return new signals with processing metadata.
-        
+
         Args:
             input_signals (list[Signal]): List of Signal objects containing input data
             input_series_names (list[str]): Specific time series names to use from input signals
-            *args: Function-specific positional arguments  
+            *args: Function-specific positional arguments
             **kwargs: Function-specific keyword arguments
-            
+
         Returns:
             list[Signal]: List of new Signal objects created by processing
         """
@@ -2450,32 +2461,51 @@ class DatasetTransformFunctionProtocol(Protocol):
 
 class Dataset(BaseModel, DisplayableBase):
     """Collection of signals representing a complete monitoring dataset.
-    
+
     A Dataset groups multiple signals that are collected together as part of
     a monitoring project or analysis workflow. It provides project-level
     metadata and enables coordinated processing operations across multiple
     parameters.
-    
+
     Datasets support cross-signal processing operations and maintain consistent
     naming conventions across all contained signals. They provide the highest
     level of organization for environmental monitoring data with complete
     metadata preservation and serialization capabilities.
-        
+
     """
-    created_on: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp when this Dataset was created")
-    last_updated: datetime.datetime = Field(default_factory=datetime.datetime.now, description="Timestamp of the most recent modification to this Dataset")
+
+    created_on: datetime.datetime = Field(
+        default_factory=datetime.datetime.now,
+        description="Timestamp when this Dataset was created",
+    )
+    last_updated: datetime.datetime = Field(
+        default_factory=datetime.datetime.now,
+        description="Timestamp of the most recent modification to this Dataset",
+    )
     name: str = Field(description="Name identifying this dataset")
-    description: Optional[str] = Field(default=None, description="Detailed description of the dataset contents and purpose")
-    owner: Optional[str] = Field(default=None, description="Person or organization responsible for this dataset")
-    signals: dict[str, Signal] = Field(description="Dictionary mapping signal names to Signal objects in this dataset")
-    purpose: Optional[str] = Field(default=None, description="Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research')")
-    project: Optional[str] = Field(default=None, description="Project or study name associated with this dataset")
+    description: Optional[str] = Field(
+        default=None,
+        description="Detailed description of the dataset contents and purpose",
+    )
+    owner: Optional[str] = Field(
+        default=None, description="Person or organization responsible for this dataset"
+    )
+    signals: dict[str, Signal] = Field(
+        description="Dictionary mapping signal names to Signal objects in this dataset"
+    )
+    purpose: Optional[str] = Field(
+        default=None,
+        description="Purpose or objective of this dataset (e.g., 'compliance_monitoring', 'research')",
+    )
+    project: Optional[str] = Field(
+        default=None, description="Project or study name associated with this dataset"
+    )
 
     # Optional storage backend
     _backend: Optional["StorageBackend"] = PrivateAttr(default=None)
     _auto_save: bool = PrivateAttr(default=False)
 
-    @field_serializer('created_on', 'last_updated')
+    @field_serializer("created_on", "last_updated")
     def serialize_datetime(self, dt: datetime.datetime, _info) -> str:
         """Serialize datetime to ISO 8601 string format."""
         return dt.isoformat()
@@ -2498,7 +2528,16 @@ class Dataset(BaseModel, DisplayableBase):
         self.signals = new_dict
 
         self.last_updated = last_updated
+        self._propagate_parent_refs()
         return
+
+    def _propagate_parent_refs(self) -> None:
+        """Set _parent_dataset on every Signal, and propagate down to TimeSeries."""
+        for signal in self.signals.values():
+            signal._parent_dataset = self
+            if signal._parent_dataset_name is None:
+                signal._parent_dataset_name = self.name
+            signal._propagate_parent_refs()
 
     def max_name_number(self) -> dict[str, int]:
         full_names = self.all_signals
@@ -2555,9 +2594,7 @@ class Dataset(BaseModel, DisplayableBase):
             return custom_name
 
     def set_backend(
-        self,
-        backend: "StorageBackend",
-        auto_save: bool = False
+        self, backend: "StorageBackend", auto_save: bool = False
     ) -> "Dataset":
         """Configure storage backend for this dataset.
 
@@ -2579,7 +2616,7 @@ class Dataset(BaseModel, DisplayableBase):
                     f"Signal '{signal.name}' already has a different backend configured. "
                     f"Using Dataset's backend instead. To avoid this, configure backends "
                     f"at the Dataset level before adding signals.",
-                    UserWarning
+                    UserWarning,
                 )
 
             signal._backend = backend
@@ -2592,7 +2629,7 @@ class Dataset(BaseModel, DisplayableBase):
                     warnings.warn(
                         f"TimeSeries '{ts.series.name}' already has a different backend. "
                         f"Using Dataset's backend instead.",
-                        UserWarning
+                        UserWarning,
                     )
                 ts._backend = backend
 
@@ -2601,6 +2638,11 @@ class Dataset(BaseModel, DisplayableBase):
     def save_all(self) -> None:
         """Save all time series data to the configured backend.
 
+        This method handles metadata_id assignment:
+        - For raw time series: propagates the Signal's provenance.metadata_id
+        - For processed time series: uses the TimeSeries's metadata_id if set,
+          or generates a new one via the backend's generate_metadata_id() method
+
         Raises:
             ValueError: If no backend is configured
         """
@@ -2608,11 +2650,37 @@ class Dataset(BaseModel, DisplayableBase):
             raise ValueError("No storage backend configured. Call set_backend() first.")
 
         for signal_name, signal in self.signals.items():
+            signal_metadata_id = signal.provenance.metadata_id
+
             for ts_full_name, ts in signal.time_series.items():
+                # Determine if this is a raw or processed time series
+                _, ts_base, _ = Signal.extract_ts_base_and_number(ts_full_name)
+                is_raw = ts_base.lower() == "raw"
+
+                # Assign metadata_id based on whether it's raw or processed
+                if is_raw:
+                    ts.metadata_id = signal_metadata_id
+                else:
+                    if ts.metadata_id is None:
+                        if hasattr(self._backend, "generate_metadata_id"):
+                            processing_degree = ts_base.capitalize()
+                            ts.metadata_id = self._backend.generate_metadata_id(
+                                source_metadata_id=signal_metadata_id,
+                                processing_degree=processing_degree,
+                            )
+                        else:
+                            raise ValueError(
+                                f"Processed TimeSeries '{ts_full_name}' has no metadata_id set, "
+                                f"and the backend does not support generate_metadata_id(). "
+                                f"Please set metadata_id on the TimeSeries before saving."
+                            )
+
                 # Extract just the time series part by removing signal name prefix
                 # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
-                if ts_full_name.startswith(signal_name + '_'):
-                    ts_name = ts_full_name[len(signal_name) + 1:]  # +1 for the underscore
+                if ts_full_name.startswith(signal_name + "_"):
+                    ts_name = ts_full_name[
+                        len(signal_name) + 1 :
+                    ]  # +1 for the underscore
                 else:
                     ts_name = ts_full_name
                 # Create unique key: dataset/signal/timeseries
@@ -2633,8 +2701,10 @@ class Dataset(BaseModel, DisplayableBase):
             for ts_full_name, ts in signal.time_series.items():
                 # Extract just the time series part by removing signal name prefix
                 # ts_full_name is like 'signal#1_raw#1', we want just 'raw#1'
-                if ts_full_name.startswith(signal_name + '_'):
-                    ts_name = ts_full_name[len(signal_name) + 1:]  # +1 for the underscore
+                if ts_full_name.startswith(signal_name + "_"):
+                    ts_name = ts_full_name[
+                        len(signal_name) + 1 :
+                    ]  # +1 for the underscore
                 else:
                     ts_name = ts_full_name
                 key = f"{self.name}/{signal_name}/{ts_name}"
@@ -2643,7 +2713,9 @@ class Dataset(BaseModel, DisplayableBase):
                     ts.series = series
                     ts.load_metadata_from_dict(metadata)
 
-    def use_disk_storage(self, path: Union[str, Path], auto_save: bool = True) -> "Dataset":
+    def use_disk_storage(
+        self, path: Union[str, Path], auto_save: bool = True
+    ) -> "Dataset":
         """Configure this dataset to use disk-based storage.
 
         This is a convenience method that configures pandas-disk backend storage
@@ -2669,7 +2741,9 @@ class Dataset(BaseModel, DisplayableBase):
         backend = create_backend(config)
         return self.set_backend(backend, auto_save=auto_save)
 
-    def use_sql_storage(self, connection_string: str, auto_save: bool = True) -> "Dataset":
+    def use_sql_storage(
+        self, connection_string: str, auto_save: bool = True
+    ) -> "Dataset":
         """Configure this dataset to use SQL database storage.
 
         This is a convenience method that configures SQL backend storage for
@@ -2722,6 +2796,7 @@ class Dataset(BaseModel, DisplayableBase):
         new_name = self.update_numbered_name(signal_name)
         signal.rename(new_name)
         self.signals[new_name] = signal
+        self._propagate_parent_refs()
         return self
 
     def remove(self, signal_name: str) -> None:
@@ -2735,6 +2810,11 @@ class Dataset(BaseModel, DisplayableBase):
 
     def __setattr__(self, name, value):
         super().__setattr__(name, value)
+        if name == "signals":
+            try:
+                self._propagate_parent_refs()
+            except AttributeError:
+                pass  # During __init__, _propagate_parent_refs may not exist yet
         if (
             name != "last_updated"
         ):  # Avoid updating when the modified field is 'last_updated' itself
@@ -2756,7 +2836,7 @@ class Dataset(BaseModel, DisplayableBase):
         directory: str,
         separator: str = ",",
         output_index_name: Optional[Union[str, tuple]] = None,
-        output_value_names: Optional[Union[str, tuple, dict]] = None
+        output_value_names: Optional[Union[str, tuple, dict]] = None,
     ) -> "Dataset":
         """
         Save dataset data and metadata to disk as a zip archive.
@@ -2813,7 +2893,7 @@ class Dataset(BaseModel, DisplayableBase):
                     zip=False,
                     separator=separator,
                     output_index_name=output_index_name,
-                    output_value_names=signal_value_names
+                    output_value_names=signal_value_names,
                 )
             zip_directory(temp_dir, f"{directory}/{name}.zip")
         with zipfile.ZipFile(f"{directory}/{name}.zip", "a") as zf:
@@ -2824,7 +2904,7 @@ class Dataset(BaseModel, DisplayableBase):
     def _get_signal_output_value_names(
         self,
         signal_name: str,
-        dataset_output_value_names: Optional[Union[str, tuple, dict]]
+        dataset_output_value_names: Optional[Union[str, tuple, dict]],
     ) -> Optional[Union[str, tuple, dict]]:
         """Extract the output_value_names for a specific signal."""
         if dataset_output_value_names is None:
@@ -2887,6 +2967,7 @@ class Dataset(BaseModel, DisplayableBase):
             )
         if remove_temp_dir:
             shutil.rmtree(temp_dir)
+        dataset._propagate_parent_refs()
         return dataset
 
     def process(
@@ -2984,7 +3065,9 @@ class Dataset(BaseModel, DisplayableBase):
             # Handle custom output signal names
             if output_signal_names is not None:
                 custom_name = output_signal_names[idx]
-                out_signal_name = self.replace_signal_base_name(out_signal_name, custom_name)
+                out_signal_name = self.replace_signal_base_name(
+                    out_signal_name, custom_name
+                )
 
             # Handle overwrite vs increment for signal name
             if overwrite:
@@ -3014,9 +3097,13 @@ class Dataset(BaseModel, DisplayableBase):
                     )
                 # Create a new dictionary with renamed time series
                 new_ts_dict = {}
-                for ts_idx, (old_ts_name, ts) in enumerate(out_signal.time_series.items()):
+                for ts_idx, (old_ts_name, ts) in enumerate(
+                    out_signal.time_series.items()
+                ):
                     # Replace the operation suffix with custom name
-                    new_ts_name = out_signal.replace_operation_suffix(old_ts_name, output_ts_names[ts_idx])
+                    new_ts_name = out_signal.replace_operation_suffix(
+                        old_ts_name, output_ts_names[ts_idx]
+                    )
                     ts.series.name = new_ts_name
                     new_ts_dict[new_ts_name] = ts
                 out_signal.time_series = new_ts_dict
@@ -3024,17 +3111,25 @@ class Dataset(BaseModel, DisplayableBase):
             out_signal.rename(new_signal_name)
             self.signals[new_signal_name] = out_signal
             # Extract components from all time series names
-            out_split_names = [Signal.extract_ts_base_and_number(x) for x in out_signal.all_time_series]
+            out_split_names = [
+                Signal.extract_ts_base_and_number(x) for x in out_signal.all_time_series
+            ]
             for out_signal_name, out_ts_base, out_ts_num in out_split_names:
                 out_all_steps = []
-                out_full_ts_name = Signal.make_ts_name(out_signal_name, out_ts_base, out_ts_num)
+                out_full_ts_name = Signal.make_ts_name(
+                    out_signal_name, out_ts_base, out_ts_num
+                )
                 out_ts = out_signal.time_series[out_full_ts_name]
                 new_steps = out_ts.processing_steps
                 for input_name in input_time_series_names:
                     # Use utility function to extract components
-                    in_signal_name, in_ts_base, in_ts_num = Signal.extract_ts_base_and_number(input_name)
+                    in_signal_name, in_ts_base, in_ts_num = (
+                        Signal.extract_ts_base_and_number(input_name)
+                    )
                     # Reconstruct the full name as it appears in the time_series dict
-                    in_full_ts_name = Signal.make_ts_name(in_signal_name, in_ts_base, in_ts_num)
+                    in_full_ts_name = Signal.make_ts_name(
+                        in_signal_name, in_ts_base, in_ts_num
+                    )
                     input_steps = (
                         self.signals[in_signal_name]
                         .time_series[in_full_ts_name]
@@ -3047,6 +3142,8 @@ class Dataset(BaseModel, DisplayableBase):
                 )
                 out_new_ts = out_new_ts.remove_duplicated_steps()
                 self.signals[new_signal_name].time_series[out_full_ts_name] = out_new_ts
+
+        self._propagate_parent_refs()
 
         # Auto-save if configured
         if self._auto_save and self._backend is not None:
@@ -3066,10 +3163,10 @@ class Dataset(BaseModel, DisplayableBase):
     ) -> go.Figure:
         """
         Create a multi-subplot visualization comparing time series across signals.
-        
+
         Each signal gets its own subplot with shared x-axis (time). Only time series
         that exist in each signal are plotted. Individual y-axis labels include units.
-        
+
         Args:
             signal_names: List of signal names to plot. Must exist in this dataset.
             ts_names: List of time series names to plot from each signal.
@@ -3078,7 +3175,7 @@ class Dataset(BaseModel, DisplayableBase):
             x_axis: X-axis label. If None, uses "Time".
             start: Start date for filtering data (datetime string or object).
             end: End date for filtering data (datetime string or object).
-            
+
         Returns:
             Plotly Figure object with subplots for each signal.
         """
@@ -3118,6 +3215,80 @@ class Dataset(BaseModel, DisplayableBase):
             )
         return fig
 
+    def build_dependency_graph(self, ts_name: str) -> List[Dict[str, Any]]:
+        """
+        Build a dependency graph for a specific time series across all signals.
+        """
+        lookup: dict = {}
+        for s in self.signals.values():
+            lookup.update(s.time_series)
+        if ts_name not in lookup:
+            raise ValueError(f"Time series {ts_name} not found in the dataset.")
+        return _build_dependency_graph_recursive(ts_name, lookup)
+
+    def build_full_dependency_graph(self) -> List[Dict[str, Any]]:
+        """Build dependency graph for ALL time series in the dataset."""
+        lookup: dict = {}
+        for s in self.signals.values():
+            lookup.update(s.time_series)
+        all_deps: List[Dict[str, Any]] = []
+        seen_edges: set = set()
+        for ts_name in lookup:
+            for dep in _build_dependency_graph_recursive(ts_name, lookup):
+                key = (dep["origin"], dep["destination"])
+                if key not in seen_edges:
+                    seen_edges.add(key)
+                    all_deps.append(dep)
+        return all_deps
+
+    def plot_dependency_graph(self, ts_name: Optional[str] = None) -> Optional[str]:
+        """
+        Create an interactive dependency graph visualization.
+
+        Renders the graph inline in Jupyter notebooks, or opens a browser tab
+        when called from a script or terminal.
+
+        Args:
+            ts_name: Name of a specific time series to trace. If None, renders
+                the full dataset dependency graph.
+
+        Returns:
+            Path to the temporary HTML file when running outside a notebook,
+            or None when displaying inline in Jupyter.
+        """
+        import webbrowser
+        from meteaudata.graph_display import render_dependency_graph_html
+        from meteaudata.display_utils import _is_notebook_environment
+
+        lookup: dict = {}
+        for s in self.signals.values():
+            lookup.update(s.time_series)
+
+        if ts_name is not None:
+            deps = self.build_dependency_graph(ts_name)
+            title = ts_name
+        else:
+            deps = self.build_full_dependency_graph()
+            title = self.name
+
+        html_content = render_dependency_graph_html(deps, lookup, title=title)
+
+        if _is_notebook_environment():
+            try:
+                from IPython.display import HTML, display
+                display(HTML(html_content))
+                return None
+            except ImportError:
+                pass
+
+        temp_file = tempfile.NamedTemporaryFile(
+            mode='w', suffix='.html', delete=False, encoding='utf-8'
+        )
+        temp_file.write(html_content)
+        temp_file.close()
+        webbrowser.open(f'file://{temp_file.name}')
+        return temp_file.name
+
     def __eq__(self, other):
         if not isinstance(other, Dataset):
             return False
@@ -3152,14 +3323,14 @@ class Dataset(BaseModel, DisplayableBase):
     def _get_display_attributes(self) -> Dict[str, Any]:
         """Get attributes to display for Dataset."""
         attrs = {
-            'name': self.name,
-            'description': self.description,
-            'owner': self.owner,
-            'purpose': self.purpose,
-            'project': self.project,
-            'created_on': self.created_on,
-            'last_updated': self.last_updated,
-            'signals_count': len(self.signals),
+            "name": self.name,
+            "description": self.description,
+            "owner": self.owner,
+            "purpose": self.purpose,
+            "project": self.project,
+            "created_on": self.created_on,
+            "last_updated": self.last_updated,
+            "signals_count": len(self.signals),
         }
 
         # Return actual Signal objects, not their attributes
@@ -3167,3 +3338,39 @@ class Dataset(BaseModel, DisplayableBase):
             attrs[f"signal_{signal_name}"] = signal
 
         return attrs
+
+
+# ── Module-level dependency graph helpers ────────────────────────────────────
+
+def _collect_ts_lookup(signal: "Signal") -> dict:
+    """
+    Build a flat {ts_name: TimeSeries} lookup spanning all signals in the parent
+    dataset (if available), or just this signal's time_series otherwise.
+    """
+    if signal._parent_dataset is not None:
+        lookup: dict = {}
+        for s in signal._parent_dataset.signals.values():
+            lookup.update(s.time_series)
+        return lookup
+    return dict(signal.time_series)
+
+
+def _build_dependency_graph_recursive(
+    ts_name: str, lookup: dict
+) -> List[Dict[str, Any]]:
+    if ts_name not in lookup:
+        return []  # external/unresolvable — stop gracefully
+    ts = lookup[ts_name]
+    if not ts.processing_steps:
+        return []
+    last_step = ts.processing_steps[-1]
+    deps: List[Dict[str, Any]] = []
+    for input_name in last_step.input_series_names:
+        deps.append({
+            "step": last_step.function_info.name,
+            "type": last_step.type,
+            "origin": input_name,
+            "destination": ts_name,
+        })
+        deps.extend(_build_dependency_graph_recursive(input_name, lookup))
+    return deps
