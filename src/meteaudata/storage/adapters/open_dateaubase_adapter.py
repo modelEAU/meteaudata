@@ -60,17 +60,27 @@ class OpenDateaubaseAdapter:
         the open_dateaubase.  Values are inserted row-by-row; callers should
         ensure the MetaData row already exists before calling this method.
 
+        If the metadata dict contains a 'metadata_id' field, that value will
+        be used as the Metadata_ID instead of the key. This is used when saving
+        processed TimeSeries that have their own metadata_id assigned at commit time.
+
         Args:
             data: Pandas Series whose index contains timestamps and whose
                 values are numeric measurements.
             key: String representation of the target ``Metadata_ID``.
-            metadata: Metadata dict (currently stored for reference; lineage
-                recording should be done via :meth:`write_lineage`).
+            metadata: Metadata dict. If it contains 'metadata_id', that will be
+                used as the target Metadata_ID for processed series. Lineage
+                recording should be done via :meth:`write_lineage`.
         """
-        metadata_id = int(key)
+        metadata_id_str = metadata.get("metadata_id", key) if metadata else key
+        metadata_id = int(metadata_id_str)
         cursor = self._conn.cursor()
         for timestamp, value in zip(data.index, data.values):
-            ts = timestamp.to_pydatetime() if hasattr(timestamp, "to_pydatetime") else timestamp
+            ts = (
+                timestamp.to_pydatetime()
+                if hasattr(timestamp, "to_pydatetime")
+                else timestamp
+            )
             val = float(value) if pd.notna(value) else None
             cursor.execute(
                 "INSERT INTO [dbo].[Value] ([Metadata_ID], [Timestamp], [Value]) "
@@ -109,7 +119,9 @@ class OpenDateaubaseAdapter:
 
         timestamps = [row[0] for row in rows]
         values = [row[1] for row in rows]
-        series = pd.Series(values, index=pd.DatetimeIndex(timestamps), name=str(metadata_id))
+        series = pd.Series(
+            values, index=pd.DatetimeIndex(timestamps), name=str(metadata_id)
+        )
         return series, meta
 
     def exists(self, key: str) -> bool:
@@ -233,10 +245,42 @@ class OpenDateaubaseAdapter:
                 source_metadata_ids=source_metadata_ids,
                 method_name=step.description or "",
                 method_version=None,
-                processing_type=step.type.value if hasattr(step.type, "value") else str(step.type),
+                processing_type=step.type.value
+                if hasattr(step.type, "value")
+                else str(step.type),
                 parameters=params,
-                executed_at=step.run_datetime if step.run_datetime else datetime.utcnow(),
+                executed_at=step.run_datetime
+                if step.run_datetime
+                else datetime.utcnow(),
                 executed_by_person_id=None,
                 output_metadata_id=output_metadata_id,
                 conn=self._conn,
             )
+
+    def generate_metadata_id(
+        self,
+        source_metadata_id: str,
+        processing_degree: str,
+    ) -> str:
+        """Generate a new Metadata_ID for a processed TimeSeries.
+
+        This is a stub method. In the future, this will call an API endpoint
+        to handle metadata reconciliation with the open_dateaubase database.
+
+        Args:
+            source_metadata_id: The Metadata_ID of the source (raw) time series.
+            processing_degree: The processing degree of the new time series
+                (e.g., 'Cleaned', 'Validated', 'Interpolated', 'Aggregated').
+
+        Returns:
+            A string representation of the new Metadata_ID.
+
+        Raises:
+            NotImplementedError: This method is not yet implemented.
+        """
+        raise NotImplementedError(
+            "generate_metadata_id() is a stub. In the future, this will call "
+            "an API endpoint to create a new MetaData entry in open_dateaubase "
+            "with the appropriate ProcessingDegree. For now, processed TimeSeries "
+            "should have their metadata_id assigned externally."
+        )
